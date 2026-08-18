@@ -1,0 +1,35 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd mobile && npx expo export --platform web --output-dir dist && node scripts/postbuild.js",
+  "outputDirectory": "mobile/dist",
+  "installCommand": "cd mobile && npm install --legacy-peer-deps",
+  "framework": null,
+  "rewrites": [
+    { "source": "/live/:token", "destination": "/index.html" },
+    { "source": "/((?!api|_next|static|service-worker\\.js|manifest\\.json|.*\\..*).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/service-worker.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

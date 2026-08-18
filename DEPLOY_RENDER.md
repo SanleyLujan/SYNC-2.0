@@ -78,11 +78,11 @@ DB_SYNCHRONIZE=false
 4. Configure:
 
 ```text
-Root Directory: mobile
+Root Directory: ./
 Framework Preset: Other
 ```
 
-O arquivo `mobile/vercel.json` ja define build e output.
+O arquivo `vercel.json` da raiz ja manda o Vercel instalar e buildar a pasta `mobile`.
 
 5. Em `Environment Variables`, adicione:
 
