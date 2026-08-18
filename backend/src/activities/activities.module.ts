@@ -1,0 +1,30 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesController } from './activities.controller';
+import { ActivitiesService } from './activities.service';
+import { ActivitiesGateway } from './activities.gateway';
+import { Activity } from './entities/activity.entity';
+import { ActivityPoint } from './entities/activity-point.entity';
+import { ActivityComment } from './entities/activity-comment.entity';
+import { ActivityKudos } from './entities/activity-kudos.entity';
+import { ActivityRating } from './entities/activity-rating.entity';
+import { CommentReaction } from './entities/comment-reaction.entity';
+import { User } from '../users/entities/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { AuthModule } from '../auth/auth.module';
+import { GroupsModule } from '../groups/groups.module';
+import { SegmentsModule } from '../segments/segments.module';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([Activity, ActivityPoint, ActivityComment, ActivityKudos, ActivityRating, CommentReaction, User]),
+    NotificationsModule,
+    AuthModule, // pra JwtService no gateway
+    GroupsModule, // creditar km nos grupos ao finalizar treino
+    SegmentsModule, // auto-match de segments ao finalizar treino
+  ],
+  controllers: [ActivitiesController],
+  providers: [ActivitiesService, ActivitiesGateway],
+  exports: [ActivitiesService],
+})
+export class ActivitiesModule {}

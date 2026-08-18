@@ -1,0 +1,60 @@
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ProfileStackParamList } from '../types';
+import MyProfileScreen from '../../screens/Profile/MyProfileScreen';
+import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
+import SettingsScreen from '../../screens/Settings/SettingsScreen';
+import RankingScreen from '../../screens/Ranking/RankingScreen';
+import AchievementsScreen from '../../screens/Profile/AchievementsScreen';
+import StatsScreen from '../../screens/Profile/StatsScreen';
+import StatsDashboardScreen from '../../screens/Stats/StatsDashboardScreen';
+import NotificationsScreen from '../../screens/Notifications/NotificationsScreen';
+import GroupsScreen from '../../screens/Groups/GroupsScreen';
+import TrainingPlanScreen from '../../screens/Training/TrainingPlanScreen';
+import FeedScreen from '../../screens/Feed/FeedScreen';
+import CommentsScreen from '../../screens/Feed/CommentsScreen';
+import UserSearchScreen from '../../screens/Feed/UserSearchScreen';
+import UserProfileScreen from '../../screens/Profile/UserProfileScreen';
+import PrivacyScreen from '../../screens/Legal/PrivacyScreen';
+import TermsScreen from '../../screens/Legal/TermsScreen';
+import HelpScreen from '../../screens/Legal/HelpScreen';
+import PremiumScreen from '../../screens/Premium/PremiumScreen';
+import BlockedUsersScreen from '../../screens/Profile/BlockedUsersScreen';
+import ChallengesScreen from '../../screens/Challenges/ChallengesScreen';
+import AccessibilityScreen from '../../screens/Settings/AccessibilityScreen';
+import SafetyCenterScreen from '../../screens/Settings/SafetyCenterScreen';
+import SegmentsListScreen from '../../screens/Segments/SegmentsListScreen';
+import SegmentDetailScreen from '../../screens/Segments/SegmentDetailScreen';
+
+const Stack = createNativeStackNavigator<ProfileStackParamList>();
+
+export default function ProfileStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MyProfile" component={MyProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Ranking" component={RankingScreen} />
+      <Stack.Screen name="Achievements" component={AchievementsScreen} />
+      <Stack.Screen name="Stats" component={StatsScreen} />
+      <Stack.Screen name="StatsDashboard" component={StatsDashboardScreen as any} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen as any} />
+      <Stack.Screen name="Groups" component={GroupsScreen as any} />
+      <Stack.Screen name="Training" component={TrainingPlanScreen as any} />
+      <Stack.Screen name="Feed" component={FeedScreen as any} />
+      <Stack.Screen name="Comments" component={CommentsScreen as any} />
+      <Stack.Screen name="UserSearch" component={UserSearchScreen as any} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen as any} />
+      <Stack.Screen name="Privacy" component={PrivacyScreen as any} />
+      <Stack.Screen name="Terms" component={TermsScreen as any} />
+      <Stack.Screen name="Help" component={HelpScreen as any} />
+      <Stack.Screen name="Premium" component={PremiumScreen as any} />
+      <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen as any} />
+      <Stack.Screen name="Challenges" component={ChallengesScreen as any} />
+      <Stack.Screen name="Accessibility" component={AccessibilityScreen as any} />
+      <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen as any} />
+      <Stack.Screen name="SegmentsList" component={SegmentsListScreen as any} />
+      <Stack.Screen name="SegmentDetail" component={SegmentDetailScreen as any} />
+    </Stack.Navigator>
+  );
+}
