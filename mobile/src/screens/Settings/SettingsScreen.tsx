@@ -16,8 +16,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, ThemeMode } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
+import { useThemeStore } from '../../store/themeStore';
 import api from '../../services/api';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
@@ -34,6 +35,9 @@ interface Session {
 
 export default function SettingsScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -128,16 +132,21 @@ export default function SettingsScreen({ navigation }: any) {
     }
   };
 
-  const Row = ({ icon, label, value, onPress, danger, color = '#FF6B35', right }: any) => (
-    <TouchableOpacity style={styles.row} onPress={onPress} disabled={!onPress} activeOpacity={onPress ? 0.6 : 1}>
+  const Row = ({ icon, label, value, onPress, danger, color = theme.primary, right }: any) => (
+    <TouchableOpacity
+      style={[styles.row, { borderBottomColor: theme.divider }]}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={onPress ? 0.6 : 1}
+    >
       <View style={[styles.rowIcon, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon} size={18} color={color} />
       </View>
-      <Text style={[styles.rowLabel, danger && { color: '#F87171' }]}>{label}</Text>
+      <Text style={[styles.rowLabel, { color: danger ? theme.danger : theme.textPrimary }]}>{label}</Text>
       {right || (
         <>
-          {value !== undefined && <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>}
-          {onPress && <Ionicons name="chevron-forward" size={16} color={colors.dark.secondaryText} />}
+          {value !== undefined && <Text style={[styles.rowValue, { color: theme.textSecondary }]} numberOfLines={1}>{value}</Text>}
+          {onPress && <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />}
         </>
       )}
     </TouchableOpacity>
@@ -145,35 +154,61 @@ export default function SettingsScreen({ navigation }: any) {
 
   const SectionTitle = ({ label }: { label: string }) => (
     <View style={styles.sectionTitleWrap}>
-      <View style={styles.sectionTitleAccent} />
-      <Text style={styles.sectionTitle}>{label}</Text>
+      <View style={[styles.sectionTitleAccent, { backgroundColor: theme.primary }]} />
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{label}</Text>
     </View>
   );
 
+  const ThemeButton = ({ mode, icon, label }: { mode: ThemeMode; icon: keyof typeof Ionicons.glyphMap; label: string }) => {
+    const active = themeMode === mode;
+    return (
+      <TouchableOpacity
+        style={[
+          styles.themeButton,
+          {
+            backgroundColor: active ? theme.primary : theme.surfaceSecondary,
+            borderColor: active ? theme.primary : theme.border,
+          },
+        ]}
+        onPress={() => setThemeMode(mode)}
+        activeOpacity={0.78}
+        accessibilityRole="button"
+        accessibilityState={{ selected: active }}
+      >
+        <Ionicons name={icon} size={18} color={active ? theme.primaryText : theme.textSecondary} />
+        <Text style={[styles.themeButtonText, { color: active ? theme.primaryText : theme.textPrimary }]}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Premium gradient header */}
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
       >
         <TouchableOpacity
           onPress={() => navigation?.goBack?.()}
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Ionicons name="arrow-back" size={20} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Configurações</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Configurações</Text>
         <View style={{ width: 36 }} />
       </LinearGradient>
 
       {/* Profile card */}
       {user && (
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.profileCardLeft}>
             <Image
               source={
@@ -184,17 +219,18 @@ export default function SettingsScreen({ navigation }: any) {
               style={styles.profileAvatar}
             />
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user.name}</Text>
-              <Text style={styles.profileEmail}>{user.email}</Text>
+              <Text style={[styles.profileName, { color: theme.textPrimary }]}>{user.name}</Text>
+              <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>{user.email}</Text>
               {plan && (
                 <View style={styles.planBadge}>
                   <Ionicons
                     name={plan.currentTier === 'premium' ? 'star' : 'star-outline'}
                     size={11}
-                    color={plan.currentTier === 'premium' ? '#FCD34D' : colors.secondaryText}
+                    color={plan.currentTier === 'premium' ? '#FCD34D' : theme.textSecondary}
                   />
                   <Text style={[
                     styles.planBadgeText,
+                    { color: theme.textSecondary },
                     plan.currentTier === 'premium' && { color: '#FCD34D' },
                   ]}>
                     {plan.plan?.name || 'Free'}
@@ -204,10 +240,10 @@ export default function SettingsScreen({ navigation }: any) {
             </View>
           </View>
           <TouchableOpacity
-            style={styles.editProfileBtn}
+            style={[styles.editProfileBtn, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '40' }]}
             onPress={() => navigation?.navigate?.('EditProfile')}
           >
-            <Ionicons name="create-outline" size={16} color={colors.primary} />
+            <Ionicons name="create-outline" size={16} color={theme.primary} />
           </TouchableOpacity>
         </View>
       )}
@@ -220,7 +256,7 @@ export default function SettingsScreen({ navigation }: any) {
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={['#FF6B35', '#FF4500']}
+            colors={theme.gradientPrimary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.upgradeCardInner}
@@ -237,8 +273,27 @@ export default function SettingsScreen({ navigation }: any) {
         </TouchableOpacity>
       )}
 
+      <SectionTitle label="APARÊNCIA" />
+      <View style={[styles.themeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={styles.themeCardHeader}>
+          <View style={[styles.rowIcon, { backgroundColor: theme.primarySoft }]}>
+            <Ionicons name={theme.mode === 'dark' ? 'moon' : 'sunny'} size={18} color={theme.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.themeCardTitle, { color: theme.textPrimary }]}>Tema do app</Text>
+            <Text style={[styles.themeCardSub, { color: theme.textSecondary }]}>
+              Escolha o visual que combina melhor com seu uso.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.themeButtonRow}>
+          <ThemeButton mode="dark" icon="moon-outline" label="Modo escuro" />
+          <ThemeButton mode="light" icon="sunny-outline" label="Modo claro" />
+        </View>
+      </View>
+
       <SectionTitle label="CONTA" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Row icon="person-outline" label="Nome" value={user?.name} />
         <Row icon="mail-outline" label="Email" value={user?.email} />
         <Row icon="create-outline" label="Editar perfil" onPress={() => navigation?.navigate?.('EditProfile')} />
@@ -246,7 +301,7 @@ export default function SettingsScreen({ navigation }: any) {
       </View>
 
       <SectionTitle label="PLANO" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Row
           icon="star"
           label={plan?.plan?.name || 'Free'}
@@ -263,7 +318,7 @@ export default function SettingsScreen({ navigation }: any) {
       </View>
 
       <SectionTitle label="SEGURANÇA E PRIVACIDADE" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Row
           icon="shield-checkmark-outline"
           label="Central de Segurança"
@@ -286,7 +341,7 @@ export default function SettingsScreen({ navigation }: any) {
       </View>
 
       <SectionTitle label="NOTIFICAÇÕES" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Row
           icon="notifications"
           label="Push notifications"
@@ -297,7 +352,7 @@ export default function SettingsScreen({ navigation }: any) {
                 setPushOn(val);
                 AsyncStorage.setItem('notif_push', String(val)).catch(() => {});
               }}
-              trackColor={{ false: '#3A3A3F', true: '#FF6B35' }}
+              trackColor={{ false: theme.surfaceSecondary, true: theme.primary }}
               thumbColor="#fff"
             />
           }
@@ -313,7 +368,7 @@ export default function SettingsScreen({ navigation }: any) {
                 setEmailOn(val);
                 AsyncStorage.setItem('notif_email', String(val)).catch(() => {});
               }}
-              trackColor={{ false: '#3A3A3F', true: '#3B82F6' }}
+              trackColor={{ false: theme.surfaceSecondary, true: theme.blue }}
               thumbColor="#fff"
             />
           }
@@ -321,9 +376,9 @@ export default function SettingsScreen({ navigation }: any) {
       </View>
 
       <SectionTitle label="SESSÕES ATIVAS" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         {sessions.length === 0 ? (
-          <Text style={styles.emptyText}>Apenas esta sessão ativa.</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Apenas esta sessão ativa.</Text>
         ) : (
           sessions.map((s) => (
             <View key={s.familyId} style={styles.row}>
@@ -331,10 +386,10 @@ export default function SettingsScreen({ navigation }: any) {
                 <Ionicons name="phone-portrait" size={18} color="#A78BFA" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.rowLabel} numberOfLines={1}>
+                <Text style={[styles.rowLabel, { color: theme.textPrimary }]} numberOfLines={1}>
                   {(s.userAgent || 'Device').split('/')[0]} • {s.ipMasked || '—'}
                 </Text>
-                <Text style={styles.rowSub}>
+                <Text style={[styles.rowSub, { color: theme.textSecondary }]}>
                   Desde {new Date(s.createdAt).toLocaleDateString('pt-BR')}
                 </Text>
               </View>
@@ -347,14 +402,14 @@ export default function SettingsScreen({ navigation }: any) {
       </View>
 
       <SectionTitle label="PRIVACIDADE & LGPD" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Row icon="download-outline" label="Exportar meus dados" onPress={handleExportData} color="#10B981" />
         <Row icon="document-text-outline" label="Política de privacidade" onPress={() => navigation?.navigate?.('Privacy')} color="#10B981" />
         <Row icon="document-outline" label="Termos de uso" onPress={() => navigation?.navigate?.('Terms')} color="#10B981" />
       </View>
 
       <SectionTitle label="SUPORTE" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Row icon="help-circle-outline" label="Central de ajuda" onPress={() => navigation?.navigate?.('Help')} />
         <Row icon="bug-outline" label="Reportar problema" onPress={() => setFeedbackType('bug')} color="#F87171" />
         <Row icon="bulb-outline" label="Enviar sugestão" onPress={() => setFeedbackType('suggestion')} color="#FCD34D" />
@@ -363,7 +418,7 @@ export default function SettingsScreen({ navigation }: any) {
       </View>
 
       <SectionTitle label="CONTA" />
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Row
           icon="log-out-outline"
           label="Sair"
@@ -374,7 +429,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Row icon="trash-outline" label="Apagar minha conta" onPress={handleDeleteAccount} color="#F87171" danger />
       </View>
 
-      <Text style={styles.version}>Sync v1.0.0 · Feito com ❤️ para atletas</Text>
+      <Text style={[styles.version, { color: theme.textSecondary }]}>Sync v1.0.0 · Feito com amor para atletas</Text>
 
       <ChangePasswordModal visible={showChangePwd} onClose={() => setShowChangePwd(false)} />
       {feedbackType && (
@@ -513,6 +568,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
+  },
+
+  // ── Theme selector ───────────────────────────────────────────────────────
+  themeCard: {
+    marginHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  themeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  themeCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  themeCardSub: {
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  themeButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  themeButton: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing.sm,
+  },
+  themeButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   // ── Section header ────────────────────────────────────────────────────────

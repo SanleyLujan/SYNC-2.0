@@ -15,6 +15,7 @@ import { Image as ExpoImage } from 'expo-image'; // recorta no círculo (content
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
+import { useThemeStore } from '../../store/themeStore';
 import { SPORTS, SportLevel } from '../../types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -63,6 +64,9 @@ interface Stats {
 
 export default function MyProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
   const { user, setUser } = useAuthStore();
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [stats, setStats] = useState<Stats>({
@@ -218,7 +222,7 @@ export default function MyProfileScreen({ navigation }: Props) {
       label: 'Editar perfil',
       subtitle: 'Alterar foto, bio e dados',
       onPress: () => navigation.navigate('EditProfile'),
-      color: colors.primary,
+      color: theme.primary,
     },
     {
       icon: 'medal-outline' as const,
@@ -232,7 +236,7 @@ export default function MyProfileScreen({ navigation }: Props) {
       label: 'Dashboard de Stats',
       subtitle: 'Semana / mês / ano com gráficos',
       onPress: () => navigation.navigate('StatsDashboard' as any),
-      color: colors.dark.accent,
+      color: theme.blue,
     },
     {
       icon: 'fitness-outline' as const,
@@ -246,7 +250,7 @@ export default function MyProfileScreen({ navigation }: Props) {
       label: 'Segmentos',
       subtitle: 'Trechos cronometrados e KOM/QOM',
       onPress: () => navigation.navigate('SegmentsList' as any),
-      color: '#FF6B35',
+      color: theme.warning,
     },
     {
       icon: 'trophy-outline' as const,
@@ -260,21 +264,21 @@ export default function MyProfileScreen({ navigation }: Props) {
       label: 'Notificacoes',
       subtitle: 'Matches, mensagens e eventos',
       onPress: () => navigation.navigate('Notifications'),
-      color: colors.blueAccent,
+      color: theme.blue,
     },
     {
       icon: 'share-social-outline' as const,
       label: 'Compartilhar perfil',
       subtitle: 'Convide amigos para o Sync',
       onPress: handleShareProfile,
-      color: colors.success,
+      color: theme.success,
     },
     {
       icon: 'settings-outline' as const,
       label: 'Configuracoes',
       subtitle: 'Privacidade, notificacoes, conta',
       onPress: () => navigation.navigate('Settings'),
-      color: colors.secondaryText,
+      color: theme.textSecondary,
     },
   ];
 
@@ -287,14 +291,14 @@ export default function MyProfileScreen({ navigation }: Props) {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={[colors.primary]}
-          tintColor={colors.white}
+          colors={[theme.primary]}
+          tintColor={theme.textPrimary}
         />
       }
     >
@@ -310,7 +314,9 @@ export default function MyProfileScreen({ navigation }: Props) {
         fadeDuration={300}
       >
         <LinearGradient
-          colors={['rgba(10,10,15,0.15)', 'rgba(10,10,15,0.65)', 'rgba(10,10,15,0.97)']}
+          colors={theme.mode === 'dark'
+            ? ['rgba(3,9,20,0.10)', 'rgba(3,9,20,0.62)', 'rgba(3,9,20,0.98)']
+            : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.35)', 'rgba(247,248,251,0.98)']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -392,10 +398,49 @@ export default function MyProfileScreen({ navigation }: Props) {
         <StreakBadge days={stats.currentStreak} bestDays={stats.bestStreak} />
       </View>
 
+      <View style={[styles.themeQuickCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={styles.themeQuickTitleRow}>
+          <View style={[styles.themeQuickIcon, { backgroundColor: theme.primarySoft }]}>
+            <Ionicons name={theme.mode === 'dark' ? 'moon' : 'sunny'} size={18} color={theme.primary} />
+          </View>
+          <View style={styles.themeQuickText}>
+            <Text style={[styles.themeQuickTitle, { color: theme.textPrimary }]}>Aparência</Text>
+            <Text style={[styles.themeQuickSub, { color: theme.textSecondary }]}>Modo claro ou escuro</Text>
+          </View>
+        </View>
+        <View style={[styles.themeSegment, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+          {(['dark', 'light'] as const).map((mode) => {
+            const active = themeMode === mode;
+            return (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.themeSegmentButton,
+                  { backgroundColor: active ? theme.primary : 'transparent' },
+                ]}
+                onPress={() => setThemeMode(mode)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Ionicons
+                  name={mode === 'dark' ? 'moon-outline' : 'sunny-outline'}
+                  size={16}
+                  color={active ? theme.primaryText : theme.textSecondary}
+                />
+                <Text style={[styles.themeSegmentText, { color: active ? theme.primaryText : theme.textSecondary }]}>
+                  {mode === 'dark' ? 'Escuro' : 'Claro'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
       {/* Território conquistado (jogo de conquista) */}
       {territory && territory.cells > 0 && (
         <TouchableOpacity
-          style={styles.territoryChip}
+          style={[styles.territoryChip, { backgroundColor: theme.warningSoft, borderColor: theme.warning + '45' }]}
           activeOpacity={0.85}
           onPress={() => navigation.getParent()?.navigate('MapTab', { screen: 'Territory' })}
           accessibilityRole="button"
@@ -403,66 +448,66 @@ export default function MyProfileScreen({ navigation }: Props) {
         >
           <View style={[styles.territoryDot, { backgroundColor: territory.color }]} />
           <Ionicons name="flag" size={16} color="#FCD34D" />
-          <Text style={styles.territoryText}>
+          <Text style={[styles.territoryText, { color: theme.textPrimary }]}>
             <Text style={styles.territoryStrong}>{territory.cells}</Text> áreas conquistadas
             {territory.position ? `  ·  ${territory.position}º no ranking` : ''}
           </Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
         </TouchableOpacity>
       )}
 
       {/* KOMs / segmentos */}
       {komCount > 0 && (
         <TouchableOpacity
-          style={styles.territoryChip}
+          style={[styles.territoryChip, { backgroundColor: theme.warningSoft, borderColor: theme.warning + '45' }]}
           activeOpacity={0.8}
           onPress={() => navigation.navigate('SegmentsList' as any)}
         >
           <Ionicons name="trophy" size={16} color="#FFD700" />
-          <Text style={styles.territoryText}>
+          <Text style={[styles.territoryText, { color: theme.textPrimary }]}>
             <Text style={styles.territoryStrong}>{komCount}</Text> {komCount === 1 ? 'KOM/QOM' : 'KOMs/QOMs'} — você é o mais rápido!
           </Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
         </TouchableOpacity>
       )}
 
       {/* Stats cards */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Ionicons name="flash" size={18} color={colors.primary} />
-          <Text style={styles.statValue}>{stats.totalActivities}</Text>
-          <Text style={styles.statLabel}>Atividades</Text>
+        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Ionicons name="flash" size={18} color={theme.primary} />
+          <Text style={[styles.statValue, { color: theme.textPrimary }]}>{stats.totalActivities}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Atividades</Text>
         </View>
-        <View style={styles.statCard}>
-          <Ionicons name="navigate" size={18} color={colors.blueAccent} />
-          <Text style={styles.statValue}>{stats.totalDistanceKm.toFixed(1)}</Text>
-          <Text style={styles.statLabel}>km total</Text>
+        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Ionicons name="navigate" size={18} color={theme.blue} />
+          <Text style={[styles.statValue, { color: theme.textPrimary }]}>{stats.totalDistanceKm.toFixed(1)}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km total</Text>
         </View>
-        <View style={styles.statCard}>
-          <Ionicons name="time" size={18} color={colors.highlight} />
-          <Text style={styles.statValue}>{formatDuration(stats.totalDuration)}</Text>
-          <Text style={styles.statLabel}>Tempo</Text>
+        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Ionicons name="time" size={18} color={theme.cyan} />
+          <Text style={[styles.statValue, { color: theme.textPrimary }]}>{formatDuration(stats.totalDuration)}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Tempo</Text>
         </View>
       </View>
 
       {/* Stats row 2: Pace + Speed + Matches */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="speedometer" size={18} color="#4ADE80" />
-          <Text style={styles.statValue}>
+          <Text style={[styles.statValue, { color: theme.textPrimary }]}>
             {stats.averagePace > 0 ? `${Math.floor(stats.averagePace)}:${String(Math.round((stats.averagePace % 1) * 60)).padStart(2, '0')}` : '--'}
           </Text>
-          <Text style={styles.statLabel}>min/km</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>min/km</Text>
         </View>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="people" size={18} color="#8B5CFF" />
-          <Text style={styles.statValue}>{stats.totalMatches}</Text>
-          <Text style={styles.statLabel}>Matches</Text>
+          <Text style={[styles.statValue, { color: theme.textPrimary }]}>{stats.totalMatches}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Matches</Text>
         </View>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="calendar" size={18} color="#2E7BFF" />
-          <Text style={styles.statValue}>{stats.totalEvents}</Text>
-          <Text style={styles.statLabel}>Eventos</Text>
+          <Text style={[styles.statValue, { color: theme.textPrimary }]}>{stats.totalEvents}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Eventos</Text>
         </View>
       </View>
 
@@ -548,7 +593,7 @@ export default function MyProfileScreen({ navigation }: Props) {
         {menuItems.map((item) => (
           <TouchableOpacity
             key={item.label}
-            style={styles.menuItem}
+            style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={item.onPress}
             activeOpacity={0.7}
           >
@@ -556,10 +601,10 @@ export default function MyProfileScreen({ navigation }: Props) {
               <Ionicons name={item.icon} size={20} color={item.color} />
             </View>
             <View style={styles.menuTextWrap}>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+              <Text style={[styles.menuLabel, { color: theme.textPrimary }]}>{item.label}</Text>
+              <Text style={[styles.menuSubtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
+            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
           </TouchableOpacity>
         ))}
       </View>
@@ -684,6 +729,57 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.white,
     fontWeight: '600',
+  },
+  themeQuickCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  themeQuickTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  themeQuickIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeQuickText: {
+    flex: 1,
+  },
+  themeQuickTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  themeQuickSub: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  themeSegment: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    gap: 4,
+  },
+  themeSegmentButton: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  themeSegmentText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   statsRow: {
     flexDirection: 'row',

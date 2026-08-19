@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from './types';
 import { colors } from '../theme';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useThemeStore } from '../store/themeStore';
 
 import FeedStack from './stacks/FeedStack';
 import HomeStack from './stacks/HomeStack';
@@ -26,8 +27,6 @@ import ChatStack from './stacks/ChatStack';
 import ProfileStack from './stacks/ProfileStack';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
-const ACCENT = colors.navigationActive;
-
 // Altura base da barra (sem safe area — o padding bottom é dinâmico via insets)
 const BAR_INNER_HEIGHT = Platform.OS === 'ios' ? 60 : 58;
 
@@ -58,6 +57,7 @@ function TabItem({
   badgeCount?: number;
 }) {
   const config = TABS[routeName];
+  const theme = useThemeStore((s) => s.theme);
   const reduceMotion = useReduceMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const pillWidth = useRef(new Animated.Value(focused ? 1 : 0)).current;
@@ -101,7 +101,7 @@ function TabItem({
           {
             backgroundColor: pillWidth.interpolate({
               inputRange: [0, 1],
-              outputRange: ['transparent', colors.primarySoft],
+              outputRange: ['transparent', theme.primarySoft],
             }),
             paddingHorizontal: pillWidth.interpolate({
               inputRange: [0, 1],
@@ -114,7 +114,7 @@ function TabItem({
           <Ionicons
             name={focused ? config.iconActive : config.icon}
             size={20}
-            color={focused ? colors.navigationActive : colors.navigationInactive}
+            color={focused ? theme.navigationActive : theme.navigationInactive}
           />
         </Animated.View>
       </Animated.View>
@@ -123,7 +123,7 @@ function TabItem({
         style={[
           styles.label,
           {
-            color: focused ? colors.navigationActive : colors.navigationInactive,
+            color: focused ? theme.navigationActive : theme.navigationInactive,
             fontWeight: focused ? '600' : '500',
           },
         ]}
@@ -144,6 +144,7 @@ function TabItem({
 // ─── CustomTabBar ─────────────────────────────────────────────────────────────
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
 
   const focusedRoute = state.routes[state.index];
   const focusedOptions = descriptors[focusedRoute.key]?.options;
@@ -161,13 +162,15 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       {/* Background glassmorphism */}
       <View style={styles.barBg}>
         <LinearGradient
-          colors={['rgba(31,31,36,0.96)', 'rgba(18,18,22,0.99)']}
+          colors={theme.mode === 'dark'
+            ? ['rgba(8,19,33,0.96)', 'rgba(3,9,20,0.99)']
+            : ['rgba(255,255,255,0.98)', 'rgba(247,248,251,0.99)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
         {/* Linha superior sutil */}
-        <View style={styles.topLine} />
+        <View style={[styles.topLine, { backgroundColor: theme.divider }]} />
       </View>
 
       <View style={[styles.row, { height: BAR_INNER_HEIGHT }]}>
@@ -314,7 +317,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 16,
-    shadowColor: ACCENT,
+    shadowColor: colors.navigationActive,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 12,

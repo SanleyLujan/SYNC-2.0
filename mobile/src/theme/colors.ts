@@ -8,12 +8,12 @@ const palette = {
   coral: '#FF6868',
   orange: '#FF9F43',
   danger: '#EF4444',
-  darkBg: '#121216',
-  darkSurface: '#1F1F24',
-  darkSurfaceSecondary: '#2A2A31',
+  darkBg: '#030914',
+  darkSurface: '#081321',
+  darkSurfaceSecondary: '#101B2B',
   darkText: '#FFFFFF',
   darkTextSecondary: '#A7ABB3',
-  lightBg: '#F1F3F7',
+  lightBg: '#F7F8FB',
   lightSurface: '#FFFFFF',
   lightBorder: '#E2E5EA',
   lightText: '#17171C',
@@ -25,14 +25,14 @@ export const darkTheme = {
   background: palette.darkBg,
   surface: palette.darkSurface,
   surfaceSecondary: palette.darkSurfaceSecondary,
-  surfaceElevated: '#24242B',
+  surfaceElevated: '#132033',
   card: palette.darkSurface,
   cardBg: palette.darkSurface,
   input: palette.darkSurface,
   inputFocus: palette.blue,
-  border: 'rgba(255,255,255,0.10)',
+  border: 'rgba(58,134,255,0.16)',
   divider: 'rgba(255,255,255,0.08)',
-  overlay: 'rgba(18,18,22,0.78)',
+  overlay: 'rgba(3,9,20,0.78)',
   primary: palette.blue,
   primaryText: '#FFFFFF',
   primarySoft: 'rgba(58,134,255,0.14)',
@@ -56,8 +56,8 @@ export const darkTheme = {
   gradientPrimary: [palette.blue, palette.cyan] as const,
   gradientSuccess: [palette.darkSuccess, palette.cyan] as const,
   gradientGame: [palette.darkPurple, '#B347FF'] as const,
-  gradientHero: ['rgba(18,18,22,0.25)', 'rgba(18,18,22,0.72)', palette.darkBg] as const,
-  mapOverlay: 'rgba(18, 18, 22, 0.88)',
+  gradientHero: ['rgba(3,9,20,0.12)', 'rgba(3,9,20,0.70)', palette.darkBg] as const,
+  mapOverlay: 'rgba(3, 9, 20, 0.88)',
 };
 
 export const lightTheme = {
@@ -100,53 +100,60 @@ export const lightTheme = {
   mapOverlay: 'rgba(255,255,255,0.88)',
 };
 
-export const colors = {
-  ...darkTheme,
+export type ThemeMode = typeof darkTheme.mode | typeof lightTheme.mode;
+export type AppTheme = typeof darkTheme | typeof lightTheme;
+
+export const themeByMode = (mode: ThemeMode): AppTheme => (
+  mode === 'light' ? lightTheme : darkTheme
+);
+
+export const createThemeColors = (theme: AppTheme) => ({
+  ...theme,
   brand: palette.blue,
   brandLight: palette.cyan,
-  brandGradient: darkTheme.gradientPrimary,
+  brandGradient: theme.gradientPrimary,
   primaryDark: '#2563EB',
   primaryLight: '#7FB2FF',
-  highlight: palette.cyan,
+  highlight: theme.mode === 'light' ? palette.coral : palette.cyan,
   blueAccent: palette.blue,
   deepBlue: '#16213F',
-  surfaceLight: darkTheme.surfaceSecondary,
-  text: darkTheme.textPrimary,
-  secondaryText: darkTheme.textSecondary,
+  surfaceLight: theme.surfaceSecondary,
+  text: theme.textPrimary,
+  secondaryText: theme.textSecondary,
   white: '#FFFFFF',
   black: '#000000',
-  error: darkTheme.danger,
-  gradient: darkTheme.gradientPrimary,
-  gradientBlue: darkTheme.gradientPrimary,
-  likeGreen: darkTheme.success,
-  dislikeRed: darkTheme.danger,
-  superLikeBlue: darkTheme.blue,
+  error: theme.danger,
+  gradient: theme.gradientPrimary,
+  gradientBlue: theme.gradientPrimary,
+  likeGreen: theme.success,
+  dislikeRed: theme.danger,
+  superLikeBlue: theme.blue,
   sportColors: {
-    running: darkTheme.success,
-    cycling: darkTheme.blue,
-    swimming: darkTheme.cyan,
-    soccer: darkTheme.success,
+    running: theme.success,
+    cycling: theme.blue,
+    swimming: theme.cyan,
+    soccer: theme.success,
     basketball: palette.orange,
     tennis: palette.orange,
-    volleyball: darkTheme.purple,
-    gym: darkTheme.purple,
-    yoga: darkTheme.success,
+    volleyball: theme.purple,
+    gym: theme.purple,
+    yoga: theme.success,
     hiking: palette.orange,
-    surfing: darkTheme.cyan,
-    martial_arts: darkTheme.danger,
+    surfing: theme.cyan,
+    martial_arts: theme.danger,
   },
   levelColors: {
-    beginner: darkTheme.success,
-    intermediate: darkTheme.warning,
-    advanced: darkTheme.purple,
+    beginner: theme.success,
+    intermediate: theme.warning,
+    advanced: theme.purple,
   },
   notificationColors: {
-    new_match: darkTheme.primary,
-    new_message: darkTheme.blue,
-    event_reminder: darkTheme.warning,
-    achievement_unlocked: darkTheme.purple,
-    like_received: darkTheme.primary,
-    default: darkTheme.textSecondary,
+    new_match: theme.primary,
+    new_message: theme.blue,
+    event_reminder: theme.warning,
+    achievement_unlocked: theme.purple,
+    like_received: theme.primary,
+    default: theme.textSecondary,
   },
   dark: {
     background: darkTheme.background,
@@ -162,4 +169,10 @@ export const colors = {
     mapOverlay: darkTheme.mapOverlay,
   },
   light: lightTheme,
+});
+
+export const colors = createThemeColors(darkTheme);
+
+export const applyTheme = (theme: AppTheme) => {
+  Object.assign(colors, createThemeColors(theme));
 };

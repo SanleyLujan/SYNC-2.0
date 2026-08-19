@@ -1,4 +1,5 @@
-export { colors, darkTheme, lightTheme } from './colors';
+export { colors, darkTheme, lightTheme, applyTheme, themeByMode } from './colors';
+export type { AppTheme, ThemeMode } from './colors';
 export { spacing, borderRadius, fontSize, typography } from './spacing';
 
 export const shadows = {
