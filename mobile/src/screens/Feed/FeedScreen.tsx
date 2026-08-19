@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { feedApi, FeedPost } from '../../services/feed.service';
 import { useAuthStore } from '../../store/authStore';
+import { useThemeStore } from '../../store/themeStore';
 import { confirmAsync } from '../../utils/confirm';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { heroImages } from '../../theme/images';
@@ -78,6 +79,7 @@ interface FeedCardProps {
 }
 
 function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu }: FeedCardProps) {
+  const theme = useThemeStore((s) => s.theme);
   const heartScale = useRef(new Animated.Value(1)).current;
   const haptic = useHaptic();
   const reduceMotion = useReduceMotion();
@@ -108,10 +110,10 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
   const distanceKm = (post.distanceKm || 0).toFixed(2);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       {/* Orange gradient accent line — premium marker */}
       <LinearGradient
-        colors={['#FF6B35', '#FF4500']}
+        colors={theme.gradientPrimary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.cardAccentLine}
@@ -136,8 +138,8 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
           <View style={{ flex: 1, marginLeft: spacing.sm }}>
             <Text style={styles.userName}>{post.user?.name || 'Atleta'}</Text>
             <View style={styles.metaRow}>
-              <Ionicons name={icon} size={12} color={colors.primary} />
-              <Text style={styles.metaText}>
+              <Ionicons name={icon} size={12} color={theme.primary} />
+              <Text style={[styles.metaText, { color: theme.textSecondary }]}>
                 {post.sport || 'Atividade'} • {timeAgo(post.createdAt)}
               </Text>
             </View>
@@ -148,40 +150,40 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
             accessibilityRole="button"
             accessibilityLabel="Opções do post"
           >
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.dark.secondaryText} />
+            <Ionicons name="ellipsis-horizontal" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {post.caption && <Text style={styles.caption}>{post.caption}</Text>}
+        {post.caption && <Text style={[styles.caption, { color: theme.textPrimary }]}>{post.caption}</Text>}
 
         {/* Hero distance with subtle orange glow bg */}
         <LinearGradient
-          colors={['rgba(255,107,53,0.10)', 'rgba(10,10,15,0)']}
+          colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroDistanceBg}
         >
           <View style={styles.heroDistance}>
-            <Text style={styles.heroValue}>{distanceKm}</Text>
-            <Text style={styles.heroLabel}>km</Text>
+            <Text style={[styles.heroValue, { color: theme.textPrimary }]}>{distanceKm}</Text>
+            <Text style={[styles.heroLabel, { color: theme.primary }]}>km</Text>
           </View>
         </LinearGradient>
 
         {/* Stats row */}
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{formatDuration(post.durationSeconds || 0)}</Text>
-            <Text style={styles.statLabel}>Tempo</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary }]}>{formatDuration(post.durationSeconds || 0)}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Tempo</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{formatPace(post.avgPace || 0)}</Text>
-            <Text style={styles.statLabel}>/km</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary }]}>{formatPace(post.avgPace || 0)}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>/km</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{post.calories || 0}</Text>
-            <Text style={styles.statLabel}>kcal</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary }]}>{post.calories || 0}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>kcal</Text>
           </View>
         </View>
 
@@ -198,7 +200,7 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
         )}
 
         {/* Actions */}
-        <View style={styles.actions}>
+        <View style={[styles.actions, { borderTopColor: theme.divider }]}>
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={handleLike}
@@ -208,10 +210,10 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
               <Ionicons
                 name={liked ? 'heart' : 'heart-outline'}
                 size={22}
-                color={liked ? '#F87171' : 'rgba(255,255,255,0.6)'}
+                color={liked ? theme.danger : theme.textSecondary}
               />
             </Animated.View>
-            <Text style={[styles.actionLabel, liked && { color: '#F87171' }]}>{likesCount}</Text>
+            <Text style={[styles.actionLabel, { color: liked ? theme.danger : theme.textSecondary }]}>{likesCount}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -219,8 +221,8 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
             onPress={() => onComment(post)}
             hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           >
-            <Ionicons name="chatbubble-outline" size={20} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.actionLabel}>{post.commentsCount || 0}</Text>
+            <Ionicons name="chatbubble-outline" size={20} color={theme.textSecondary} />
+            <Text style={[styles.actionLabel, { color: theme.textSecondary }]}>{post.commentsCount || 0}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -232,7 +234,7 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
               });
             }}
           >
-            <Ionicons name="share-social-outline" size={20} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="share-social-outline" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
 
           <View style={{ flex: 1 }} />
@@ -254,6 +256,7 @@ const FeedCard = React.memo(
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const currentUser = useAuthStore((s) => s.user);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -394,14 +397,14 @@ export default function FeedScreen() {
     if (!loadingMore) return null;
     return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.footerText}>Carregando mais...</Text>
+        <ActivityIndicator size="small" color={theme.primary} />
+        <Text style={[styles.footerText, { color: theme.textSecondary }]}>Carregando mais...</Text>
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Hero header — mesmo padrão das telas de auth */}
       <ImageBackground
         source={{ uri: heroImages.cityGroup }}
@@ -410,34 +413,36 @@ export default function FeedScreen() {
         fadeDuration={300}
       >
         <LinearGradient
-          colors={['rgba(10,10,15,0.55)', 'rgba(10,10,15,0.97)']}
+          colors={theme.mode === 'dark'
+            ? ['rgba(3,9,20,0.30)', 'rgba(3,9,20,0.98)']
+            : ['rgba(255,255,255,0.10)', 'rgba(247,248,251,0.98)']}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.headerInner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Logo size={32} variant="filled" />
-            <Text style={styles.title}>Feed</Text>
+            <Text style={[styles.title, { color: theme.textPrimary }]}>Feed</Text>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               onPress={() => navigation.navigate('UserSearch')}
             >
-              <Ionicons name="search-outline" size={22} color="#fff" />
+              <Ionicons name="search-outline" size={22} color={theme.textPrimary} />
             </TouchableOpacity>
             <TouchableOpacity
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               onPress={() => navigation.navigate('Notifications')}
             >
-              <Ionicons name="notifications-outline" size={22} color="#fff" />
+              <Ionicons name="notifications-outline" size={22} color={theme.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
       </ImageBackground>
 
       {loading && !refreshing ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={[styles.center, { backgroundColor: theme.background }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
@@ -455,7 +460,7 @@ export default function FeedScreen() {
           )}
           extraData={{ likedMap, countMap }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
           }
           onEndReached={onEndReached}
           onEndReachedThreshold={0.4}
@@ -468,26 +473,26 @@ export default function FeedScreen() {
           ListEmptyComponent={
             loadError ? (
               <View style={styles.empty}>
-                <Ionicons name="cloud-offline-outline" size={64} color={colors.dark.secondaryText} />
-                <Text style={styles.emptyTitle}>Erro ao carregar</Text>
-                <Text style={styles.emptyText}>Verifique sua conexão e tente de novo.</Text>
+                <Ionicons name="cloud-offline-outline" size={64} color={theme.textSecondary} />
+                <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Erro ao carregar</Text>
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Verifique sua conexão e tente de novo.</Text>
                 <TouchableOpacity
-                  style={styles.feedRetryBtn}
+                  style={[styles.feedRetryBtn, { backgroundColor: theme.primary }]}
                   onPress={() => load(1)}
                   accessibilityRole="button"
                   accessibilityLabel="Tentar novamente"
                 >
-                  <Ionicons name="refresh" size={16} color="#fff" />
-                  <Text style={styles.feedRetryText}>Tentar novamente</Text>
+                  <Ionicons name="refresh" size={16} color={theme.primaryText} />
+                  <Text style={[styles.feedRetryText, { color: theme.primaryText }]}>Tentar novamente</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.empty}>
-                <View style={styles.emptyIconWrap}>
-                  <Ionicons name="newspaper-outline" size={40} color={colors.primary} />
+                <View style={[styles.emptyIconWrap, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+                  <Ionicons name="newspaper-outline" size={40} color={theme.primary} />
                 </View>
-                <Text style={styles.emptyTitle}>Feed vazio</Text>
-                <Text style={styles.emptyText}>
+                <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Feed vazio</Text>
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
                   Complete um treino e poste aqui para ver seu feed.
                 </Text>
               </View>

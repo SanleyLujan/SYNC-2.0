@@ -9,6 +9,7 @@ import React from 'react';
 import { View } from 'react-native';
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useThemeStore } from '../store/themeStore';
 
 interface LogoProps {
   size?: number;
@@ -25,17 +26,20 @@ const INFINITY_PATH_V2 =
   'M 25 50 C 25 30, 45 25, 60 35 C 70 42, 75 50, 85 50 C 100 50, 110 65, 95 80 C 80 92, 65 80, 55 70 C 47 62, 40 60, 30 65 C 15 70, 15 85, 30 90';
 
 export default function Logo({ size = 48, color = '#4A0E2C', variant = 'plain' }: LogoProps) {
+  const theme = useThemeStore((s) => s.theme);
+  const logoColor = color === '#4A0E2C' ? theme.primary : color;
+
   if (variant === 'filled') {
     return (
       <LinearGradient
-        colors={['#4A0E2C', '#2A0518']}
+        colors={theme.gradientPrimary}
         style={{
           width: size,
           height: size,
           borderRadius: size * 0.22,
           alignItems: 'center',
           justifyContent: 'center',
-          shadowColor: '#4A0E2C',
+          shadowColor: theme.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.5,
           shadowRadius: 10,
@@ -48,7 +52,7 @@ export default function Logo({ size = 48, color = '#4A0E2C', variant = 'plain' }
   }
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <InfinitySvg size={size} color={color} />
+      <InfinitySvg size={size} color={logoColor} />
     </View>
   );
 }
