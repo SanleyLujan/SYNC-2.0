@@ -146,9 +146,11 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
   }, [fade]);
 
   const isWide = width >= 1100;
-  const compactNav = width < 980;
-  const stackedNav = width < 680;
-  const cardWidth = isWide ? 350 : Math.min(width - 48, 340);
+  const compactNav = width < 1180;
+  const stackedNav = width < 820;
+  const narrowLayout = width < 820;
+  const veryNarrowLayout = width < 520;
+  const cardWidth = isWide ? 350 : Math.max(280, Math.min(width - 48, 340));
 
   const scrollToSection = (key: string) => {
     const y = sectionY.current[key];
@@ -198,33 +200,33 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
         </View>
       </View>
 
-      <Animated.View style={[styles.hero, { opacity: fade }]}>
-        <View style={styles.heroCopy}>
+      <Animated.View style={[styles.hero, narrowLayout && styles.heroNarrow, { opacity: fade }]}>
+        <View style={[styles.heroCopy, narrowLayout && styles.heroCopyNarrow]}>
           <View style={styles.eyebrowPill}>
             <Ionicons name="sparkles-outline" size={15} color={CYAN} />
             <Text style={styles.eyebrowText}>Conecte. Treine. Supere.</Text>
           </View>
 
-          <Text style={styles.heroTitle}>
+          <Text style={[styles.heroTitle, narrowLayout && styles.heroTitleNarrow, veryNarrowLayout && styles.heroTitleVeryNarrow]}>
             O app social para quem leva esporte a serio.
           </Text>
-          <Text style={styles.heroSubtitle}>
+          <Text style={[styles.heroSubtitle, narrowLayout && styles.heroSubtitleNarrow]}>
             Encontre parceiros, registre treinos, acompanhe sua evolucao e participe de uma comunidade feita para sair do plano.
           </Text>
 
-          <View style={styles.heroActions}>
-            <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
+          <View style={[styles.heroActions, narrowLayout && styles.heroActionsNarrow]}>
+            <TouchableOpacity style={[styles.primaryButton, veryNarrowLayout && styles.actionButtonFull]} onPress={onStart}>
               <LinearGradient
                 colors={[BLUE, CYAN]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.primaryButtonInner}
+                style={[styles.primaryButtonInner, veryNarrowLayout && styles.actionButtonInnerFull]}
               >
                 <Text style={styles.primaryButtonText}>Comecar gratis</Text>
                 <Ionicons name="arrow-forward" size={18} color={TEXT} />
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={onLogin}>
+            <TouchableOpacity style={[styles.secondaryButton, veryNarrowLayout && styles.actionButtonFull]} onPress={onLogin}>
               <Text style={styles.secondaryButtonText}>Ja tenho conta</Text>
             </TouchableOpacity>
             {onDemo && (
@@ -235,9 +237,9 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
             )}
           </View>
 
-          <View style={styles.insightsRow}>
+          <View style={[styles.insightsRow, veryNarrowLayout && styles.insightsRowNarrow]}>
             {INSIGHTS.map((item) => (
-              <View key={item.label} style={styles.insightCard}>
+              <View key={item.label} style={[styles.insightCard, veryNarrowLayout && styles.insightCardNarrow]}>
                 <Ionicons name={item.icon} size={18} color={CYAN} />
                 <Text style={styles.insightValue}>{item.value}</Text>
                 <Text style={styles.insightLabel}>{item.label}</Text>
@@ -246,7 +248,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
           </View>
         </View>
 
-        <View style={styles.heroVisual}>
+        <View style={[styles.heroVisual, narrowLayout && styles.heroVisualNarrow, veryNarrowLayout && styles.heroVisualVeryNarrow]}>
           <View style={styles.logoOrb}>
             <Logo size={110} variant="filled" />
           </View>
@@ -264,14 +266,14 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
               <Text style={styles.feedChipText}>5km</Text>
             </View>
           </View>
-          <View style={[styles.floatCard, styles.floatStats]}>
+          <View style={[styles.floatCard, styles.floatStats, narrowLayout && styles.floatStatsNarrow]}>
             <Ionicons name="water" size={26} color={BLUE} />
             <View>
               <Text style={styles.floatNumber}>7</Text>
               <Text style={styles.floatMuted}>dias consecutivos</Text>
             </View>
           </View>
-          <View style={[styles.floatCard, styles.floatMap]}>
+          <View style={[styles.floatCard, styles.floatMap, narrowLayout && styles.floatMapNarrow]}>
             <Ionicons name="location-outline" size={18} color={GREEN} />
             <Text style={styles.floatMuted}>3 atletas por perto</Text>
           </View>
@@ -426,6 +428,7 @@ const styles = StyleSheet.create({
   navStacked: {
     alignItems: 'flex-start',
     gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   navBrand: {
     flexDirection: 'row',
@@ -494,9 +497,20 @@ const styles = StyleSheet.create({
     gap: 56,
     flexWrap: 'wrap',
   },
+  heroNarrow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: 56,
+    paddingBottom: 64,
+    gap: spacing.xl,
+  },
   heroCopy: {
     flex: 1,
     minWidth: 320,
+  },
+  heroCopyNarrow: {
+    width: '100%',
+    minWidth: 0,
+    flexBasis: '100%',
   },
   eyebrowPill: {
     alignSelf: 'flex-start',
@@ -523,6 +537,15 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     maxWidth: 720,
   },
+  heroTitleNarrow: {
+    fontSize: 48,
+    lineHeight: 54,
+    maxWidth: '100%',
+  },
+  heroTitleVeryNarrow: {
+    fontSize: 38,
+    lineHeight: 44,
+  },
   heroSubtitle: {
     color: MUTED,
     fontSize: fontSize.lg,
@@ -530,12 +553,27 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     maxWidth: 620,
   },
+  heroSubtitleNarrow: {
+    maxWidth: '100%',
+    fontSize: fontSize.md,
+    lineHeight: 26,
+  },
   heroActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     marginTop: spacing.xl,
     flexWrap: 'wrap',
+  },
+  heroActionsNarrow: {
+    alignItems: 'flex-start',
+  },
+  actionButtonFull: {
+    width: '100%',
+    maxWidth: 320,
+  },
+  actionButtonInnerFull: {
+    justifyContent: 'center',
   },
   primaryButton: {
     borderRadius: borderRadius.full,
@@ -588,6 +626,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     flexWrap: 'wrap',
   },
+  insightsRowNarrow: {
+    width: '100%',
+  },
   insightCard: {
     minWidth: 132,
     borderRadius: borderRadius.md,
@@ -595,6 +636,10 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     backgroundColor: 'rgba(8,19,33,0.80)',
     padding: spacing.md,
+  },
+  insightCardNarrow: {
+    flexBasis: '47%',
+    minWidth: 0,
   },
   insightValue: {
     color: TEXT,
@@ -618,6 +663,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  heroVisualNarrow: {
+    width: '100%',
+    maxWidth: 520,
+    minWidth: 0,
+    alignSelf: 'center',
+  },
+  heroVisualVeryNarrow: {
+    minHeight: 500,
   },
   logoOrb: {
     width: 210,
@@ -683,12 +737,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  floatStatsNarrow: {
+    left: spacing.md,
+    top: spacing.md,
+    maxWidth: 190,
+  },
   floatMap: {
     right: spacing.lg,
     top: spacing.xl + 28,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  floatMapNarrow: {
+    right: spacing.md,
+    top: 96,
+    maxWidth: 190,
   },
   floatTitle: {
     color: TEXT,
