@@ -45,6 +45,7 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
   - O botao de voltar e o botao de lapis foram removidos do topo do perfil; a navegacao de edicao fica no menu do perfil e em Configuracoes.
   - A transicao da foto de capa para o fundo da pagina fica no `LinearGradient` dentro de `ImageBackground`.
   - O card de sequencia/meta do perfil fica em `profileGoalCard` e usa `theme.surface`, `theme.border`, `theme.primary`, `theme.primarySoft`.
+  - O botao de camera do header abre um menu em `MyProfileScreen.tsx` para trocar a foto redonda (`/users/me/avatar`) ou a capa (`/users/me/banner`).
   - Aparencia e sair da conta ficam em `src/screens/Settings/SettingsScreen.tsx`, nao no rodape do perfil.
   - `src/components/StreakBadge.tsx` ainda existe para outros pontos que precisem do badge reutilizavel.
 

@@ -5,6 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   ImageBackground,
+  Image,
+  Modal,
   TouchableOpacity,
   Platform,
   RefreshControl,
@@ -64,7 +66,8 @@ export default function MyProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useThemeStore((s) => s.theme);
   const { user, setUser } = useAuthStore();
-  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadTarget, setUploadTarget] = useState<'avatar' | 'banner' | null>(null);
+  const [showPhotoChoice, setShowPhotoChoice] = useState(false);
   const [stats, setStats] = useState<Stats>({
     totalActivities: 0, totalDistanceKm: 0, weeklyDistanceKm: 0, totalDuration: 0,
     currentStreak: 0, bestStreak: 0,
@@ -166,44 +169,47 @@ export default function MyProfileScreen({ navigation }: Props) {
     }
   };
 
-  const pickBanner = async () => {
-    if (uploadingBanner) return;
+  const pickProfileImage = async (target: 'avatar' | 'banner') => {
+    if (uploadTarget) return;
+    setShowPhotoChoice(false);
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        showToast('Permita o acesso à galeria para escolher o banner.', 'error');
+        showToast('Permita o acesso à galeria para escolher uma imagem.', 'error');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.45,
+        aspect: target === 'avatar' ? [1, 1] : [16, 9],
+        quality: target === 'avatar' ? 0.5 : 0.45,
         base64: true,
       });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-      setUploadingBanner(true);
-      // Banner vai como base64 → guardado no banco (sempre exibe e sobrevive a
+      setUploadTarget(target);
+      // Imagem vai como base64 -> guardada no banco (sempre exibe e sobrevive a
       // redeploy). Antes ia via /media/upload, cujos arquivos sumiam no disco
-      // efêmero do Railway → o banner "não trocava".
-      let bannerValue: string;
+      // efemero do host -> a imagem "nao trocava".
+      let imageValue: string;
       if (asset.base64) {
-        bannerValue = `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;
+        imageValue = `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;
       } else {
         const up = await uploadMedia(asset.uri, {
-          name: `banner-${Date.now()}.jpg`,
+          name: `${target}-${Date.now()}.jpg`,
           mimeType: asset.mimeType || 'image/jpeg',
         });
-        bannerValue = up.url;
+        imageValue = up.url;
       }
-      const { data } = await api.post('/users/me/banner', { bannerBase64: bannerValue });
+      const endpoint = target === 'avatar' ? '/users/me/avatar' : '/users/me/banner';
+      const payload = target === 'avatar' ? { avatarBase64: imageValue } : { bannerBase64: imageValue };
+      const { data } = await api.post(endpoint, payload);
       setUser(data);
-      showToast('Capa atualizada!', 'success');
+      showToast(target === 'avatar' ? 'Foto de perfil atualizada!' : 'Capa atualizada!', 'success');
     } catch (error: any) {
-      showToast(error?.response?.data?.message || 'Não foi possível enviar o banner', 'error');
+      showToast(error?.response?.data?.message || 'Não foi possível enviar a imagem', 'error');
     } finally {
-      setUploadingBanner(false);
+      setUploadTarget(null);
     }
   };
 
@@ -329,7 +335,11 @@ export default function MyProfileScreen({ navigation }: Props) {
                 backgroundColor: theme.mode === 'dark' ? 'rgba(3,9,20,0.82)' : colors.white,
               },
             ]}>
-              <Logo size={58} variant="filled" />
+              {user.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Logo size={58} variant="filled" />
+              )}
             </View>
             <TouchableOpacity
               style={[
@@ -339,12 +349,12 @@ export default function MyProfileScreen({ navigation }: Props) {
                   borderColor: theme.mode === 'dark' ? colors.white : theme.background,
                 },
               ]}
-              onPress={pickBanner}
-              disabled={uploadingBanner}
+              onPress={() => setShowPhotoChoice(true)}
+              disabled={!!uploadTarget}
               accessibilityRole="button"
-              accessibilityLabel="Alterar foto de capa"
+              accessibilityLabel="Alterar fotos do perfil"
             >
-              <Ionicons name={uploadingBanner ? 'hourglass-outline' : 'camera'} size={16} color={colors.white} />
+              <Ionicons name={uploadTarget ? 'hourglass-outline' : 'camera'} size={16} color={colors.white} />
             </TouchableOpacity>
           </View>
           <View style={styles.nameRow}>
@@ -597,6 +607,58 @@ export default function MyProfileScreen({ navigation }: Props) {
       </View>
 
       <View style={{ height: TAB_BAR_HEIGHT + insets.bottom + spacing.md }} />
+
+      <Modal
+        visible={showPhotoChoice}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPhotoChoice(false)}
+      >
+        <View style={styles.photoModalOverlay}>
+          <View style={[styles.photoModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.photoModalTitle, { color: theme.textPrimary }]}>Alterar imagem</Text>
+            <Text style={[styles.photoModalSubtitle, { color: theme.textSecondary }]}>
+              Escolha qual parte do perfil voce quer atualizar.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.photoOption, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+              onPress={() => pickProfileImage('avatar')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.photoOptionIcon, { backgroundColor: theme.primarySoft }]}>
+                <Ionicons name="person-circle-outline" size={22} color={theme.primary} />
+              </View>
+              <View style={styles.photoOptionTextWrap}>
+                <Text style={[styles.photoOptionTitle, { color: theme.textPrimary }]}>Trocar foto do perfil</Text>
+                <Text style={[styles.photoOptionSubtitle, { color: theme.textSecondary }]}>Muda a imagem redonda no lugar do S.</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.photoOption, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+              onPress={() => pickProfileImage('banner')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.photoOptionIcon, { backgroundColor: theme.primarySoft }]}>
+                <Ionicons name="images-outline" size={22} color={theme.primary} />
+              </View>
+              <View style={styles.photoOptionTextWrap}>
+                <Text style={[styles.photoOptionTitle, { color: theme.textPrimary }]}>Trocar foto de fundo</Text>
+                <Text style={[styles.photoOptionSubtitle, { color: theme.textSecondary }]}>Muda a capa atras do seu nome.</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.photoCancel, { borderColor: theme.border }]}
+              onPress={() => setShowPhotoChoice(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.photoCancelText, { color: theme.textSecondary }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -637,6 +699,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 56,
+  },
   editAvatarBtn: {
     position: 'absolute',
     bottom: 0,
@@ -653,6 +720,67 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 6,
     elevation: 4,
+  },
+  photoModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: spacing.lg,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+  },
+  photoModalCard: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  photoModalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+  },
+  photoModalSubtitle: {
+    fontSize: fontSize.sm,
+    marginBottom: spacing.sm,
+  },
+  photoOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+  },
+  photoOptionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoOptionTextWrap: {
+    flex: 1,
+  },
+  photoOptionTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '800',
+  },
+  photoOptionSubtitle: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  photoCancel: {
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.xs,
+  },
+  photoCancelText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   nameRow: {
     flexDirection: 'row',
