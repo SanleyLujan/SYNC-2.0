@@ -17,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ChatStackParamList } from '../../navigation/types';
 import { Conversation } from '../../types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
@@ -30,6 +31,7 @@ type Props = {
 
 export default function ConversationListScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -100,7 +102,7 @@ export default function ConversationListScreen({ navigation }: Props) {
 
   const renderItem = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
-      style={[styles.item, item.unreadCount > 0 && styles.itemUnread]}
+      style={[styles.item, item.unreadCount > 0 && { backgroundColor: theme.primarySoft }]}
       onPress={() =>
         navigation.navigate('ChatRoom', {
           matchId: item.matchId,
@@ -111,14 +113,14 @@ export default function ConversationListScreen({ navigation }: Props) {
       activeOpacity={0.7}
     >
       {/* Orange accent strip for unread */}
-      {item.unreadCount > 0 && <View style={styles.unreadStrip} />}
+      {item.unreadCount > 0 && <View style={[styles.unreadStrip, { backgroundColor: theme.primary }]} />}
 
       {/* Avatar with gradient ring for unread */}
       <View style={styles.avatarWrap}>
         {item.unreadCount > 0 ? (
           <LinearGradient
-            colors={['#FF6B35', '#FF4500']}
-            style={styles.avatarRing}
+            colors={theme.gradientPrimary}
+            style={[styles.avatarRing, { shadowColor: theme.primary }]}
           >
             <Image
               source={
@@ -126,7 +128,7 @@ export default function ConversationListScreen({ navigation }: Props) {
                   ? { uri: item.user.avatarUrl }
                   : require('../../assets/images/default-avatar.png')
               }
-              style={styles.avatarInner}
+              style={[styles.avatarInner, { borderColor: theme.background }]}
             />
           </LinearGradient>
         ) : (
@@ -144,28 +146,36 @@ export default function ConversationListScreen({ navigation }: Props) {
       <View style={styles.info}>
         <View style={styles.nameRow}>
           <Text
-            style={[styles.name, item.unreadCount > 0 && styles.nameBold]}
+            style={[
+              styles.name,
+              { color: item.unreadCount > 0 ? theme.textPrimary : theme.textSecondary },
+              item.unreadCount > 0 && styles.nameBold,
+            ]}
             numberOfLines={1}
           >
             {item.user.name}
           </Text>
           {item.lastMessage && (
-            <Text style={[styles.time, item.unreadCount > 0 && styles.timeActive]}>
+            <Text style={[styles.time, { color: item.unreadCount > 0 ? theme.primary : theme.textSecondary }, item.unreadCount > 0 && styles.timeActive]}>
               {formatTime(item.lastMessage.createdAt)}
             </Text>
           )}
         </View>
         <View style={styles.messageRow}>
           <Text
-            style={[styles.lastMessage, item.unreadCount > 0 && styles.lastMessageUnread]}
+            style={[
+              styles.lastMessage,
+              { color: item.unreadCount > 0 ? theme.textPrimary : theme.textSecondary },
+              item.unreadCount > 0 && styles.lastMessageUnread,
+            ]}
             numberOfLines={1}
           >
             {item.lastMessage?.content || 'Diga oi! 👋'}
           </Text>
           {item.unreadCount > 0 && (
             <LinearGradient
-              colors={['#FF6B35', '#FF4500']}
-              style={styles.badge}
+              colors={theme.gradientPrimary}
+            style={[styles.badge, { shadowColor: theme.primary }]}
             >
               <Text style={styles.badgeText}>
                 {item.unreadCount > 9 ? '9+' : item.unreadCount}
@@ -179,7 +189,7 @@ export default function ConversationListScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: 60 }]}>
+      <View style={[styles.container, { paddingTop: 60, backgroundColor: theme.background }]}>
         <SkeletonList count={7} />
       </View>
     );
@@ -187,19 +197,19 @@ export default function ConversationListScreen({ navigation }: Props) {
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <View style={styles.emptyIconWrap}>
-          <Ionicons name="wifi-outline" size={40} color={colors.primary} />
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <View style={[styles.emptyIconWrap, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+          <Ionicons name="wifi-outline" size={40} color={theme.primary} />
         </View>
-        <Text style={styles.emptyTitle}>Erro ao carregar</Text>
-        <Text style={styles.emptyText}>Verifique sua conexão e tente novamente.</Text>
+        <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Erro ao carregar</Text>
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Verifique sua conexão e tente novamente.</Text>
         <TouchableOpacity
-          style={styles.ctaBtn}
+          style={[styles.ctaBtn, { shadowColor: theme.primary }]}
           onPress={() => { setLoading(true); loadConversations(); }}
           activeOpacity={0.7}
         >
           <LinearGradient
-            colors={['#FF6B35', '#FF4500']}
+            colors={theme.gradientPrimary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.ctaBtnInner}
@@ -213,19 +223,21 @@ export default function ConversationListScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Premium gradient header */}
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Mensagens</Text>
+          <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Mensagens</Text>
           {totalUnread > 0 && (
             <LinearGradient
-              colors={['#FF6B35', '#FF4500']}
+              colors={theme.gradientPrimary}
               style={styles.headerBadge}
             >
               <Text style={styles.headerBadgeText}>{totalUnread}</Text>
@@ -233,16 +245,20 @@ export default function ConversationListScreen({ navigation }: Props) {
           )}
         </View>
         <TouchableOpacity
-          style={[styles.searchBtn, showSearch && styles.searchBtnActive]}
+          style={[
+            styles.searchBtn,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+            showSearch && { backgroundColor: theme.primary, borderColor: theme.primary },
+          ]}
           onPress={() => {
             setShowSearch(!showSearch);
             if (showSearch) setSearchQuery('');
           }}
         >
           {showSearch ? (
-            <Ionicons name="close" size={20} color="#fff" />
+            <Ionicons name="close" size={20} color={theme.primaryText} />
           ) : (
-            <Ionicons name="search-outline" size={20} color="rgba(255,255,255,0.8)" />
+            <Ionicons name="search-outline" size={20} color={theme.textPrimary} />
           )}
         </TouchableOpacity>
       </LinearGradient>
@@ -251,49 +267,50 @@ export default function ConversationListScreen({ navigation }: Props) {
       <Animated.View style={[
         styles.searchContainer,
         {
+          backgroundColor: theme.background,
           maxHeight: searchAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 60] }),
           opacity: searchAnim,
         },
       ]}>
-        <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={18} color={colors.secondaryText} />
+        <View style={[styles.searchInputWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
+          <Ionicons name="search" size={18} color={theme.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.textPrimary }]}
             placeholder="Buscar conversas..."
-            placeholderTextColor={colors.secondaryText}
+            placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus={showSearch}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.secondaryText} />
+              <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </Animated.View>
 
       {filteredConversations.length === 0 ? (
-        <View style={styles.center}>
-          <View style={styles.emptyIconWrap}>
-            <Ionicons name="chatbubbles-outline" size={40} color={colors.primary} />
+        <View style={[styles.center, { backgroundColor: theme.background }]}>
+          <View style={[styles.emptyIconWrap, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+            <Ionicons name="chatbubbles-outline" size={40} color={theme.primary} />
           </View>
-          <Text style={styles.emptyTitle}>
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
             {searchQuery ? 'Nenhum resultado' : 'Nenhuma conversa'}
           </Text>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
             {searchQuery
               ? `Nenhuma conversa encontrada para "${searchQuery}"`
               : 'Seus matches aparecerao aqui.\nComece a dar likes no Descobrir!'}
           </Text>
           {!searchQuery && (
             <TouchableOpacity
-              style={styles.ctaBtn}
+              style={[styles.ctaBtn, { shadowColor: theme.primary }]}
               onPress={() => navigation.getParent()?.navigate('HomeTab')}
               activeOpacity={0.7}
             >
               <LinearGradient
-                colors={['#FF6B35', '#FF4500']}
+                colors={theme.gradientPrimary}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.ctaBtnInner}
@@ -314,8 +331,8 @@ export default function ConversationListScreen({ navigation }: Props) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
+              colors={[theme.primary]}
+              tintColor={theme.primary}
             />
           }
           contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 16 }}

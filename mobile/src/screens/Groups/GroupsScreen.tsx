@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
 import { groupsApi, GroupSummary } from '../../services/groups.service';
 import Button from '../../components/ui/Button';
 import ErrorState from '../../components/ui/ErrorState';
@@ -37,6 +38,7 @@ type Tab = 'mine' | 'discover' | 'ranking';
 
 export default function GroupsScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [tab, setTab] = useState<Tab>('mine');
   const [mine, setMine] = useState<GroupSummary[]>([]);
   const [discover, setDiscover] = useState<GroupSummary[]>([]);
@@ -101,7 +103,7 @@ export default function GroupsScreen({ navigation }: any) {
   const renderGroup = (g: GroupSummary & { position?: number }) => (
     <TouchableOpacity
       key={g.id}
-      style={styles.card}
+      style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
       onPress={() => navigation?.navigate?.('GroupDetail', { groupId: g.id, groupName: g.name })}
       activeOpacity={0.7}
     >
@@ -111,7 +113,7 @@ export default function GroupsScreen({ navigation }: any) {
         </View>
       )}
       <LinearGradient
-        colors={['#FF6B35', '#FF4500']}
+        colors={theme.gradientPrimary}
         style={styles.avatarFallback}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -120,15 +122,15 @@ export default function GroupsScreen({ navigation }: any) {
       </LinearGradient>
       <View style={{ flex: 1, marginLeft: spacing.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.cardName} numberOfLines={1}>{g.name}</Text>
-          {g.isPrivate && <Ionicons name="lock-closed" size={12} color={colors.dark.secondaryText} />}
+          <Text style={[styles.cardName, { color: theme.textPrimary }]} numberOfLines={1}>{g.name}</Text>
+          {g.isPrivate && <Ionicons name="lock-closed" size={12} color={theme.textSecondary} />}
         </View>
-        <Text style={styles.cardMeta} numberOfLines={1}>
+        <Text style={[styles.cardMeta, { color: theme.textSecondary }]} numberOfLines={1}>
           {g.sport ? `${g.sport} • ` : ''}{g.memberCount} membros • {Math.round(g.totalDistanceKm)} km
         </Text>
-        {g.city && <Text style={styles.cardCity}>📍 {g.city}</Text>}
+        {g.city && <Text style={[styles.cardCity, { color: theme.primary }]}>📍 {g.city}</Text>}
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.dark.secondaryText} />
+      <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
     </TouchableOpacity>
   );
 
@@ -150,12 +152,12 @@ export default function GroupsScreen({ navigation }: any) {
             onPress={() => navigation?.navigate?.('GroupDetail', { groupId: g.id, groupName: g.name })}
           >
             <Text style={styles.podiumMedal}>{medals[g.position]}</Text>
-            <LinearGradient colors={['#FF6B35', '#FF4500']} style={styles.podiumAvatar} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <LinearGradient colors={theme.gradientPrimary} style={styles.podiumAvatar} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
               <Text style={styles.podiumLetter}>{g.name[0]?.toUpperCase() || 'G'}</Text>
             </LinearGradient>
-            <Text style={styles.podiumName} numberOfLines={1}>{g.name}</Text>
+            <Text style={[styles.podiumName, { color: theme.textPrimary }]} numberOfLines={1}>{g.name}</Text>
             <Text style={styles.podiumKm}>{Math.round(g.totalDistanceKm)} km</Text>
-            <View style={[styles.podiumBar, { height: heights[g.position], backgroundColor: g.position === 1 ? '#FCD34D' : 'rgba(255,107,53,0.5)' }]}>
+            <View style={[styles.podiumBar, { height: heights[g.position], backgroundColor: g.position === 1 ? '#FCD34D' : theme.primarySoft }]}>
               <Text style={styles.podiumPos}>{g.position}º</Text>
             </View>
           </TouchableOpacity>
@@ -171,19 +173,21 @@ export default function GroupsScreen({ navigation }: any) {
     : 'Ranking ainda em construção.';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
-        <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+        <TouchableOpacity onPress={() => navigation?.goBack?.()} style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Grupos</Text>
-        <TouchableOpacity style={styles.createBtn} onPress={() => setShowCreate(true)}>
-          <Ionicons name="add" size={22} color="#fff" />
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Grupos</Text>
+        <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.primary, shadowColor: theme.primary }]} onPress={() => setShowCreate(true)}>
+          <Ionicons name="add" size={22} color={theme.primaryText} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -195,11 +199,15 @@ export default function GroupsScreen({ navigation }: any) {
         ] as const).map((t) => (
           <TouchableOpacity
             key={t.id}
-            style={[styles.tab, tab === t.id && styles.tabActive]}
+            style={[
+              styles.tab,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+              tab === t.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setTab(t.id)}
           >
-            <Ionicons name={t.icon as any} size={14} color={tab === t.id ? '#fff' : colors.dark.secondaryText} />
-            <Text style={[styles.tabText, tab === t.id && styles.tabTextActive]}>{t.label}</Text>
+            <Ionicons name={t.icon as any} size={14} color={tab === t.id ? theme.primaryText : theme.textSecondary} />
+            <Text style={[styles.tabText, { color: theme.textSecondary }, tab === t.id && { color: theme.primaryText }]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -209,14 +217,14 @@ export default function GroupsScreen({ navigation }: any) {
         keyExtractor={(item: any) => item.id}
         renderItem={({ item }: any) => renderGroup(item)}
         ListHeaderComponent={tab === 'ranking' ? renderPodium() : null}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF6B35" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         ListEmptyComponent={
           error ? (
             <ErrorState onRetry={() => load()} />
           ) : loading ? null : (
             <View style={styles.emptyWrap}>
-              <Ionicons name="people-circle-outline" size={64} color={colors.dark.secondaryText} />
-              <Text style={styles.emptyText}>{emptyMsg}</Text>
+              <Ionicons name="people-circle-outline" size={64} color={theme.textSecondary} />
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>{emptyMsg}</Text>
             </View>
           )
         }
@@ -226,65 +234,69 @@ export default function GroupsScreen({ navigation }: any) {
       {/* Modal de criação */}
       <Modal visible={showCreate} animationType="slide" transparent onRequestClose={() => setShowCreate(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Novo grupo</Text>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Novo grupo</Text>
               <TouchableOpacity onPress={() => setShowCreate(false)}>
-                <Ionicons name="close" size={24} color={colors.dark.text} />
+                <Ionicons name="close" size={24} color={theme.textPrimary} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.formLabel}>Nome do grupo *</Text>
+              <Text style={[styles.formLabel, { color: theme.textPrimary }]}>Nome do grupo *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
                 value={form.name}
                 onChangeText={(v) => setForm({ ...form, name: v })}
                 placeholder="Ex: Runners de Pinheiros"
-                placeholderTextColor={colors.dark.secondaryText}
+                placeholderTextColor={theme.textSecondary}
                 maxLength={80}
               />
-              <Text style={styles.formLabel}>Descrição</Text>
+              <Text style={[styles.formLabel, { color: theme.textPrimary }]}>Descrição</Text>
               <TextInput
-                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                style={[styles.input, { height: 80, textAlignVertical: 'top', backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
                 value={form.description}
                 onChangeText={(v) => setForm({ ...form, description: v })}
                 placeholder="Sobre o que é o grupo?"
-                placeholderTextColor={colors.dark.secondaryText}
+                placeholderTextColor={theme.textSecondary}
                 multiline
                 maxLength={300}
               />
-              <Text style={styles.formLabel}>Esporte principal</Text>
+              <Text style={[styles.formLabel, { color: theme.textPrimary }]}>Esporte principal</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                 {['Corrida', 'Ciclismo', 'Natação', 'Trilha', 'Academia', 'Caminhada'].map((s) => (
                   <TouchableOpacity
                     key={s}
-                    style={[styles.chip, form.sport === s && styles.chipActive]}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                      form.sport === s && { backgroundColor: theme.primary, borderColor: theme.primary },
+                    ]}
                     onPress={() => setForm({ ...form, sport: s })}
                   >
-                    <Text style={[styles.chipText, form.sport === s && styles.chipTextActive]}>{s}</Text>
+                    <Text style={[styles.chipText, { color: theme.textSecondary }, form.sport === s && { color: theme.primaryText }]}>{s}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-              <Text style={styles.formLabel}>Cidade</Text>
+              <Text style={[styles.formLabel, { color: theme.textPrimary }]}>Cidade</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
                 value={form.city}
                 onChangeText={(v) => setForm({ ...form, city: v })}
                 placeholder="Ex: São Paulo"
-                placeholderTextColor={colors.dark.secondaryText}
+                placeholderTextColor={theme.textSecondary}
               />
 
               <View style={styles.privacyRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.formLabel}>Grupo privado</Text>
-                  <Text style={styles.privacyHint}>
+                  <Text style={[styles.formLabel, { color: theme.textPrimary }]}>Grupo privado</Text>
+                  <Text style={[styles.privacyHint, { color: theme.textSecondary }]}>
                     Privado: só entra com código. Público: aparece no Descobrir.
                   </Text>
                 </View>
                 <Switch
                   value={form.isPrivate}
                   onValueChange={(v) => setForm({ ...form, isPrivate: v })}
-                  trackColor={{ false: '#3A3A3F', true: '#FF6B35' }}
+                  trackColor={{ false: theme.surfaceSecondary, true: theme.primary }}
                   thumbColor="#fff"
                 />
               </View>

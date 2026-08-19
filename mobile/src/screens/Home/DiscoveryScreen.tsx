@@ -22,6 +22,7 @@ import SwipeCard from '../../components/cards/SwipeCard';
 import { fetchCurrentWeather, WeatherData, getExerciseRecommendation, getRandomQuote, MotivationalQuote } from '../../services/external-apis';
 import { getCurrentLocation } from '../../services/location.service';
 import { useAuthStore } from '../../store/authStore';
+import { useThemeStore } from '../../store/themeStore';
 import api from '../../services/api';
 import { matchingApi } from '../../services/matching.service';
 import { showToast } from '../../components/ui/Toast';
@@ -55,6 +56,7 @@ const SPORT_FILTER_OPTIONS = [
 
 export default function DiscoveryScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const haptic = useHaptic();
   const authUser = useAuthStore((s) => s.user);
   const hasLocation = !!(authUser?.latitude && authUser?.longitude);
@@ -335,9 +337,9 @@ export default function DiscoveryScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.dark.accent} />
-        <Text style={styles.loadingText}>Buscando pessoas...</Text>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Buscando pessoas...</Text>
       </View>
     );
   }
@@ -350,19 +352,19 @@ export default function DiscoveryScreen({ navigation }: Props) {
     // Caso especial: usuário sem localização cadastrada
     if (!hasLocation) {
       return (
-        <View style={styles.center}>
+        <View style={[styles.center, { backgroundColor: theme.background }]}>
           <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
             <LinearGradient
-              colors={[colors.dark.accent + '30', colors.dark.accent + '10']}
+              colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
               style={styles.emptyIconGradient}
             >
               <View style={styles.emptyIcon}>
-                <Ionicons name="location-outline" size={44} color={colors.dark.accent} />
+                <Ionicons name="location-outline" size={44} color={theme.primary} />
               </View>
             </LinearGradient>
           </Animated.View>
-          <Text style={styles.emptyTitle}>Complete sua localização</Text>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Complete sua localização</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
             Sem sua localização não conseguimos encontrar atletas próximos.{'\n'}
             Leva menos de 5 segundos.
           </Text>
@@ -385,7 +387,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
             activeOpacity={0.7}
           >
             <LinearGradient
-              colors={[colors.dark.accent, '#FF5021']}
+              colors={theme.gradientPrimary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.refreshBtnGradient}
@@ -400,19 +402,19 @@ export default function DiscoveryScreen({ navigation }: Props) {
     // Falha de carregamento (rede/servidor) — distinto do "ninguém por perto"
     if (loadError) {
       return (
-        <View style={styles.center}>
+        <View style={[styles.center, { backgroundColor: theme.background }]}>
           <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
             <LinearGradient
-              colors={[colors.primary + '20', colors.highlight + '10']}
+              colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
               style={styles.emptyIconGradient}
             >
               <View style={styles.emptyIcon}>
-                <Ionicons name="cloud-offline-outline" size={44} color={colors.primary} />
+                <Ionicons name="cloud-offline-outline" size={44} color={theme.primary} />
               </View>
             </LinearGradient>
           </Animated.View>
-          <Text style={styles.emptyTitle}>Não foi possível carregar</Text>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Não foi possível carregar</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
             Verifique sua conexão e tente de novo.{'\n'}
             Seus atletas próximos aparecem aqui.
           </Text>
@@ -424,7 +426,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
             accessibilityLabel="Tentar novamente"
           >
             <LinearGradient
-              colors={[...colors.gradient]}
+              colors={theme.gradientPrimary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.refreshBtnGradient}
@@ -437,28 +439,28 @@ export default function DiscoveryScreen({ navigation }: Props) {
       );
     }
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
         <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
           <LinearGradient
-            colors={[colors.primary + '20', colors.highlight + '10']}
+            colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
             style={styles.emptyIconGradient}
           >
             <View style={styles.emptyIcon}>
-              <Ionicons name="search-outline" size={44} color={colors.primary} />
+              <Ionicons name="search-outline" size={44} color={theme.primary} />
             </View>
           </LinearGradient>
         </Animated.View>
-        <Text style={styles.emptyTitle}>Ninguem por perto</Text>
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Ninguem por perto</Text>
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
           Tente expandir o raio de busca ou volte mais tarde.{'\n'}
           Novos perfis aparecem todos os dias!
         </Text>
         {quote && (
-          <Text style={styles.quoteEmpty}>"{quote.text}" - {quote.author}</Text>
+          <Text style={[styles.quoteEmpty, { color: theme.primary }]}>"{quote.text}" - {quote.author}</Text>
         )}
         <TouchableOpacity style={styles.refreshBtn} onPress={loadUsers} activeOpacity={0.7}>
           <LinearGradient
-            colors={[...colors.gradient]}
+            colors={theme.gradientPrimary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.refreshBtnGradient}
@@ -472,28 +474,30 @@ export default function DiscoveryScreen({ navigation }: Props) {
           onPress={() => setShowFilters(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="options-outline" size={16} color={colors.primary} />
-          <Text style={styles.adjustFiltersText}>Ajustar filtros</Text>
+          <Ionicons name="options-outline" size={16} color={theme.primary} />
+          <Text style={[styles.adjustFiltersText, { color: theme.primary }]}>Ajustar filtros</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Premium gradient header */}
       <LinearGradient
-        colors={['#14142A', '#0F0F1A']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16']
+          : ['#FFFFFF', '#F9FAFC']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Descobrir</Text>
+          <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Descobrir</Text>
           {/* Perfil completo — só aparece se ainda dá pra completar */}
           {profileCompletion < 100 && (
             <TouchableOpacity style={styles.completionBadge} onPress={() => navigation.getParent()?.navigate('ProfileTab')} activeOpacity={0.7}>
-              <Ionicons name="person-circle-outline" size={13} color={colors.dark.secondaryText} />
+              <Ionicons name="person-circle-outline" size={13} color={theme.textSecondary} />
               <View style={styles.completionBarBg}>
                 <View style={[styles.completionBarFill, { width: `${profileCompletion}%` }]} />
               </View>
@@ -546,7 +550,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Filtros de descoberta"
           >
-            <Ionicons name="options-outline" size={22} color={colors.text} />
+            <Ionicons name="options-outline" size={22} color={theme.textPrimary} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -625,21 +629,23 @@ export default function DiscoveryScreen({ navigation }: Props) {
 
       {/* Cards remaining indicator */}
       <View style={styles.remainingRow}>
-        <Text style={styles.remainingText}>
+        <Text style={[styles.remainingText, { color: theme.textSecondary }]}>
           {users.length - currentIndex} perfis restantes
         </Text>
       </View>
 
       {/* Action buttons */}
       <LinearGradient
-        colors={['rgba(15,15,26,0)', '#0F0F1A', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['rgba(3,9,20,0)', theme.background, theme.background]
+          : ['rgba(247,248,251,0)', theme.background, theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.actions}
       >
         <Animated.View style={{ opacity: undoOpacity }}>
           <TouchableOpacity
-            style={[styles.actionBtn, styles.undoBtn]}
+            style={[styles.actionBtn, styles.undoBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={handleUndo}
             activeOpacity={0.7}
           >
@@ -648,7 +654,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
         </Animated.View>
 
         <TouchableOpacity
-          style={[styles.actionBtn, styles.dislikeBtn]}
+          style={[styles.actionBtn, styles.dislikeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => handleSwipe('left')}
           activeOpacity={0.7}
           accessibilityRole="button"
@@ -659,7 +665,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionBtn, styles.superBtn]}
+          style={[styles.actionBtn, styles.superBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => handleSwipe('right', true)}
           activeOpacity={0.7}
           accessibilityRole="button"
@@ -674,7 +680,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionBtn, styles.likeBtn]}
+          style={[styles.actionBtn, styles.likeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => handleSwipe('right')}
           activeOpacity={0.7}
           accessibilityRole="button"
@@ -685,7 +691,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionBtn, styles.profileBtn]}
+          style={[styles.actionBtn, styles.profileBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => {
             const user = users[currentIndex];
             if (user) navigation.navigate('UserProfile', { userId: user.id });
@@ -694,17 +700,17 @@ export default function DiscoveryScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel={`Ver perfil completo de ${currentUser?.name || ''}`}
         >
-          <Ionicons name="person-outline" size={20} color={colors.primary} />
+          <Ionicons name="person-outline" size={20} color={theme.primary} />
         </TouchableOpacity>
       </LinearGradient>
 
       {/* Filter Modal */}
       <Modal visible={showFilters} animationType="slide" transparent onRequestClose={() => setShowFilters(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 16) + spacing.lg }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 16) + spacing.lg }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filtros</Text>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Filtros</Text>
               <TouchableOpacity
                 style={{ paddingVertical: 8, paddingHorizontal: 4, minHeight: 44, justifyContent: 'center' }}
                 onPress={() => {
@@ -713,55 +719,67 @@ export default function DiscoveryScreen({ navigation }: Props) {
                   setFilterSport('all');
                 }}
               >
-                <Text style={styles.resetText}>Resetar</Text>
+                <Text style={[styles.resetText, { color: theme.primary }]}>Resetar</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.filterLabel}>Distancia maxima</Text>
+            <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Distancia maxima</Text>
             <View style={styles.filterChips}>
               {DISTANCE_OPTIONS.map((d) => (
                 <TouchableOpacity
                   key={d}
-                  style={[styles.filterChip, filterDistance === d && styles.filterChipActive]}
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                    filterDistance === d && { backgroundColor: theme.primary, borderColor: theme.primary },
+                  ]}
                   onPress={() => setFilterDistance(d)}
                 >
-                  <Text style={[styles.filterChipText, filterDistance === d && styles.filterChipTextActive]}>
+                  <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterDistance === d && { color: theme.primaryText }]}>
                     {d} km
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.filterLabel}>Nivel</Text>
+            <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Nivel</Text>
             <View style={styles.filterChips}>
               {LEVEL_OPTIONS.map((l) => (
                 <TouchableOpacity
                   key={l.id}
-                  style={[styles.filterChip, filterLevel === l.id && styles.filterChipActive]}
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                    filterLevel === l.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+                  ]}
                   onPress={() => setFilterLevel(l.id)}
                 >
-                  <Text style={[styles.filterChipText, filterLevel === l.id && styles.filterChipTextActive]}>
+                  <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterLevel === l.id && { color: theme.primaryText }]}>
                     {l.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.filterLabel}>Esporte</Text>
+            <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Esporte</Text>
             <View style={styles.filterChips}>
               {SPORT_FILTER_OPTIONS.map((s) => (
                 <TouchableOpacity
                   key={s.id}
-                  style={[styles.filterChip, filterSport === s.id && styles.filterChipActive]}
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                    filterSport === s.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+                  ]}
                   onPress={() => setFilterSport(s.id)}
                 >
                   <Ionicons
                     name={s.icon}
                     size={14}
-                    color={filterSport === s.id ? colors.white : colors.text}
+                    color={filterSport === s.id ? theme.primaryText : theme.textPrimary}
                     style={{ marginRight: 4 }}
                   />
-                  <Text style={[styles.filterChipText, filterSport === s.id && styles.filterChipTextActive]}>
+                  <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterSport === s.id && { color: theme.primaryText }]}>
                     {s.label}
                   </Text>
                 </TouchableOpacity>
@@ -777,7 +795,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={[...colors.gradient]}
+                colors={theme.gradientPrimary}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.applyFilterGradient}
@@ -791,7 +809,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
               style={styles.closeModalBtn}
               onPress={() => setShowFilters(false)}
             >
-              <Text style={styles.closeModalText}>Cancelar</Text>
+              <Text style={[styles.closeModalText, { color: theme.textSecondary }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>

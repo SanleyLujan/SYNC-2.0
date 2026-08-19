@@ -15,6 +15,7 @@ import MapView from '../../components/map/SyncMap';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { TrackingStackParamList } from '../../navigation/types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getCurrentLocation } from '../../services/location.service';
@@ -43,6 +44,7 @@ const SPORT_OPTIONS = [
 
 export default function TrackingMainScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [selectedSport, setSelectedSport] = useState('running');
   const [showStats, setShowStats] = useState(true);
   const [liveShare, setLiveShare] = useState(false);
@@ -140,31 +142,32 @@ export default function TrackingMainScreen({ navigation }: Props) {
   };
 
   const selectedSportData = SPORT_OPTIONS.find((s) => s.id === selectedSport);
+  const selectedSportColor = selectedSport === 'running' ? theme.primary : selectedSportData?.color || theme.primary;
   const recommendation = weather ? getExerciseRecommendation(weather) : null;
 
   if (!region) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.dark.background, alignItems: 'center', justifyContent: 'center', padding: spacing.lg }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center', padding: spacing.lg }]}>
         {locationLoading ? (
           <>
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <Ionicons name="navigate-circle" size={64} color="#FF6B35" />
+              <Ionicons name="navigate-circle" size={64} color={theme.primary} />
             </Animated.View>
-            <Text style={{ color: colors.dark.text, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700' }}>
+            <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700' }}>
               Conectando ao seu GPS...
             </Text>
-            <Text style={{ color: colors.dark.secondaryText, marginTop: 4, fontSize: fontSize.xs, textAlign: 'center' }}>
+            <Text style={{ color: theme.textSecondary, marginTop: 4, fontSize: fontSize.xs, textAlign: 'center' }}>
               Permita a localização pra começar o treino.
             </Text>
           </>
         ) : (
           <>
-            <Ionicons name="location-outline" size={64} color="#FF6B35" />
-            <Text style={{ color: colors.dark.text, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700', textAlign: 'center' }}>
+            <Ionicons name="location-outline" size={64} color={theme.primary} />
+            <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700', textAlign: 'center' }}>
               {locationError || 'GPS indisponível'}
             </Text>
             <TouchableOpacity
-              style={{ marginTop: spacing.lg, backgroundColor: '#FF6B35', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              style={{ marginTop: spacing.lg, backgroundColor: theme.primary, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
               onPress={initLocation}
               activeOpacity={0.8}
             >
@@ -178,7 +181,7 @@ export default function TrackingMainScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Full-screen dark map */}
       <MapView
         ref={mapRef}
@@ -193,66 +196,66 @@ export default function TrackingMainScreen({ navigation }: Props) {
       {/* Top bar overlay */}
       <View style={[styles.topBar, { top: Math.max(insets.top + 6, 50) }]}>
         <TouchableOpacity
-          style={styles.topBtn}
+          style={[styles.topBtn, { backgroundColor: theme.mapOverlay || theme.overlay }]}
           onPress={() => navigation.navigate('ActivityHistory')}
         >
-          <Ionicons name="time-outline" size={22} color={colors.dark.text} />
+          <Ionicons name="time-outline" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
 
         {/* Weather mini badge */}
         {weather && recommendation && (
-          <View style={[styles.weatherBadge, { borderColor: recommendation.color + '40' }]}>
+          <View style={[styles.weatherBadge, { backgroundColor: theme.mapOverlay || theme.overlay, borderColor: recommendation.color + '40' }]}>
             <Ionicons name={weather.weatherIcon as any} size={16} color={recommendation.color} />
-            <Text style={styles.weatherBadgeTemp}>{weather.temperature}°</Text>
+            <Text style={[styles.weatherBadgeTemp, { color: theme.textPrimary }]}>{weather.temperature}°</Text>
             <View style={[styles.weatherDot, { backgroundColor: recommendation.color }]} />
           </View>
         )}
 
-        <TouchableOpacity style={styles.topBtn} onPress={initLocation}>
-          <Ionicons name="locate-outline" size={22} color={colors.dark.text} />
+        <TouchableOpacity style={[styles.topBtn, { backgroundColor: theme.mapOverlay || theme.overlay }]} onPress={initLocation}>
+          <Ionicons name="locate-outline" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
       </View>
 
       {/* Stats panel (collapsible) */}
       {showStats && (
-        <View style={[styles.statsPanel, { top: Math.max(insets.top + 56, 100) }]}>
+        <View style={[styles.statsPanel, { top: Math.max(insets.top + 56, 100), backgroundColor: theme.mapOverlay || theme.overlay, borderColor: theme.border }]}>
           <TouchableOpacity
             style={styles.statsExpand}
             onPress={() => setShowStats(!showStats)}
           >
-            <Ionicons name="chevron-up" size={18} color={colors.dark.secondaryText} />
+            <Ionicons name="chevron-up" size={18} color={theme.textSecondary} />
           </TouchableOpacity>
           <View style={styles.statsSportRow}>
             <Ionicons
               name={selectedSportData?.icon || 'walk-outline'}
               size={18}
-              color={selectedSportData?.color || colors.dark.accent}
+              color={selectedSportColor}
             />
-            <Text style={[styles.statsTitle, { color: selectedSportData?.color || colors.dark.accent }]}>
+            <Text style={[styles.statsTitle, { color: selectedSportColor }]}>
               {selectedSportData?.label || 'Corrida'}
             </Text>
           </View>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>00:00</Text>
-              <Text style={styles.statLabel}>Tempo</Text>
+              <Text style={[styles.statValue, { color: theme.textPrimary }]}>00:00</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Tempo</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>--:--</Text>
-              <Text style={styles.statLabel}>Ritmo /km</Text>
+              <Text style={[styles.statValue, { color: theme.textPrimary }]}>--:--</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Ritmo /km</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>0,00</Text>
-              <Text style={styles.statLabel}>km</Text>
+              <Text style={[styles.statValue, { color: theme.textPrimary }]}>0,00</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km</Text>
             </View>
           </View>
         </View>
       )}
 
       {/* Bottom controls */}
-      <View style={styles.bottomContainer}>
+      <View style={[styles.bottomContainer, { backgroundColor: theme.background }]}>
         {/* Sport selector + Start button row */}
         <View style={styles.sportRow}>
           <TouchableOpacity
@@ -266,9 +269,9 @@ export default function TrackingMainScreen({ navigation }: Props) {
             <Ionicons
               name={SPORT_OPTIONS[(SPORT_OPTIONS.findIndex((s) => s.id === selectedSport) - 1 + SPORT_OPTIONS.length) % SPORT_OPTIONS.length].icon}
               size={24}
-              color={colors.dark.secondaryText}
+              color={theme.textSecondary}
             />
-            <Text style={styles.sportLabelInactive}>
+            <Text style={[styles.sportLabelInactive, { color: theme.textSecondary }]}>
               {SPORT_OPTIONS[(SPORT_OPTIONS.findIndex((s) => s.id === selectedSport) - 1 + SPORT_OPTIONS.length) % SPORT_OPTIONS.length].label}
             </Text>
           </TouchableOpacity>
@@ -276,13 +279,13 @@ export default function TrackingMainScreen({ navigation }: Props) {
           {/* Big start button with pulse */}
           <Animated.View style={{ transform: [{ scale: Animated.multiply(pulseAnim, startBtnScale) }] }}>
             <TouchableOpacity
-              style={[styles.startButton, { shadowColor: selectedSportData?.color || colors.dark.accent }]}
+              style={[styles.startButton, { shadowColor: selectedSportColor }]}
               onPress={startActivity}
               disabled={loading}
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={[selectedSportData?.color || colors.dark.accent, colors.dark.accent]}
+                colors={[selectedSportColor, theme.mode === 'dark' ? theme.blue : theme.warning]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.startButtonGradient}
@@ -304,9 +307,9 @@ export default function TrackingMainScreen({ navigation }: Props) {
             <Ionicons
               name={SPORT_OPTIONS[(SPORT_OPTIONS.findIndex((s) => s.id === selectedSport) + 1) % SPORT_OPTIONS.length].icon}
               size={24}
-              color={colors.dark.secondaryText}
+              color={theme.textSecondary}
             />
-            <Text style={styles.sportLabelInactive}>
+            <Text style={[styles.sportLabelInactive, { color: theme.textSecondary }]}>
               {SPORT_OPTIONS[(SPORT_OPTIONS.findIndex((s) => s.id === selectedSport) + 1) % SPORT_OPTIONS.length].label}
             </Text>
           </TouchableOpacity>
@@ -327,12 +330,12 @@ export default function TrackingMainScreen({ navigation }: Props) {
 
         {/* Options list */}
         <ScrollView
-          style={styles.optionsList}
+          style={[styles.optionsList, { borderTopColor: theme.border }]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom }}
         >
           <TouchableOpacity
-            style={styles.optionItem}
+            style={[styles.optionItem, { borderBottomColor: theme.border }]}
             onPress={() => {
               setLiveShare(!liveShare);
               if (!liveShare) {
@@ -341,9 +344,9 @@ export default function TrackingMainScreen({ navigation }: Props) {
             }}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name="location-outline" size={22} color={colors.dark.secondaryText} />
+              <Ionicons name="location-outline" size={22} color={theme.textSecondary} />
               <View style={styles.optionTextWrap}>
-                <Text style={styles.optionTitle}>Compartilhar localizacao ao vivo</Text>
+                <Text style={[styles.optionTitle, { color: theme.textPrimary }]}>Compartilhar localizacao ao vivo</Text>
               </View>
             </View>
             <Switch
@@ -352,55 +355,55 @@ export default function TrackingMainScreen({ navigation }: Props) {
                 setLiveShare(v);
                 if (v) showToast('Compartilhamento de localização ativado.', 'success');
               }}
-              trackColor={{ false: '#2A2A40', true: '#FF6B35' }}
+              trackColor={{ false: theme.surfaceSecondary, true: theme.primary }}
               thumbColor={colors.white}
             />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.optionItem}>
+          <TouchableOpacity style={[styles.optionItem, { borderBottomColor: theme.border }]}>
             <View style={styles.optionLeft}>
-              <Ionicons name="refresh-outline" size={22} color={colors.dark.secondaryText} />
+              <Ionicons name="refresh-outline" size={22} color={theme.textSecondary} />
               <View style={styles.optionTextWrap}>
-                <Text style={styles.optionTitle}>Contar voltas</Text>
-                <Text style={styles.optionSubtitle}>Conte manualmente suas voltas</Text>
+                <Text style={[styles.optionTitle, { color: theme.textPrimary }]}>Contar voltas</Text>
+                <Text style={[styles.optionSubtitle, { color: theme.textSecondary }]}>Conte manualmente suas voltas</Text>
               </View>
             </View>
             <Switch
               value={countLaps}
               onValueChange={setCountLaps}
-              trackColor={{ false: '#2A2A40', true: '#FF6B35' }}
+              trackColor={{ false: theme.surfaceSecondary, true: theme.primary }}
               thumbColor={colors.white}
             />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.optionItem}
+            style={[styles.optionItem, { borderBottomColor: theme.border }]}
             onPress={() => showToast('Bluetooth será ativado para buscar sensores de frequência cardíaca, cadência e outros.', 'info')}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name="bluetooth-outline" size={22} color={colors.dark.secondaryText} />
-              <Text style={styles.optionTitle}>Adicionar um sensor</Text>
+              <Ionicons name="bluetooth-outline" size={22} color={theme.textSecondary} />
+              <Text style={[styles.optionTitle, { color: theme.textPrimary }]}>Adicionar um sensor</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.dark.secondaryText} />
+            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.optionItem}
+            style={[styles.optionItem, { borderBottomColor: theme.border }]}
             onPress={() => showToast('Avisos de áudio a cada 1km e pausa automática estão ativos.', 'info')}
           >
             <View style={styles.optionLeft}>
-              <Ionicons name="settings-outline" size={22} color={colors.dark.secondaryText} />
+              <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
               <View style={styles.optionTextWrap}>
-                <Text style={styles.optionTitle}>Configuracoes</Text>
-                <Text style={styles.optionSubtitle}>Avisos de audio, pausa automatica...</Text>
+                <Text style={[styles.optionTitle, { color: theme.textPrimary }]}>Configuracoes</Text>
+                <Text style={[styles.optionSubtitle, { color: theme.textSecondary }]}>Avisos de audio, pausa automatica...</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.dark.secondaryText} />
+            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
           </TouchableOpacity>
 
           {/* Quick goals */}
           <View style={styles.goalsSection}>
-            <Text style={styles.goalsSectionTitle}>Metas rapidas</Text>
+            <Text style={[styles.goalsSectionTitle, { color: theme.textSecondary }]}>Metas rapidas</Text>
             <View style={styles.goalsRow}>
               {[
                 { dist: '1 km', icon: 'walk-outline' as const },
@@ -410,7 +413,7 @@ export default function TrackingMainScreen({ navigation }: Props) {
               ].map((g, i) => (
                 <TouchableOpacity
                   key={i}
-                  style={styles.goalChip}
+                  style={[styles.goalChip, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}
                   onPress={async () => {
                     const ok = await confirmAsync(
                       `Meta: ${g.dist}`,
@@ -421,8 +424,8 @@ export default function TrackingMainScreen({ navigation }: Props) {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={g.icon} size={14} color={colors.dark.accent} />
-                  <Text style={styles.goalChipText}>{g.dist}</Text>
+                  <Ionicons name={g.icon} size={14} color={theme.primary} />
+                  <Text style={[styles.goalChipText, { color: theme.primary }]}>{g.dist}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -432,8 +435,8 @@ export default function TrackingMainScreen({ navigation }: Props) {
             style={styles.historyLink}
             onPress={() => navigation.navigate('ActivityHistory')}
           >
-            <Ionicons name="time-outline" size={20} color={colors.dark.accent} />
-            <Text style={styles.historyText}>Ver historico de atividades</Text>
+            <Ionicons name="time-outline" size={20} color={theme.primary} />
+            <Text style={[styles.historyText, { color: theme.primary }]}>Ver historico de atividades</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>

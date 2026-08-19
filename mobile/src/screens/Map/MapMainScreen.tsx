@@ -19,6 +19,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MapStackParamList } from '../../navigation/types';
 import { Event as EventType } from '../../types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getCurrentLocation } from '../../services/location.service';
@@ -60,6 +61,7 @@ const sportColors: Record<string, string> = {
 };
 
 export default function MapMainScreen({ navigation }: Props) {
+  const theme = useThemeStore((s) => s.theme);
   const [events, setEvents] = useState<EventType[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [joining, setJoining] = useState(false);
@@ -260,30 +262,30 @@ export default function MapMainScreen({ navigation }: Props) {
   // Sem localização real ainda: mostra estado de empty/erro centralizado
   if (!region) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: spacing.lg }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center', padding: spacing.lg }]}>
         {loading ? (
           <>
-            <ActivityIndicator size="large" color="#FF6B35" />
-            <Text style={{ color: colors.text, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '600' }}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '600' }}>
               Procurando sua localização...
             </Text>
-            <Text style={{ color: colors.secondaryText, marginTop: 4, fontSize: fontSize.xs, textAlign: 'center' }}>
+            <Text style={{ color: theme.textSecondary, marginTop: 4, fontSize: fontSize.xs, textAlign: 'center' }}>
               Permita o acesso ao GPS pra ver eventos perto de você.
             </Text>
           </>
         ) : (
           <>
-            <Ionicons name="location-outline" size={56} color="#FF6B35" />
-            <Text style={{ color: colors.text, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700', textAlign: 'center' }}>
+            <Ionicons name="location-outline" size={56} color={theme.primary} />
+            <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700', textAlign: 'center' }}>
               {locationError || 'Sem acesso à sua localização'}
             </Text>
-            <Text style={{ color: colors.secondaryText, marginTop: spacing.xs, fontSize: fontSize.xs, textAlign: 'center', maxWidth: 320 }}>
+            <Text style={{ color: theme.textSecondary, marginTop: spacing.xs, fontSize: fontSize.xs, textAlign: 'center', maxWidth: 320 }}>
               {Platform.OS === 'web'
                 ? 'Clique no cadeado da barra de endereço e libere "Localização".'
                 : 'Vá em Ajustes do dispositivo → Sync → Localização e ative.'}
             </Text>
             <TouchableOpacity
-              style={{ marginTop: spacing.lg, backgroundColor: '#FF6B35', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              style={{ marginTop: spacing.lg, backgroundColor: theme.primary, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
               onPress={initLocation}
               activeOpacity={0.8}
             >
@@ -297,7 +299,7 @@ export default function MapMainScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -335,8 +337,8 @@ export default function MapMainScreen({ navigation }: Props) {
           <Circle
             center={userCoords}
             radius={searchRadius * 1000}
-            strokeColor={colors.primary + '30'}
-            fillColor={colors.primary + '08'}
+            strokeColor={theme.primary + '30'}
+            fillColor={theme.primary + '08'}
             strokeWidth={1}
           />
         )}
@@ -382,7 +384,7 @@ export default function MapMainScreen({ navigation }: Props) {
         {route?.coordinates && route.coordinates.length > 1 && (
           <Polyline
             coordinates={route.coordinates}
-            strokeColor="#FF6B35"
+            strokeColor={theme.primary}
             strokeWidth={5}
           />
         )}
@@ -390,7 +392,7 @@ export default function MapMainScreen({ navigation }: Props) {
         {/* Marker do destino */}
         {destination && (
           <Marker coordinate={destination}>
-            <View style={[styles.marker, { backgroundColor: '#FF6B35' }]}>
+            <View style={[styles.marker, { backgroundColor: theme.primary }]}>
               <Ionicons name="flag" size={14} color="#fff" />
             </View>
           </Marker>
@@ -399,7 +401,11 @@ export default function MapMainScreen({ navigation }: Props) {
 
       {/* Route mode toggle (canto direito) */}
       <TouchableOpacity
-        style={[styles.routeBtn, routeMode && styles.routeBtnActive]}
+        style={[
+          styles.routeBtn,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+          routeMode && { backgroundColor: theme.primary, borderColor: theme.primary },
+        ]}
         onPress={() => {
           const next = !routeMode;
           setRouteMode(next);
@@ -412,7 +418,7 @@ export default function MapMainScreen({ navigation }: Props) {
         <Ionicons
           name={routeMode ? 'close' : 'navigate'}
           size={20}
-          color={routeMode ? '#fff' : '#FF6B35'}
+          color={routeMode ? theme.primaryText : theme.primary}
         />
       </TouchableOpacity>
 
@@ -443,16 +449,16 @@ export default function MapMainScreen({ navigation }: Props) {
       >
         {/* Location name */}
         {locationName ? (
-          <View style={styles.locationChip}>
-            <Ionicons name="location" size={14} color={colors.primary} />
-            <Text style={styles.locationText} numberOfLines={1}>{locationName}</Text>
+          <View style={[styles.locationChip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Ionicons name="location" size={14} color={theme.primary} />
+            <Text style={[styles.locationText, { color: theme.textPrimary }]} numberOfLines={1}>{locationName}</Text>
           </View>
         ) : null}
 
         {/* Weather chip */}
         {weather && (
           <TouchableOpacity
-            style={styles.weatherChip}
+            style={[styles.weatherChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={() => setShowWeatherPanel(!showWeatherPanel)}
             activeOpacity={0.7}
           >
@@ -461,7 +467,7 @@ export default function MapMainScreen({ navigation }: Props) {
               size={18}
               color={recommendation?.color || colors.primary}
             />
-            <Text style={styles.weatherTemp}>{weather.temperature}°</Text>
+            <Text style={[styles.weatherTemp, { color: theme.textPrimary }]}>{weather.temperature}°</Text>
             {recommendation && (
               <View style={[styles.weatherDot, { backgroundColor: recommendation.color }]} />
             )}
@@ -470,19 +476,23 @@ export default function MapMainScreen({ navigation }: Props) {
 
         {/* Heatmap toggle */}
         <TouchableOpacity
-          style={[styles.locationChip, showHeatmap && { backgroundColor: '#FF6B35', borderColor: '#FF6B35' }]}
+          style={[
+            styles.locationChip,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+            showHeatmap && { backgroundColor: theme.primary, borderColor: theme.primary },
+          ]}
           onPress={() => setShowHeatmap((v) => !v)}
           activeOpacity={0.7}
         >
-          <Ionicons name="flame" size={14} color={showHeatmap ? '#fff' : '#FF6B35'} />
-          <Text style={[styles.locationText, showHeatmap && { color: '#fff' }]}>
+          <Ionicons name="flame" size={14} color={showHeatmap ? theme.primaryText : theme.primary} />
+          <Text style={[styles.locationText, { color: theme.textPrimary }, showHeatmap && { color: theme.primaryText }]}>
             Heatmap{showHeatmap && heatmapPoints.length ? ` (${heatmapPoints.length})` : ''}
           </Text>
         </TouchableOpacity>
 
         {/* Territórios — jogo de conquista */}
         <TouchableOpacity
-          style={[styles.locationChip, { borderColor: '#FCD34D' }]}
+          style={[styles.locationChip, { backgroundColor: theme.surface, borderColor: '#FCD34D' }]}
           onPress={() => navigation.navigate('Territory')}
           activeOpacity={0.7}
         >
@@ -497,16 +507,20 @@ export default function MapMainScreen({ navigation }: Props) {
           {filters.map((f) => (
             <TouchableOpacity
               key={f.label}
-              style={[styles.filterChip, filter === f.id && styles.filterChipActive]}
+              style={[
+                styles.filterChip,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+                filter === f.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+              ]}
               onPress={() => handleFilterPress(f.id)}
               activeOpacity={0.7}
             >
               <Ionicons
                 name={f.icon}
                 size={16}
-                color={filter === f.id ? colors.white : colors.text}
+                color={filter === f.id ? theme.primaryText : theme.textPrimary}
               />
-              <Text style={[styles.filterText, filter === f.id && styles.filterTextActive]}>
+              <Text style={[styles.filterText, { color: theme.textPrimary }, filter === f.id && { color: theme.primaryText }]}>
                 {f.label}
               </Text>
             </TouchableOpacity>
@@ -532,7 +546,9 @@ export default function MapMainScreen({ navigation }: Props) {
           pointerEvents={showWeatherPanel ? 'auto' : 'none'}
         >
           <LinearGradient
-            colors={['rgba(10,10,20,0.98)', 'rgba(14,14,28,0.99)']}
+            colors={theme.mode === 'dark'
+              ? ['rgba(3,9,20,0.98)', 'rgba(8,19,33,0.99)']
+              : ['rgba(255,255,255,0.98)', 'rgba(247,248,251,0.99)']}
             style={styles.weatherPanelInner}
           >
             <View style={styles.weatherHeader}>
@@ -544,25 +560,25 @@ export default function MapMainScreen({ navigation }: Props) {
                 </View>
               </View>
               <TouchableOpacity onPress={() => setShowWeatherPanel(false)}>
-                <Ionicons name="close-circle" size={24} color={colors.secondaryText} />
+                <Ionicons name="close-circle" size={24} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.weatherDetails}>
               <View style={styles.weatherDetailItem}>
-                <Ionicons name="water-outline" size={16} color={colors.secondaryText} />
+                <Ionicons name="water-outline" size={16} color={theme.textSecondary} />
                 <Text style={styles.weatherDetailText}>{weather.humidity}%</Text>
               </View>
               <View style={styles.weatherDetailItem}>
-                <Ionicons name="speedometer-outline" size={16} color={colors.secondaryText} />
+                <Ionicons name="speedometer-outline" size={16} color={theme.textSecondary} />
                 <Text style={styles.weatherDetailText}>{weather.windSpeed} km/h</Text>
               </View>
               <View style={styles.weatherDetailItem}>
-                <Ionicons name="sunny-outline" size={16} color={colors.secondaryText} />
+                <Ionicons name="sunny-outline" size={16} color={theme.textSecondary} />
                 <Text style={styles.weatherDetailText}>UV {weather.uvIndex}</Text>
               </View>
               <View style={styles.weatherDetailItem}>
-                <Ionicons name="thermometer-outline" size={16} color={colors.secondaryText} />
+                <Ionicons name="thermometer-outline" size={16} color={theme.textSecondary} />
                 <Text style={styles.weatherDetailText}>Sens. {weather.feelsLike}°</Text>
               </View>
             </View>
@@ -600,38 +616,38 @@ export default function MapMainScreen({ navigation }: Props) {
       {!selectedEvent && (<>
       {/* Map controls */}
       <View style={styles.mapControls}>
-        <TouchableOpacity style={styles.mapBtn} onPress={centerOnUser}>
-          <Ionicons name="locate" size={22} color={colors.primary} />
+        <TouchableOpacity style={[styles.mapBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={centerOnUser}>
+          <Ionicons name="locate" size={22} color={theme.primary} />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.mapBtn}
+          style={[styles.mapBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => {
             const newRadius = searchRadius === 5 ? 10 : searchRadius === 10 ? 20 : searchRadius === 20 ? 50 : 5;
             setSearchRadius(newRadius);
             if (userCoords) loadEvents(userCoords.latitude, userCoords.longitude);
           }}
         >
-          <Text style={styles.radiusText}>{searchRadius}</Text>
-          <Text style={styles.radiusUnit}>km</Text>
+          <Text style={[styles.radiusText, { color: theme.primary }]}>{searchRadius}</Text>
+          <Text style={[styles.radiusUnit, { color: theme.textSecondary }]}>km</Text>
         </TouchableOpacity>
       </View>
 
       {/* Events count badge */}
-      <View style={styles.eventCountBadge}>
-        <Ionicons name="calendar" size={14} color={colors.primary} />
-        <Text style={styles.eventCountText}>
+      <View style={[styles.eventCountBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Ionicons name="calendar" size={14} color={theme.primary} />
+        <Text style={[styles.eventCountText, { color: theme.textPrimary }]}>
           {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''} proximo{filteredEvents.length !== 1 ? 's' : ''}
         </Text>
       </View>
 
       {/* My events button */}
       <TouchableOpacity
-        style={styles.myEventsBtn}
+        style={[styles.myEventsBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
         onPress={() => navigation.navigate('MyEvents')}
         activeOpacity={0.8}
       >
-        <Ionicons name="calendar-outline" size={18} color={colors.text} />
-        <Text style={styles.myEventsBtnText}>Meus eventos</Text>
+        <Ionicons name="calendar-outline" size={18} color={theme.textPrimary} />
+        <Text style={[styles.myEventsBtnText, { color: theme.textPrimary }]}>Meus eventos</Text>
       </TouchableOpacity>
 
       {/* Flash event FAB (⚡ killer feature) */}
@@ -669,7 +685,7 @@ export default function MapMainScreen({ navigation }: Props) {
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={['#FF6B35', '#FF5021']}
+          colors={theme.gradientPrimary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.flashBtnGradient}
@@ -685,7 +701,7 @@ export default function MapMainScreen({ navigation }: Props) {
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={[...colors.gradient]}
+          colors={theme.gradientPrimary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.createBtnGradient}
@@ -701,6 +717,8 @@ export default function MapMainScreen({ navigation }: Props) {
           style={[
             styles.eventCard,
             {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
               transform: [{
                 translateY: cardAnim.interpolate({
                   inputRange: [0, 1],
@@ -715,7 +733,7 @@ export default function MapMainScreen({ navigation }: Props) {
             style={styles.closeCard}
             onPress={() => setSelectedEvent(null)}
           >
-            <Ionicons name="close-circle" size={24} color={colors.secondaryText} />
+            <Ionicons name="close-circle" size={24} color={theme.textSecondary} />
           </TouchableOpacity>
 
           <View style={styles.eventCardHeader}>
@@ -727,7 +745,7 @@ export default function MapMainScreen({ navigation }: Props) {
               />
             </View>
             <View style={styles.eventCardInfo}>
-              <Text style={styles.eventTitle} numberOfLines={1}>
+              <Text style={[styles.eventTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                 {selectedEvent.title}
               </Text>
               <Text style={[styles.eventSport, { color: sportColors[selectedEvent.sport] || colors.primary }]}>
@@ -738,8 +756,8 @@ export default function MapMainScreen({ navigation }: Props) {
 
           <View style={styles.eventDetails}>
             <View style={styles.eventDetailRow}>
-              <Ionicons name="calendar-outline" size={16} color={colors.secondaryText} />
-              <Text style={styles.eventDetailText}>
+              <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
+              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]}>
                 {new Date(selectedEvent.date).toLocaleDateString('pt-BR', {
                   day: '2-digit',
                   month: 'long',
@@ -750,15 +768,15 @@ export default function MapMainScreen({ navigation }: Props) {
             </View>
             {selectedEvent.address && (
               <View style={styles.eventDetailRow}>
-                <Ionicons name="location-outline" size={16} color={colors.secondaryText} />
-                <Text style={styles.eventDetailText} numberOfLines={1}>
+                <Ionicons name="location-outline" size={16} color={theme.textSecondary} />
+                <Text style={[styles.eventDetailText, { color: theme.textSecondary }]} numberOfLines={1}>
                   {selectedEvent.address}
                 </Text>
               </View>
             )}
             <View style={styles.eventDetailRow}>
-              <Ionicons name="people-outline" size={16} color={colors.secondaryText} />
-              <Text style={styles.eventDetailText}>
+              <Ionicons name="people-outline" size={16} color={theme.textSecondary} />
+              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]}>
                 {selectedEvent.participantCount || 0}/{selectedEvent.maxParticipants} participantes
               </Text>
               {/* Progress bar */}
