@@ -19,6 +19,7 @@ import { SkeletonList } from '../../components/ui/Skeleton';
 import Avatar from '../../components/ui/Avatar';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
+import { useThemeStore } from '../../store/themeStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'Ranking'>;
@@ -36,6 +37,7 @@ const SCOPES: { id: Scope; label: string; icon: keyof typeof Ionicons.glyphMap }
 
 export default function RankingScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [ranking, setRanking] = useState<RankingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,7 +84,7 @@ export default function RankingScreen({ navigation }: Props) {
 
     return (
       <LinearGradient
-        colors={[...colors.gradient]}
+        colors={theme.gradientPrimary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.podiumGradient}
@@ -125,16 +127,16 @@ export default function RankingScreen({ navigation }: Props) {
   };
 
   const renderItem = ({ item }: { item: RankingItem }) => (
-    <View style={styles.listItem}>
-      <Text style={styles.listPosition}>{item.position}</Text>
+    <View style={[styles.listItem, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.mode === 'dark' ? '#000' : theme.primary }]}>
+      <Text style={[styles.listPosition, { color: theme.textSecondary }]}>{item.position}</Text>
       <Avatar uri={item.avatarUrl} size={44} style={styles.listAvatar} />
       <View style={styles.listInfo}>
-        <Text style={styles.listName}>{item.name}</Text>
-        <Text style={styles.listMeta}>{item.totalActivities} atividades</Text>
+        <Text style={[styles.listName, { color: theme.textPrimary }]}>{item.name}</Text>
+        <Text style={[styles.listMeta, { color: theme.textSecondary }]}>{item.totalActivities} atividades</Text>
       </View>
       <View style={styles.listDistanceWrap}>
-        <Text style={styles.listDistance}>{item.totalDistanceKm}</Text>
-        <Text style={styles.listDistanceUnit}>km</Text>
+        <Text style={[styles.listDistance, { color: theme.primary }]}>{item.totalDistanceKm}</Text>
+        <Text style={[styles.listDistanceUnit, { color: theme.textSecondary }]}>km</Text>
       </View>
     </View>
   );
@@ -142,22 +144,24 @@ export default function RankingScreen({ navigation }: Props) {
   const scopeLabel = scope === 'monthly' ? 'Mensal' : scope === 'weekly' ? 'Semanal' : 'Entre Amigos';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
         <TouchableOpacity
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Ranking {scopeLabel}</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Ranking {scopeLabel}</Text>
         <View style={{ width: 40 }} />
       </LinearGradient>
 
@@ -166,7 +170,13 @@ export default function RankingScreen({ navigation }: Props) {
         {SCOPES.map((s) => (
           <TouchableOpacity
             key={s.id}
-            style={[styles.tab, scope === s.id && styles.tabActive]}
+            style={[
+              styles.tab,
+              {
+                backgroundColor: scope === s.id ? theme.primary : theme.surface,
+                borderColor: scope === s.id ? theme.primary : theme.border,
+              },
+            ]}
             onPress={() => setScope(s.id)}
             activeOpacity={0.7}
             accessibilityRole="tab"
@@ -176,9 +186,9 @@ export default function RankingScreen({ navigation }: Props) {
             <Ionicons
               name={s.icon}
               size={14}
-              color={scope === s.id ? '#fff' : colors.dark.secondaryText}
+              color={scope === s.id ? theme.primaryText : theme.textSecondary}
             />
-            <Text style={[styles.tabText, scope === s.id && styles.tabTextActive]}>
+            <Text style={[styles.tabText, { color: scope === s.id ? theme.primaryText : theme.textSecondary }]}>
               {s.label}
             </Text>
           </TouchableOpacity>
@@ -196,15 +206,15 @@ export default function RankingScreen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
           }
           ListEmptyComponent={
             error ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="cloud-offline-outline" size={48} color="rgba(255,255,255,0.20)" />
-                <Text style={styles.empty}>Não foi possível carregar o ranking.</Text>
+                <Ionicons name="cloud-offline-outline" size={48} color={theme.textMuted} />
+                <Text style={[styles.empty, { color: theme.textSecondary }]}>Não foi possível carregar o ranking.</Text>
                 <TouchableOpacity
-                  style={styles.retryBtn}
+                  style={[styles.retryBtn, { backgroundColor: theme.primary }]}
                   onPress={() => loadRanking()}
                   accessibilityRole="button"
                   accessibilityLabel="Tentar novamente"
@@ -215,8 +225,8 @@ export default function RankingScreen({ navigation }: Props) {
               </View>
             ) : (
               <View style={styles.emptyContainer}>
-                <Ionicons name="trophy-outline" size={48} color="rgba(255,255,255,0.20)" />
-                <Text style={styles.empty}>
+                <Ionicons name="trophy-outline" size={48} color={theme.textMuted} />
+                <Text style={[styles.empty, { color: theme.textSecondary }]}>
                   {scope === 'friends'
                     ? 'Você ainda não tem amigos no app. Vá pro Descobrir!'
                     : 'Nenhum dado de ranking ainda'}

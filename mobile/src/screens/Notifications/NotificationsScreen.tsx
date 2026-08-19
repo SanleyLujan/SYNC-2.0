@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, spacing } from '../../theme';
 import api from '../../services/api';
 import { showToast } from '../../components/ui/Toast';
+import { useThemeStore } from '../../store/themeStore';
 
 interface Notification {
   id: string;
@@ -33,9 +34,9 @@ const TYPE_CONFIG: Record<string, { icon: any; color: string }> = {
   achievement_unlocked: { icon: 'trophy', color: '#A78BFA' },
   like_received: { icon: 'thumbs-up', color: '#10B981' },
   comment: { icon: 'chatbox', color: '#3B82F6' },
-  kudos: { icon: 'flame', color: '#FF6B35' },
+  kudos: { icon: 'flame', color: '#FF9F43' },
   story: { icon: 'aperture', color: '#EC4899' },
-  flash_event: { icon: 'flash', color: '#FF6B35' },
+  flash_event: { icon: 'flash', color: '#FF9F43' },
   hydration: { icon: 'water', color: '#3B82F6' },
   training_daily: { icon: 'sunny', color: '#FCD34D' },
   kom_stolen: { icon: 'flag', color: '#FFD700' },
@@ -56,6 +57,7 @@ function timeAgo(iso: string): string {
 
 export default function NotificationsScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [list, setList] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,7 +68,8 @@ export default function NotificationsScreen({ navigation }: any) {
     setError(false);
     try {
       const { data } = await api.get('/notifications');
-      setList(data || []);
+      const notifications = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+      setList(notifications);
     } catch {
       setError(true);
       setList([]);
@@ -101,53 +104,62 @@ export default function NotificationsScreen({ navigation }: any) {
     const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.default;
     return (
       <TouchableOpacity
-        style={[styles.notification, !item.isRead && styles.unread]}
+        style={[
+          styles.notification,
+          { borderBottomColor: theme.divider },
+          !item.isRead && {
+            backgroundColor: theme.primarySoft,
+            borderLeftColor: theme.primary,
+          },
+        ]}
         onPress={() => markAsRead(item.id)}
         activeOpacity={0.7}
       >
-        <View style={[styles.iconCircle, { backgroundColor: cfg.color + '22' }]}>
+        <View style={[styles.iconCircle, { backgroundColor: cfg.color + '22', borderColor: theme.border }]}>
           <Ionicons name={cfg.icon} size={22} color={cfg.color} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.notifTitle}>{item.title}</Text>
-          <Text style={styles.notifContent} numberOfLines={2}>{item.content}</Text>
-          <Text style={styles.notifTime}>{timeAgo(item.createdAt)}</Text>
+          <Text style={[styles.notifTitle, { color: theme.textPrimary }]}>{item.title}</Text>
+          <Text style={[styles.notifContent, { color: theme.textSecondary }]} numberOfLines={2}>{item.content}</Text>
+          <Text style={[styles.notifTime, { color: theme.textSecondary }]}>{timeAgo(item.createdAt)}</Text>
         </View>
-        {!item.isRead && <View style={styles.dot} />}
+        {!item.isRead && <View style={[styles.dot, { backgroundColor: theme.primary, shadowColor: theme.primary }]} />}
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
         <TouchableOpacity
           onPress={() => navigation?.goBack?.()}
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color={colors.dark.text} />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={styles.title}>Notificações</Text>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>Notificações</Text>
           {unreadCount > 0 && (
-            <Text style={styles.subtitle}>{unreadCount} não lidas</Text>
+            <Text style={[styles.subtitle, { color: theme.primary }]}>{unreadCount} não lidas</Text>
           )}
         </View>
         {unreadCount > 0 && (
           <TouchableOpacity
             onPress={markAllAsRead}
-            style={styles.markAllBtn}
+            style={[styles.markAllBtn, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}
             accessibilityRole="button"
             accessibilityLabel="Marcar todas as notificações como lidas"
           >
-            <Text style={styles.markAll}>Marcar todas</Text>
+            <Text style={[styles.markAll, { color: theme.primary }]}>Marcar todas</Text>
           </TouchableOpacity>
         )}
       </LinearGradient>
@@ -157,16 +169,16 @@ export default function NotificationsScreen({ navigation }: any) {
         keyExtractor={(n) => n.id}
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
         ListEmptyComponent={
           loading ? null : error ? (
             <View style={styles.empty}>
-              <Ionicons name="cloud-offline-outline" size={64} color={colors.dark.secondaryText} />
-              <Text style={styles.emptyTitle}>Erro ao carregar</Text>
-              <Text style={styles.emptyText}>Não foi possível buscar suas notificações.</Text>
+              <Ionicons name="cloud-offline-outline" size={64} color={theme.textMuted} />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Erro ao carregar</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Não foi possível buscar suas notificações.</Text>
               <TouchableOpacity
-                style={styles.retryBtn}
+                style={[styles.retryBtn, { backgroundColor: theme.primary }]}
                 onPress={() => load()}
                 accessibilityRole="button"
                 accessibilityLabel="Tentar novamente"
@@ -177,9 +189,9 @@ export default function NotificationsScreen({ navigation }: any) {
             </View>
           ) : (
             <View style={styles.empty}>
-              <Ionicons name="notifications-outline" size={64} color={colors.dark.secondaryText} />
-              <Text style={styles.emptyTitle}>Sem notificações</Text>
-              <Text style={styles.emptyText}>
+              <Ionicons name="notifications-outline" size={64} color={theme.textMuted} />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Sem notificações</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
                 Quando você receber kudos, comentários ou matches, aparecerá aqui.
               </Text>
             </View>

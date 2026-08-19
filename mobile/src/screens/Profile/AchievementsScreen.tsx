@@ -45,12 +45,22 @@ export default function AchievementsScreen({ navigation }: Props) {
     if (!silent) setLoading(true);
     setError(false);
     try {
-      const [achievementsData, xp] = await Promise.all([
+      const [achievementsResult, xpResult] = await Promise.allSettled([
         achievementsService.getAchievements(),
         achievementsService.getXP(),
       ]);
-      setAchievements(achievementsData);
-      setXpData(xp);
+      if (achievementsResult.status === 'fulfilled') {
+        const achievementsData = achievementsResult.value;
+        setAchievements(Array.isArray(achievementsData) ? achievementsData : Array.isArray((achievementsData as any)?.data) ? (achievementsData as any).data : []);
+      } else {
+        setAchievements([]);
+        setError(true);
+      }
+      if (xpResult.status === 'fulfilled') {
+        setXpData(xpResult.value || null);
+      } else {
+        setXpData(null);
+      }
     } catch {
       setError(true);
     } finally {

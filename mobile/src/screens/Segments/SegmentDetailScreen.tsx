@@ -31,6 +31,7 @@ import { showToast } from '../../components/ui/Toast';
 import { useHaptic } from '../../hooks/useHaptic';
 import { feedApi } from '../../services/feed.service';
 import { useAuthStore } from '../../store/authStore';
+import { useThemeStore } from '../../store/themeStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'SegmentDetail'>;
@@ -42,6 +43,7 @@ const medal = ['#FFD700', '#C0C0C0', '#CD7F32'];
 export default function SegmentDetailScreen({ navigation, route }: Props) {
   const { segmentId } = route.params;
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const haptic = useHaptic();
   const [segment, setSegment] = useState<Segment | null>(null);
   const [board, setBoard] = useState<LeaderboardRow[]>([]);
@@ -142,61 +144,63 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
   };
 
   const renderRow = ({ item }: { item: LeaderboardRow }) => (
-    <View style={styles.row}>
+    <View style={[styles.row, { borderBottomColor: theme.divider }]}>
       <View style={styles.rankWrap}>
         {item.rank <= 3 ? (
           <Ionicons name="trophy" size={18} color={medal[item.rank - 1]} />
         ) : (
-          <Text style={styles.rankNum}>{item.rank}</Text>
+          <Text style={[styles.rankNum, { color: theme.textSecondary }]}>{item.rank}</Text>
         )}
       </View>
       <Avatar uri={item.avatarUrl} size={40} style={styles.rowAvatar} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
-        {!!item.city && <Text style={styles.rowCity} numberOfLines={1}>{item.city}</Text>}
+        <Text style={[styles.rowName, { color: theme.textPrimary }]} numberOfLines={1}>{item.name}</Text>
+        {!!item.city && <Text style={[styles.rowCity, { color: theme.textSecondary }]} numberOfLines={1}>{item.city}</Text>}
       </View>
       {item.isKOM && (
         <View style={styles.komTag}>
           <Text style={styles.komTagText}>KOM</Text>
         </View>
       )}
-      <Text style={styles.rowTime}>{formatElapsed(item.elapsedSec)}</Text>
+      <Text style={[styles.rowTime, { color: theme.textPrimary }]}>{formatElapsed(item.elapsedSec)}</Text>
     </View>
   );
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   if (error || !segment) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
         <ErrorState onRetry={() => { setLoading(true); load(); }} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerName} numberOfLines={1}>{segment.name}</Text>
+        <Text style={[styles.headerName, { color: theme.textPrimary }]} numberOfLines={1}>{segment.name}</Text>
       </LinearGradient>
 
       <FlatList
         data={board}
         keyExtractor={(r) => r.userId}
         renderItem={renderRow}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         ListHeaderComponent={
           <View>
             {/* Mapa do trecho: início (verde) → fim (vermelho) com linha */}
@@ -216,7 +220,7 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
                     { latitude: segment.startLat, longitude: segment.startLng },
                     { latitude: segment.endLat, longitude: segment.endLng },
                   ]}
-                  strokeColor={colors.primary}
+                  strokeColor={theme.primary}
                   strokeWidth={4}
                 />
                 <Marker coordinate={{ latitude: segment.startLat, longitude: segment.startLng }}>
@@ -233,35 +237,35 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
             </View>
 
             {/* Stats do segmento */}
-            <View style={styles.statsCard}>
+            <View style={[styles.statsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{(segment.distanceMeters / 1000).toFixed(2)}</Text>
-                <Text style={styles.statLabel}>km</Text>
+                <Text style={[styles.statValue, { color: theme.textPrimary }]}>{(segment.distanceMeters / 1000).toFixed(2)}</Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>km</Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{segment.attemptsCount}</Text>
-                <Text style={styles.statLabel}>tentativas</Text>
+                <Text style={[styles.statValue, { color: theme.textPrimary }]}>{segment.attemptsCount}</Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>tentativas</Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
               <View style={styles.statBox}>
                 <Text style={[styles.statValue, { color: '#FFD700' }]}>
                   {segment.bestTimeSec != null ? formatElapsed(segment.bestTimeSec) : '—'}
                 </Text>
-                <Text style={styles.statLabel}>KOM</Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>KOM</Text>
               </View>
             </View>
 
             {!!segment.description && (
-              <Text style={styles.desc}>{segment.description}</Text>
+              <Text style={[styles.desc, { color: theme.textSecondary }]}>{segment.description}</Text>
             )}
 
             {/* Seus tempos — evolução (mais alto = mais rápido) */}
             {mine && mine.count > 0 && (
-              <View style={styles.myCard}>
+              <View style={[styles.myCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <View style={styles.myHeader}>
-                  <Text style={styles.myTitle}>Seus tempos</Text>
-                  <Text style={styles.myBest}>
+                  <Text style={[styles.myTitle, { color: theme.textPrimary }]}>Seus tempos</Text>
+                  <Text style={[styles.myBest, { color: theme.textSecondary }]}>
                     Melhor: <Text style={{ color: '#FFD700', fontWeight: '800' }}>{formatElapsed(mine.bestSec || 0)}</Text>
                   </Text>
                 </View>
@@ -280,19 +284,19 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
                           return (
                             <View
                               key={i}
-                              style={[styles.sparkBar, { height: h, backgroundColor: isBest ? '#FFD700' : colors.primary }]}
+                              style={[styles.sparkBar, { height: h, backgroundColor: isBest ? '#FFD700' : theme.primary }]}
                             />
                           );
                         });
                       })()}
                     </View>
-                    <Text style={styles.myFootnote}>
+                    <Text style={[styles.myFootnote, { color: theme.textSecondary }]}>
                       {mine.count} tentativas · último: {formatElapsed(mine.lastSec || 0)}
                       {(mine.lastSec || 0) <= (mine.bestSec || 0) ? '  🔥 seu recorde!' : ''}
                     </Text>
                   </>
                 ) : (
-                  <Text style={styles.myFootnote}>Sua 1ª passagem por aqui. Volte pra melhorar o tempo! 💪</Text>
+                  <Text style={[styles.myFootnote, { color: theme.textSecondary }]}>Sua 1ª passagem por aqui. Volte pra melhorar o tempo! 💪</Text>
                 )}
               </View>
             )}
@@ -300,7 +304,7 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
             <View style={styles.ctaRow}>
               <TouchableOpacity style={styles.recordBtn} onPress={() => setShowRecord(true)} activeOpacity={0.85}>
                 <LinearGradient
-                  colors={[...colors.gradient]}
+                  colors={theme.gradientPrimary}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={styles.recordBtnInner}
                 >
@@ -308,25 +312,28 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
                   <Text style={styles.recordBtnText}>Registrar meu tempo</Text>
                 </LinearGradient>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.shareBtn} onPress={shareToFeed} disabled={sharing} activeOpacity={0.85}>
+              <TouchableOpacity style={[styles.shareBtn, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '40' }]} onPress={shareToFeed} disabled={sharing} activeOpacity={0.85}>
                 {sharing ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Ionicons name="share-social" size={20} color={colors.primary} />
+                  <Ionicons name="share-social" size={20} color={theme.primary} />
                 )}
               </TouchableOpacity>
             </View>
 
             <View style={styles.boardHeader}>
-              <Text style={styles.boardTitle}>Classificação</Text>
-              <View style={styles.scopeToggle}>
+              <Text style={[styles.boardTitle, { color: theme.textPrimary }]}>Classificação</Text>
+              <View style={[styles.scopeToggle, { backgroundColor: theme.surfaceSecondary }]}>
                 {(['global', 'friends'] as const).map((s) => (
                   <TouchableOpacity
                     key={s}
-                    style={[styles.scopeBtn, scope === s && styles.scopeBtnActive]}
+                    style={[
+                      styles.scopeBtn,
+                      scope === s && { backgroundColor: theme.primary },
+                    ]}
                     onPress={() => { if (scope !== s) { setLoading(true); setScope(s); } }}
                   >
-                    <Text style={[styles.scopeText, scope === s && styles.scopeTextActive]}>
+                    <Text style={[styles.scopeText, { color: scope === s ? theme.primaryText : theme.textSecondary }]}>
                       {s === 'global' ? 'Global' : 'Amigos'}
                     </Text>
                   </TouchableOpacity>
@@ -337,8 +344,8 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Ionicons name="podium-outline" size={48} color={colors.secondaryText} />
-            <Text style={styles.emptyText}>
+            <Ionicons name="podium-outline" size={48} color={theme.textMuted} />
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
               {scope === 'friends'
                 ? 'Nenhum atleta que você segue correu aqui ainda. Chame a galera!'
                 : 'Ninguém marcou tempo ainda. Seja o primeiro KOM! 🏆'}
@@ -351,35 +358,35 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
       {/* Modal: registrar tempo */}
       <Modal visible={showRecord} transparent animationType="fade" onRequestClose={() => setShowRecord(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Seu tempo neste segmento</Text>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Seu tempo neste segmento</Text>
             <View style={styles.timeRow}>
               <TextInput
-                style={styles.timeInput}
+                style={[styles.timeInput, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
                 value={min}
                 onChangeText={(t) => setMin(t.replace(/[^0-9]/g, '').slice(0, 3))}
                 keyboardType="number-pad"
                 placeholder="00"
-                placeholderTextColor={colors.secondaryText}
+                placeholderTextColor={theme.placeholder}
                 maxLength={3}
               />
-              <Text style={styles.timeColon}>:</Text>
+              <Text style={[styles.timeColon, { color: theme.textSecondary }]}>:</Text>
               <TextInput
-                style={styles.timeInput}
+                style={[styles.timeInput, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
                 value={sec}
                 onChangeText={(t) => setSec(t.replace(/[^0-9]/g, '').slice(0, 2))}
                 keyboardType="number-pad"
                 placeholder="00"
-                placeholderTextColor={colors.secondaryText}
+                placeholderTextColor={theme.placeholder}
                 maxLength={2}
               />
             </View>
-            <Text style={styles.timeHint}>minutos : segundos</Text>
+            <Text style={[styles.timeHint, { color: theme.textSecondary }]}>minutos : segundos</Text>
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setShowRecord(false)}>
-                <Text style={styles.modalCancelText}>Cancelar</Text>
+              <TouchableOpacity style={[styles.modalCancel, { borderColor: theme.border }]} onPress={() => setShowRecord(false)}>
+                <Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSave} onPress={submitEffort} disabled={saving}>
+              <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={submitEffort} disabled={saving}>
                 {saving ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
@@ -401,7 +408,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerName: { flex: 1, fontSize: fontSize.xl, fontWeight: '800', color: '#fff' },
   mapWrap: {
     height: 160, borderRadius: borderRadius.lg, overflow: 'hidden',
@@ -466,7 +480,7 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingTop: 40, gap: spacing.sm },
   emptyText: { fontSize: fontSize.sm, color: colors.secondaryText, textAlign: 'center', paddingHorizontal: spacing.xl, lineHeight: 20 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', maxWidth: 340, backgroundColor: '#15151F', borderRadius: borderRadius.lg, padding: spacing.lg },
+  modalCard: { width: '100%', maxWidth: 340, backgroundColor: '#15151F', borderRadius: borderRadius.lg, padding: spacing.lg, borderWidth: 1 },
   modalTitle: { fontSize: fontSize.md, fontWeight: '800', color: colors.text, textAlign: 'center', marginBottom: spacing.lg },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   timeInput: {

@@ -18,6 +18,7 @@ import { segmentsApi, Segment, formatElapsed } from '../../services/segments.ser
 import { getCurrentLocation } from '../../services/location.service';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import ErrorState from '../../components/ui/ErrorState';
+import { useThemeStore } from '../../store/themeStore';
 
 type Props = { navigation: NativeStackNavigationProp<ProfileStackParamList, 'SegmentsList'> };
 
@@ -30,6 +31,7 @@ const sportIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 export default function SegmentsListScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [trending, setTrending] = useState<(Segment & { recentCount: number })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,20 +72,20 @@ export default function SegmentsListScreen({ navigation }: Props) {
 
   const renderItem = ({ item }: { item: Segment }) => (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
       activeOpacity={0.8}
       onPress={() => navigation.navigate('SegmentDetail', { segmentId: item.id })}
     >
-      <View style={styles.cardIcon}>
-        <Ionicons name={sportIcons[item.sport] || 'flag'} size={20} color={colors.primary} />
+      <View style={[styles.cardIcon, { backgroundColor: theme.primarySoft }]}>
+        <Ionicons name={sportIcons[item.sport] || 'flag'} size={20} color={theme.primary} />
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+        <Text style={[styles.cardName, { color: theme.textPrimary }]} numberOfLines={1}>{item.name}</Text>
         <View style={styles.cardMetaRow}>
-          <Ionicons name="resize-outline" size={13} color={colors.secondaryText} />
-          <Text style={styles.cardMeta}>{(item.distanceMeters / 1000).toFixed(2)} km</Text>
-          <Ionicons name="people-outline" size={13} color={colors.secondaryText} style={{ marginLeft: 10 }} />
-          <Text style={styles.cardMeta}>{item.attemptsCount} tentativas</Text>
+          <Ionicons name="resize-outline" size={13} color={theme.textSecondary} />
+          <Text style={[styles.cardMeta, { color: theme.textSecondary }]}>{(item.distanceMeters / 1000).toFixed(2)} km</Text>
+          <Ionicons name="people-outline" size={13} color={theme.textSecondary} style={{ marginLeft: 10 }} />
+          <Text style={[styles.cardMeta, { color: theme.textSecondary }]}>{item.attemptsCount} tentativas</Text>
         </View>
       </View>
       {item.bestTimeSec != null && (
@@ -92,22 +94,24 @@ export default function SegmentsListScreen({ navigation }: Props) {
           <Text style={styles.komTime}>{formatElapsed(item.bestTimeSec)}</Text>
         </View>
       )}
-      <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
+      <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
         <View>
-          <Text style={styles.title}>Segmentos</Text>
-          <Text style={styles.subtitle}>Trechos cronometrados perto de você</Text>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>Segmentos</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Trechos cronometrados perto de você</Text>
         </View>
       </LinearGradient>
 
@@ -123,53 +127,53 @@ export default function SegmentsListScreen({ navigation }: Props) {
           keyExtractor={(s) => s.id}
           renderItem={renderItem}
           contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
           ListHeaderComponent={
             trending.length > 0 ? (
               <View style={styles.trendWrap}>
                 <View style={styles.trendTitleRow}>
-                  <Ionicons name="flame" size={16} color="#FF6B35" />
-                  <Text style={styles.trendTitle}>Em alta</Text>
+                  <Ionicons name="flame" size={16} color={theme.warning} />
+                  <Text style={[styles.trendTitle, { color: theme.textPrimary }]}>Em alta</Text>
                 </View>
                 {trending.slice(0, 5).map((t) => (
                   <TouchableOpacity
                     key={t.id}
-                    style={styles.trendCard}
+                    style={[styles.trendCard, { backgroundColor: theme.surface, borderColor: theme.warning + '35' }]}
                     activeOpacity={0.8}
                     onPress={() => navigation.navigate('SegmentDetail', { segmentId: t.id })}
                   >
-                    <View style={styles.trendFire}>
-                      <Ionicons name="flame" size={16} color="#FF6B35" />
+                    <View style={[styles.trendFire, { backgroundColor: theme.warningSoft }]}>
+                      <Ionicons name="flame" size={16} color={theme.warning} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.cardName} numberOfLines={1}>{t.name}</Text>
-                      <Text style={styles.cardMeta}>{t.recentCount} tentativas nos últimos 14 dias</Text>
+                      <Text style={[styles.cardName, { color: theme.textPrimary }]} numberOfLines={1}>{t.name}</Text>
+                      <Text style={[styles.cardMeta, { color: theme.textSecondary }]}>{t.recentCount} tentativas nos últimos 14 dias</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
+                    <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
                   </TouchableOpacity>
                 ))}
-                <Text style={styles.nearbyHeading}>Perto de você</Text>
+                <Text style={[styles.nearbyHeading, { color: theme.textPrimary }]}>Perto de você</Text>
               </View>
             ) : null
           }
           ListEmptyComponent={
             noGps ? (
               <View style={styles.emptyWrap}>
-                <Ionicons name="location-outline" size={56} color={colors.secondaryText} />
-                <Text style={styles.emptyTitle}>Ative sua localização</Text>
-                <Text style={styles.emptyText}>
+                <Ionicons name="location-outline" size={56} color={theme.textMuted} />
+                <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Ative sua localização</Text>
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
                   Libere o GPS para ver segmentos perto de você. (Os "Em alta" acima funcionam sem GPS.)
                 </Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); load(); }}>
+                <TouchableOpacity style={[styles.retryBtn, { backgroundColor: theme.primary }]} onPress={() => { setLoading(true); load(); }}>
                   <Ionicons name="refresh" size={16} color="#fff" />
                   <Text style={styles.retryText}>Tentar de novo</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.emptyWrap}>
-                <Ionicons name="flag-outline" size={56} color={colors.secondaryText} />
-                <Text style={styles.emptyTitle}>Nenhum segmento por aqui</Text>
-                <Text style={styles.emptyText}>
+                <Ionicons name="flag-outline" size={56} color={theme.textMuted} />
+                <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Nenhum segmento por aqui</Text>
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
                   Crie um segmento a partir de um treino para competir com outros atletas.
                 </Text>
               </View>
@@ -190,7 +194,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: { fontSize: fontSize.xxl, fontWeight: '800', color: '#fff' },
   subtitle: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
   card: {

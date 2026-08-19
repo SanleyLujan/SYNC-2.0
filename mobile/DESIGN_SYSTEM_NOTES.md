@@ -57,6 +57,7 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
 - Conquistas
   - Arquivo: `src/screens/Profile/AchievementsScreen.tsx`
   - Header, banner de XP, cards, estados vazios e retry seguem `theme.background`, `theme.surface`, `theme.border`, `theme.primary`, `theme.textPrimary` e `theme.textSecondary`.
+  - Carregamento usa chamadas separadas para conquistas e XP; se XP falhar, a tela ainda pode abrir a lista.
 
 - Dashboard de Stats
   - Arquivo: `src/screens/Stats/StatsDashboardScreen.tsx`
@@ -66,6 +67,23 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
   - Arquivo: `src/screens/Training/TrainingPlanScreen.tsx`
   - Header, cards de plano, semana atual, treinos e proximas semanas seguem claro/escuro.
   - Badges dos planos usam `theme.gradientSuccess`, `theme.gradientPrimary` e `theme.gradientGame`.
+
+- Segmentos
+  - Arquivos:
+    - `src/screens/Segments/SegmentsListScreen.tsx`
+    - `src/screens/Segments/SegmentDetailScreen.tsx`
+  - Lista, cards em alta, estados vazios, detalhe, stats, modal de tempo e alternancia Global/Amigos usam tokens de tema.
+  - Mapa, pins e cores de medalha/KOM continuam com cores semanticas especificas.
+
+- Ranking
+  - Arquivo: `src/screens/Ranking/RankingScreen.tsx`
+  - Header, tabs Mensal/Semanal/Amigos, podium, lista e estados vazios usam tokens de tema.
+  - Medalhas do top 3 continuam com ouro/prata/bronze fixos por serem semanticos.
+
+- Notificacoes
+  - Arquivo: `src/screens/Notifications/NotificationsScreen.tsx`
+  - Header, botao Marcar todas, lista, nao lidas, estados vazios e retry usam tokens de tema.
+  - A tela normaliza retorno paginado da API (`{ data: [...] }`) para evitar erro quando abre.
 
 - Treino ativo e resumo
   - Arquivos:
