@@ -36,7 +36,7 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
   - Arquivo: `src/screens/Feed/FeedScreen.tsx`
   - O header deixou de usar foto de pessoas correndo.
   - Agora usa um card compacto com botao de menu, logo, titulo, busca, notificacoes e linha de acento azul/ciano.
-  - Os posts usam chip pequeno de distancia (`distanceChip`) em vez do bloco grande antigo.
+  - Os posts usam chip pequeno de distancia (`distanceChip`) em vez do bloco grande antigo, e o esporte exibido vem de `SPORT_LABELS`.
   - Para alterar o topo do Feed, procure por `header`, `headerLeft`, `headerBrand`, `headerAccent` e `headerWatermark`.
 
 - Perfil / Dias consecutivos

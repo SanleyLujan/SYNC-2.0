@@ -28,21 +28,6 @@ import Logo from '../../components/Logo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 
-function formatPace(min: number): string {
-  if (!min || !isFinite(min) || min <= 0) return '--:--';
-  const m = Math.floor(min);
-  const s = Math.round((min - m) * 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function formatDuration(seconds: number): string {
-  if (!seconds || !isFinite(seconds) || seconds < 0) return '0min';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}min`;
-  return `${m}min`;
-}
-
 function timeAgo(iso: string | null | undefined): string {
   if (!iso) return '';
   const ts = new Date(iso).getTime();
@@ -65,6 +50,20 @@ const SPORT_ICONS: Record<string, string> = {
   hiking: 'trail-sign', trilha: 'trail-sign',
   gym: 'barbell', academia: 'barbell',
   yoga: 'leaf',
+};
+
+const SPORT_LABELS: Record<string, string> = {
+  running: 'Corrida',
+  corrida: 'Corrida',
+  cycling: 'Ciclismo',
+  ciclismo: 'Ciclismo',
+  swimming: 'Natacao',
+  natação: 'Natacao',
+  hiking: 'Trilha',
+  trilha: 'Trilha',
+  gym: 'Academia',
+  academia: 'Academia',
+  yoga: 'Yoga',
 };
 
 interface FeedCardProps {
@@ -105,7 +104,9 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
 
   const sportKey = post.sport?.toLowerCase() || 'running';
   const icon = (SPORT_ICONS[sportKey] || 'walk') as any;
-  const distanceKm = (post.distanceKm || 0).toFixed(2);
+  const sportLabel = SPORT_LABELS[sportKey] || post.sport || 'Atividade';
+  const distanceValue = post.distanceKm || 0;
+  const distanceKm = distanceValue >= 10 ? distanceValue.toFixed(0) : distanceValue.toFixed(1);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -138,7 +139,7 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
             <View style={styles.metaRow}>
               <Ionicons name={icon} size={12} color={theme.primary} />
               <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                {post.sport || 'Atividade'} • {timeAgo(post.createdAt)}
+                {sportLabel} • {timeAgo(post.createdAt)}
               </Text>
             </View>
           </View>
@@ -156,24 +157,6 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
 
         <View style={[styles.distanceChip, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '45' }]}>
           <Text style={[styles.distanceChipText, { color: theme.primary }]}>{distanceKm}km</Text>
-        </View>
-
-        {/* Stats row */}
-        <View style={[styles.statsRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: theme.textPrimary }]}>{formatDuration(post.durationSeconds || 0)}</Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Tempo</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: theme.textPrimary }]}>{formatPace(post.avgPace || 0)}</Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>/km</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: theme.textPrimary }]}>{post.calories || 0}</Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>kcal</Text>
-          </View>
         </View>
 
         {post.photoUrl && (
@@ -666,32 +649,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // ── Stats row ─────────────────────────────────────────────────────────────
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 12,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-  },
-  statBox: { flex: 1, alignItems: 'center' },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    fontVariant: ['tabular-nums'],
-  },
-  statLabel: {
-    fontSize: 10,
-    color: colors.dark.secondaryText,
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statDivider: { width: 1, height: 24, backgroundColor: 'rgba(255,255,255,0.08)' },
   photo: {
     width: '100%',
     aspectRatio: 4 / 3,
