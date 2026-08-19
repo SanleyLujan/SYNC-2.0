@@ -11,10 +11,10 @@
       "resizeMode": "contain"
     },
     "web": {
-      "favicon": "./src/assets/images/icon.png",
+      "favicon": "./src/assets/images/sync-logo-light.png",
       "name": "Sync — Seu próximo treino começa aqui",
       "shortName": "Sync",
-      "themeColor": "#FF6B35",
+      "themeColor": "#3A86FF",
       "backgroundColor": "#0A0A0F",
       "description": "App social esportivo geolocalizado. Encontre parceiros, organize eventos, acompanhe seu progresso.",
       "lang": "pt-BR",
