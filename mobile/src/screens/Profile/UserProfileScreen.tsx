@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Alert, Platform,
+  TouchableOpacity, ActivityIndicator, Platform,
 } from 'react-native';
 import { Image } from 'expo-image'; // cache em disco para a foto do perfil
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import { HomeStackParamList } from '../../navigation/types';
 import { User, SPORTS, OBJECTIVES, AVAILABILITY, SportLevel } from '../../types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
+import { useThemeStore } from '../../store/themeStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -34,6 +34,7 @@ const levelColors: Record<string, string> = {
 
 export default function UserProfileScreen({ navigation, route }: Props) {
   const { userId } = route.params as { userId: string };
+  const theme = useThemeStore((s) => s.theme);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -96,26 +97,26 @@ export default function UserProfileScreen({ navigation, route }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   if (!user) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
         <Ionicons
           name={error ? 'cloud-offline-outline' : 'person-outline'}
           size={48}
-          color={colors.dark.secondaryText}
+          color={theme.textMuted}
         />
-        <Text style={styles.errorText}>
+        <Text style={[styles.errorText, { color: theme.textSecondary }]}>
           {error ? 'Não foi possível carregar o perfil.' : 'Perfil não encontrado'}
         </Text>
         {error && (
           <TouchableOpacity
-            style={styles.backBtnFallback}
+            style={[styles.backBtnFallback, { backgroundColor: theme.primary }]}
             onPress={loadUser}
             accessibilityRole="button"
             accessibilityLabel="Tentar novamente"
@@ -124,21 +125,33 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.backBtnFallback, error && { backgroundColor: 'transparent' }]}
+          style={[
+            styles.backBtnFallback,
+            { backgroundColor: theme.primary },
+            error && { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border },
+          ]}
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Text style={styles.backBtnText}>Voltar</Text>
+          <Text style={[styles.backBtnText, error && { color: theme.textPrimary }]}>Voltar</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const levelColor = levelColors[user.level] || colors.primary;
+  const levelColor = levelColors[user.level] || theme.primary;
+  const handleChallenge = () => {
+    const parent = navigation.getParent?.();
+    if (parent) {
+      parent.navigate('ProfileTab', { screen: 'Challenges' });
+      return;
+    }
+    navigation.navigate('Challenges');
+  };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} bounces>
 
         {/* Hero photo */}
@@ -156,26 +169,28 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           />
           {/* Gradient overlay */}
           <LinearGradient
-            colors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.35)', 'rgba(10,10,15,0.85)']}
+            colors={theme.mode === 'dark'
+              ? ['rgba(3,9,20,0.10)', 'rgba(3,9,20,0.46)', theme.background]
+              : ['rgba(23,23,28,0.06)', 'rgba(23,23,28,0.30)', theme.background]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={styles.heroOverlay}
           />
 
           {/* Back button */}
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={22} color={colors.white} />
+          <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(3,9,20,0.68)' : 'rgba(255,255,255,0.78)', borderColor: theme.border }]} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={22} color={theme.mode === 'dark' ? colors.white : theme.textPrimary} />
           </TouchableOpacity>
 
           {/* More / block-report */}
           <TouchableOpacity
-            style={styles.moreBtn}
+            style={[styles.moreBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(3,9,20,0.68)' : 'rgba(255,255,255,0.78)', borderColor: theme.border }]}
             onPress={handleMoreOptions}
             disabled={blocking}
           >
             {blocking
-              ? <ActivityIndicator size="small" color={colors.white} />
-              : <Ionicons name="ellipsis-vertical" size={20} color={colors.white} />
+              ? <ActivityIndicator size="small" color={theme.mode === 'dark' ? colors.white : theme.textPrimary} />
+              : <Ionicons name="ellipsis-vertical" size={20} color={theme.mode === 'dark' ? colors.white : theme.textPrimary} />
             }
           </TouchableOpacity>
 
@@ -184,13 +199,14 @@ export default function UserProfileScreen({ navigation, route }: Props) {
             <View style={styles.heroNameRow}>
               <Text style={styles.heroName} numberOfLines={1}>{user.name}</Text>
               {user.isVerified && (
-                <View style={styles.verifiedBadge}>
+                <View style={[styles.verifiedBadge, { backgroundColor: theme.blue }]}>
                   <Ionicons name="checkmark" size={11} color="#fff" />
                 </View>
               )}
               {user.subscriptionTier && user.subscriptionTier !== 'free' && (
                 <View style={[
                   styles.tierBadge,
+                  { backgroundColor: theme.primary },
                   user.subscriptionTier === 'atleta_pro' && styles.tierBadgePro,
                 ]}>
                   <Ionicons
@@ -211,7 +227,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
         </View>
 
         {/* Content */}
-        <View style={styles.content}>
+        <View style={[styles.content, { backgroundColor: theme.background }]}>
 
           {/* Badges row */}
           <View style={styles.badgesRow}>
@@ -224,21 +240,21 @@ export default function UserProfileScreen({ navigation, route }: Props) {
               </View>
             )}
             {user.isVerified && (
-              <View style={styles.verifiedRowBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#3B82F6" />
-                <Text style={styles.verifiedRowText}>Verificado</Text>
+              <View style={[styles.verifiedRowBadge, { backgroundColor: theme.blue + '18', borderColor: theme.blue + '35' }]}>
+                <Ionicons name="checkmark-circle" size={14} color={theme.blue} />
+                <Text style={[styles.verifiedRowText, { color: theme.blue }]}>Verificado</Text>
               </View>
             )}
             {user.subscriptionTier === 'premium' && (
-              <View style={styles.premiumRowBadge}>
+              <View style={[styles.premiumRowBadge, { backgroundColor: theme.warningSoft, borderColor: theme.warning + '35' }]}>
                 <Ionicons name="star" size={13} color="#FCD34D" />
-                <Text style={styles.premiumRowText}>Premium</Text>
+                <Text style={[styles.premiumRowText, { color: theme.warning }]}>Premium</Text>
               </View>
             )}
             {user.subscriptionTier === 'atleta_pro' && (
-              <View style={styles.proRowBadge}>
-                <Ionicons name="trophy" size={13} color="#A78BFA" />
-                <Text style={styles.proRowText}>Atleta Pro</Text>
+              <View style={[styles.proRowBadge, { backgroundColor: theme.purpleSoft, borderColor: theme.purple + '35' }]}>
+                <Ionicons name="trophy" size={13} color={theme.purple} />
+                <Text style={[styles.proRowText, { color: theme.purple }]}>Atleta Pro</Text>
               </View>
             )}
           </View>
@@ -246,11 +262,11 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           {/* Challenge button */}
           <TouchableOpacity
             style={styles.challengeBtn}
-            onPress={() => navigation.navigate('Challenges')}
+            onPress={handleChallenge}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={['#FF6B35', '#FF4500']}
+              colors={theme.gradientPrimary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.challengeBtnGradient}
@@ -263,21 +279,21 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           {/* Bio */}
           {user.bio && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Sobre</Text>
-              <Text style={styles.bio}>{user.bio}</Text>
+              <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Sobre</Text>
+              <Text style={[styles.bio, { color: theme.textPrimary }]}>{user.bio}</Text>
             </View>
           )}
 
           {/* Sports */}
           {user.sports && user.sports.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Esportes</Text>
+              <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Esportes</Text>
               <View style={styles.tags}>
                 {user.sports.map((s) => {
                   const sport = SPORTS.find((sp) => sp.id === s);
                   return (
-                    <View key={s} style={styles.tag}>
-                      <Text style={styles.tagText}>{sport?.label || s}</Text>
+                    <View key={s} style={[styles.tag, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+                      <Text style={[styles.tagText, { color: theme.primary }]}>{sport?.label || s}</Text>
                     </View>
                   );
                 })}
@@ -288,13 +304,13 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           {/* Availability */}
           {user.availability && user.availability.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Disponibilidade</Text>
+              <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Disponibilidade</Text>
               <View style={styles.tags}>
                 {user.availability.map((a) => {
                   const item = AVAILABILITY.find((av) => av.id === a);
                   return (
-                    <View key={a} style={styles.tag}>
-                      <Text style={styles.tagText}>{item?.label || a}</Text>
+                    <View key={a} style={[styles.tag, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+                      <Text style={[styles.tagText, { color: theme.primary }]}>{item?.label || a}</Text>
                     </View>
                   );
                 })}
@@ -305,13 +321,13 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           {/* Objectives */}
           {user.objectives && user.objectives.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Objetivos</Text>
+              <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Objetivos</Text>
               <View style={styles.tags}>
                 {user.objectives.map((o) => {
                   const obj = OBJECTIVES.find((ob) => ob.id === o);
                   return (
-                    <View key={o} style={styles.tag}>
-                      <Text style={styles.tagText}>{obj?.label || o}</Text>
+                    <View key={o} style={[styles.tag, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+                      <Text style={[styles.tagText, { color: theme.primary }]}>{obj?.label || o}</Text>
                     </View>
                   );
                 })}

@@ -48,6 +48,12 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
   - Aparencia e sair da conta ficam em `src/screens/Settings/SettingsScreen.tsx`, nao no rodape do perfil.
   - `src/components/StreakBadge.tsx` ainda existe para outros pontos que precisem do badge reutilizavel.
 
+- Perfil publico de outro usuario
+  - Arquivo: `src/screens/Profile/UserProfileScreen.tsx`
+  - E aberto ao tocar em um perfil no Descobrir, busca ou Feed.
+  - Header com foto, botoes de voltar/opcoes, badges, tags e botao Desafiar usam tokens do tema.
+  - O botao Desafiar navega via tab de Perfil quando a tela foi aberta por outra stack, para evitar erro de rota ausente.
+
 - Editar perfil
   - Arquivo: `src/screens/Profile/EditProfileScreen.tsx`
   - Usa `useThemeStore` nos textos, botoes, avatar, inputs e chips.
