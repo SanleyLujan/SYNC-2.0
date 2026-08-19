@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
-import { colors, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import Logo from '../../components/Logo';
 
 type Props = {
@@ -13,18 +13,26 @@ type Props = {
 export default function SplashScreen({ navigation }: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(taglineOpacity, {
         toValue: 1,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
+        duration: 500,
         useNativeDriver: true,
       }),
     ]).start();
@@ -48,7 +56,17 @@ export default function SplashScreen({ navigation }: Props) {
 
       <Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
         <View style={styles.logoBadge}>
-          <Logo size={96} variant="filled" />
+          <Logo size={72} variant="filled" />
+          <Text style={styles.logo}>Sync</Text>
+        </View>
+      </Animated.View>
+
+      <Animated.View style={[styles.taglineWrap, { opacity: taglineOpacity }]}>
+        <Text style={styles.tagline}>Conecte-se para treinar</Text>
+        <View style={styles.dots}>
+          <View style={[styles.dot, styles.dotActive]} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
         </View>
       </Animated.View>
     </LinearGradient>
@@ -63,19 +81,19 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
     backgroundColor: colors.primary,
     opacity: 0.08,
-    top: '39%',
+    top: '30%',
   },
   content: {
     alignItems: 'center',
   },
   logoBadge: {
-    width: 132,
-    height: 132,
+    width: 240,
+    height: 240,
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
@@ -87,5 +105,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.34,
     shadowRadius: 24,
     elevation: 10,
+  },
+  logo: {
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: '900',
+    color: colors.white,
+    textAlign: 'center',
+    letterSpacing: 0,
+    marginTop: spacing.xs,
+  },
+  taglineWrap: {
+    position: 'absolute',
+    bottom: 80,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  tagline: {
+    fontSize: fontSize.md,
+    color: colors.secondaryText,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  dots: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.20)',
+  },
+  dotActive: {
+    backgroundColor: colors.primary,
+    width: 16,
   },
 });
