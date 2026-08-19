@@ -180,7 +180,7 @@ export default function GroupsScreen({ navigation }: any) {
           : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
+        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56), borderBottomColor: theme.divider }]}
       >
         <TouchableOpacity onPress={() => navigation?.goBack?.()} style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
           <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
@@ -345,7 +345,13 @@ const styles = StyleSheet.create({
     shadowColor: '#FF6B35', shadowOpacity: 0.5, shadowOffset: { width: 0, height: 4 }, shadowRadius: 8,
     elevation: 6,
   },
-  tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  tabs: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
   tab: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, borderRadius: 12,
