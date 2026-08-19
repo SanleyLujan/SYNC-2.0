@@ -148,6 +148,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
   const stackedNav = width < 820;
   const narrowLayout = width < 820;
   const veryNarrowLayout = width < 520;
+  const compactHero = width < 460;
   const cardWidth = isWide ? 350 : Math.max(280, Math.min(width - 48, 340));
 
   return (
@@ -180,7 +181,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
         </View>
       </View>
 
-      <Animated.View style={[styles.hero, narrowLayout && styles.heroNarrow, { opacity: fade }]}>
+      <Animated.View style={[styles.hero, narrowLayout && styles.heroNarrow, compactHero && styles.heroCompact, { opacity: fade }]}>
         <View style={[styles.heroCopy, narrowLayout && styles.heroCopyNarrow]}>
           <View style={styles.eyebrowPill}>
             <Ionicons name="sparkles-outline" size={15} color={CYAN} />
@@ -194,8 +195,8 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
             Encontre parceiros, registre treinos, acompanhe sua evolucao e participe de uma comunidade feita para sair do plano.
           </Text>
 
-          <View style={[styles.heroActions, narrowLayout && styles.heroActionsNarrow]}>
-            <TouchableOpacity style={[styles.primaryButton, veryNarrowLayout && styles.actionButtonFull]} onPress={onStart}>
+          <View style={[styles.heroActions, narrowLayout && styles.heroActionsNarrow, compactHero && styles.heroActionsCompact]}>
+            <TouchableOpacity style={[styles.primaryButton, veryNarrowLayout && styles.actionButtonFull, compactHero && styles.primaryButtonCompact]} onPress={onStart}>
               <LinearGradient
                 colors={[BLUE, CYAN]}
                 start={{ x: 0, y: 0 }}
@@ -206,20 +207,22 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
                 <Ionicons name="arrow-forward" size={18} color={TEXT} />
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.secondaryButton, veryNarrowLayout && styles.actionButtonFull]} onPress={onLogin}>
-              <Text style={styles.secondaryButtonText}>Ja tenho conta</Text>
-            </TouchableOpacity>
-            {onDemo && (
-              <TouchableOpacity style={styles.demoButton} onPress={onDemo}>
-                <Ionicons name="person-circle-outline" size={18} color={CYAN} />
-                <Text style={styles.demoButtonText}>Testar demo</Text>
+            <View style={[styles.secondaryActionsRow, compactHero && styles.secondaryActionsRowCompact]}>
+              <TouchableOpacity style={[styles.secondaryButton, !compactHero && veryNarrowLayout && styles.actionButtonFull, compactHero && styles.secondaryButtonCompact]} onPress={onLogin}>
+                <Text style={styles.secondaryButtonText}>Ja tenho conta</Text>
               </TouchableOpacity>
-            )}
+              {onDemo && (
+                <TouchableOpacity style={[styles.demoButton, compactHero && styles.demoButtonCompact]} onPress={onDemo}>
+                  <Ionicons name="person-circle-outline" size={18} color={CYAN} />
+                  <Text style={styles.demoButtonText}>Testar demo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
-          <View style={[styles.insightsRow, veryNarrowLayout && styles.insightsRowNarrow]}>
+          <View style={[styles.insightsRow, veryNarrowLayout && styles.insightsRowNarrow, compactHero && styles.insightsRowCompact]}>
             {INSIGHTS.map((item) => (
-              <View key={item.label} style={[styles.insightCard, veryNarrowLayout && styles.insightCardNarrow]}>
+              <View key={item.label} style={[styles.insightCard, veryNarrowLayout && styles.insightCardNarrow, compactHero && styles.insightCardCompact]}>
                 <Ionicons name={item.icon} size={18} color={CYAN} />
                 <Text style={styles.insightValue}>{item.value}</Text>
                 <Text style={styles.insightLabel}>{item.label}</Text>
@@ -228,11 +231,11 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
           </View>
         </View>
 
-        <View style={[styles.heroVisual, narrowLayout && styles.heroVisualNarrow, veryNarrowLayout && styles.heroVisualVeryNarrow]}>
-          <View style={styles.logoOrb}>
-            <Logo size={110} variant="filled" />
+        <View style={[styles.heroVisual, narrowLayout && styles.heroVisualNarrow, veryNarrowLayout && styles.heroVisualVeryNarrow, compactHero && styles.heroVisualCompact]}>
+          <View style={[styles.logoOrb, compactHero && styles.logoOrbCompact]}>
+            <Logo size={compactHero ? 82 : 110} variant="filled" />
           </View>
-          <View style={[styles.floatCard, styles.floatFeed]}>
+          <View style={[styles.floatCard, styles.floatFeed, compactHero && styles.floatFeedCompact]}>
             <View style={styles.feedHeader}>
               <View style={styles.feedAvatar} />
               <View style={{ flex: 1 }}>
@@ -246,14 +249,14 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
               <Text style={styles.feedChipText}>5km</Text>
             </View>
           </View>
-          <View style={[styles.floatCard, styles.floatStats, narrowLayout && styles.floatStatsNarrow]}>
+          <View style={[styles.floatCard, styles.floatStats, narrowLayout && styles.floatStatsNarrow, compactHero && styles.floatStatsCompact]}>
             <Ionicons name="water" size={26} color={BLUE} />
             <View>
               <Text style={styles.floatNumber}>7</Text>
               <Text style={styles.floatMuted}>dias consecutivos</Text>
             </View>
           </View>
-          <View style={[styles.floatCard, styles.floatMap, narrowLayout && styles.floatMapNarrow]}>
+          <View style={[styles.floatCard, styles.floatMap, narrowLayout && styles.floatMapNarrow, compactHero && styles.floatMapCompact]}>
             <Ionicons name="location-outline" size={18} color={GREEN} />
             <Text style={styles.floatMuted}>3 atletas por perto</Text>
           </View>
@@ -474,6 +477,12 @@ const styles = StyleSheet.create({
     paddingBottom: 64,
     gap: spacing.xl,
   },
+  heroCompact: {
+    paddingHorizontal: spacing.md,
+    paddingTop: 40,
+    paddingBottom: 56,
+    gap: 36,
+  },
   heroCopy: {
     flex: 1,
     minWidth: 320,
@@ -539,9 +548,17 @@ const styles = StyleSheet.create({
   heroActionsNarrow: {
     alignItems: 'flex-start',
   },
+  heroActionsCompact: {
+    width: '100%',
+    gap: spacing.sm,
+  },
   actionButtonFull: {
     width: '100%',
     maxWidth: 320,
+  },
+  primaryButtonCompact: {
+    alignSelf: 'flex-start',
+    maxWidth: 250,
   },
   actionButtonInnerFull: {
     justifyContent: 'center',
@@ -580,12 +597,33 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: '800',
   },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  },
+  secondaryActionsRowCompact: {
+    width: '100%',
+    gap: spacing.sm,
+    flexWrap: 'nowrap',
+  },
+  secondaryButtonCompact: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+  },
   demoButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+  },
+  demoButtonCompact: {
+    flexShrink: 0,
+    paddingHorizontal: spacing.xs,
   },
   demoButtonText: {
     color: CYAN,
@@ -600,6 +638,10 @@ const styles = StyleSheet.create({
   insightsRowNarrow: {
     width: '100%',
   },
+  insightsRowCompact: {
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   insightCard: {
     minWidth: 132,
     borderRadius: borderRadius.md,
@@ -611,6 +653,12 @@ const styles = StyleSheet.create({
   insightCardNarrow: {
     flexBasis: '47%',
     minWidth: 0,
+  },
+  insightCardCompact: {
+    flex: 1,
+    flexBasis: 0,
+    minHeight: 82,
+    padding: spacing.sm,
   },
   insightValue: {
     color: TEXT,
@@ -644,6 +692,12 @@ const styles = StyleSheet.create({
   heroVisualVeryNarrow: {
     minHeight: 500,
   },
+  heroVisualCompact: {
+    width: '100%',
+    maxWidth: 320,
+    minHeight: 376,
+    borderRadius: 28,
+  },
   logoOrb: {
     width: 210,
     height: 210,
@@ -658,6 +712,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.38,
     shadowRadius: 30,
   },
+  logoOrbCompact: {
+    width: 158,
+    height: 158,
+    borderRadius: 79,
+  },
   floatCard: {
     position: 'absolute',
     borderRadius: borderRadius.lg,
@@ -670,6 +729,12 @@ const styles = StyleSheet.create({
     left: spacing.lg,
     right: spacing.lg,
     bottom: spacing.lg,
+  },
+  floatFeedCompact: {
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    padding: spacing.sm,
   },
   feedHeader: {
     flexDirection: 'row',
@@ -714,6 +779,12 @@ const styles = StyleSheet.create({
     top: spacing.md,
     maxWidth: 190,
   },
+  floatStatsCompact: {
+    left: spacing.md,
+    top: spacing.md,
+    maxWidth: 148,
+    padding: spacing.sm,
+  },
   floatMap: {
     right: spacing.lg,
     top: 112,
@@ -726,6 +797,12 @@ const styles = StyleSheet.create({
     right: spacing.md,
     top: 112,
     maxWidth: 190,
+  },
+  floatMapCompact: {
+    right: spacing.md,
+    top: 92,
+    maxWidth: 150,
+    padding: spacing.sm,
   },
   floatTitle: {
     color: TEXT,
