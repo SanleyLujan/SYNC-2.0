@@ -40,6 +40,7 @@ import { useReduceMotion } from '../../hooks/useReduceMotion';
 import PostWorkoutRatingModal from '../../components/PostWorkoutRatingModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { confirmAsync } from '../../utils/confirm';
+import { useThemeStore } from '../../store/themeStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<TrackingStackParamList, 'ActivitySummary'>;
@@ -97,6 +98,7 @@ export default function ActivitySummaryScreen(props: Props) {
 
 function ActivitySummaryInner({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const haptic = useHaptic();
   const reduceMotion = useReduceMotion();
   const [activity, setActivity] = useState<Activity | null>(null);
@@ -445,45 +447,47 @@ function ActivitySummaryInner({ navigation, route }: Props) {
   const elevGain = estimateElevation(activity);
   const sportIcon = SPORT_ICONS[activity.sport] || 'fitness';
   const sportLabel = SPORT_LABELS[activity.sport] || activity.sport;
+  const accent = theme.primary;
+  const accentEnd = theme.mode === 'dark' ? theme.cyan : theme.warning;
   // Splits por km (estilo Strava/Adidas) — calculados dos pontos GPS
   const splits = computeSplits(activity.points as any);
   const maxSplitPace = splits.length ? Math.max(...splits.map((s) => s.paceMinPerKm)) : 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} bounces>
 
         {/* ── Celebration Header ── */}
         <LinearGradient
-          colors={['rgba(255,107,53,0.18)', 'rgba(10,10,15,0)']}
+          colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(247,248,251,0)']}
           locations={[0, 1]}
           style={[styles.heroGradient, { paddingTop: Math.max(insets.top + 12, 48) }]}
         >
           <View style={styles.topBar}>
-            <TouchableOpacity style={styles.topBtn} onPress={() => navigation.popToTop()}>
-              <Ionicons name="close" size={20} color={colors.dark.text} />
+            <TouchableOpacity style={[styles.topBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.popToTop()}>
+              <Ionicons name="close" size={20} color={theme.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.topTitle}>Atividade Salva</Text>
-            <TouchableOpacity style={styles.topBtn} onPress={handleShare}>
-              <Ionicons name="share-social-outline" size={20} color={ACCENT} />
+            <Text style={[styles.topTitle, { color: theme.textSecondary }]}>Atividade Salva</Text>
+            <TouchableOpacity style={[styles.topBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={handleShare}>
+              <Ionicons name="share-social-outline" size={20} color={accent} />
             </TouchableOpacity>
           </View>
 
           {/* Checkmark + sport badge */}
           <Animated.View style={[styles.celebrationCenter, { opacity: checkOpacity, transform: [{ scale: checkScale }] }]}>
-            <View style={styles.checkCircle}>
-              <LinearGradient colors={[ACCENT, '#FF3D00']} style={styles.checkGradient}>
+            <View style={[styles.checkCircle, { shadowColor: accent }]}>
+              <LinearGradient colors={[accent, accentEnd]} style={styles.checkGradient}>
                 <Ionicons name="checkmark" size={40} color="#fff" />
               </LinearGradient>
             </View>
-            <View style={styles.sportBadge}>
-              <Ionicons name={sportIcon} size={14} color={ACCENT} />
-              <Text style={styles.sportBadgeText}>{sportLabel.toUpperCase()}</Text>
+            <View style={[styles.sportBadge, { backgroundColor: theme.primarySoft, borderColor: accent + '35' }]}>
+              <Ionicons name={sportIcon} size={14} color={accent} />
+              <Text style={[styles.sportBadgeText, { color: accent }]}>{sportLabel.toUpperCase()}</Text>
             </View>
           </Animated.View>
 
           {/* Date */}
-          <Animated.Text style={[styles.dateText, { opacity: headerFade }]}>
+          <Animated.Text style={[styles.dateText, { opacity: headerFade, color: theme.textSecondary }]}>
             {new Date(activity.startTime).toLocaleDateString('pt-BR', {
               weekday: 'long',
               day: '2-digit',
@@ -494,19 +498,19 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
         {/* ── Hero Stat (distance) ── */}
         <Animated.View style={[styles.heroStat, { opacity: headerFade, transform: [{ translateY: statsSlide }] }]}>
-          <Text style={styles.heroValue}>{((activity.distance ?? 0) / 1000).toFixed(2)}</Text>
-          <Text style={styles.heroUnit}>km</Text>
+          <Text style={[styles.heroValue, { color: theme.textPrimary }]}>{((activity.distance ?? 0) / 1000).toFixed(2)}</Text>
+          <Text style={[styles.heroUnit, { color: theme.textSecondary }]}>km</Text>
         </Animated.View>
 
         {/* ── Map (envolto em ErrorBoundary: no web o Leaflet pode falhar e
               não pode derrubar a tela inteira) ── */}
         {coordinates.length > 1 && (
-          <Animated.View style={[styles.mapContainer, { opacity: headerFade }]}>
+          <Animated.View style={[styles.mapContainer, { opacity: headerFade, borderColor: theme.border }]}>
             <ErrorBoundary
               fallback={
                 <View style={[styles.map, styles.mapFallback]}>
-                  <Ionicons name="map-outline" size={28} color="rgba(255,255,255,0.3)" />
-                  <Text style={styles.mapFallbackText}>Rota gravada · {coordinates.length} pontos</Text>
+                  <Ionicons name="map-outline" size={28} color={theme.textMuted} />
+                  <Text style={[styles.mapFallbackText, { color: theme.textSecondary }]}>Rota gravada · {coordinates.length} pontos</Text>
                 </View>
               }
             >
@@ -522,14 +526,14 @@ function ActivitySummaryInner({ navigation, route }: Props) {
                 userInterfaceStyle="dark"
                 customMapStyle={darkMapStyle}
               >
-                <Polyline coordinates={coordinates} strokeColor={ACCENT} strokeWidth={4} />
+                <Polyline coordinates={coordinates} strokeColor={accent} strokeWidth={4} />
                 <Marker coordinate={coordinates[0]}>
                   <View style={[styles.mapDot, { backgroundColor: '#22C55E' }]}>
                     <Ionicons name="flag" size={9} color="#fff" />
                   </View>
                 </Marker>
                 <Marker coordinate={coordinates[coordinates.length - 1]}>
-                  <View style={[styles.mapDot, { backgroundColor: ACCENT }]}>
+                  <View style={[styles.mapDot, { backgroundColor: accent }]}>
                     <Ionicons name="checkmark" size={9} color="#fff" />
                   </View>
                 </Marker>
@@ -564,44 +568,44 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
         {/* ── Splits por km (estilo Strava/Adidas) ── */}
         {splits.length > 0 && (
-          <Animated.View style={[styles.splitsCard, { opacity: headerFade }]}>
+          <Animated.View style={[styles.splitsCard, { opacity: headerFade, backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.splitsHeader}>
-              <Ionicons name="stats-chart" size={16} color={ACCENT} />
-              <Text style={styles.splitsTitle}>Splits por km</Text>
+              <Ionicons name="stats-chart" size={16} color={accent} />
+              <Text style={[styles.splitsTitle, { color: theme.textPrimary }]}>Splits por km</Text>
             </View>
             {splits.map((s) => {
               const widthPct = maxSplitPace > 0 ? Math.max(18, (s.paceMinPerKm / maxSplitPace) * 100) : 100;
               return (
                 <View key={s.km} style={styles.splitRow}>
-                  <Text style={styles.splitKm}>
+                  <Text style={[styles.splitKm, { color: theme.textSecondary }]}>
                     {s.distanceKm >= 0.999 ? `${s.km}` : `${s.km}·${(s.distanceKm).toFixed(2)}`}
                   </Text>
-                  <View style={styles.splitBarTrack}>
+                  <View style={[styles.splitBarTrack, { backgroundColor: theme.surfaceSecondary }]}>
                     <View
                       style={[
                         styles.splitBarFill,
-                        { width: `${widthPct}%`, backgroundColor: s.isFastest ? '#FCD34D' : ACCENT },
+                        { width: `${widthPct}%`, backgroundColor: s.isFastest ? theme.warning : accent },
                       ]}
                     />
                   </View>
-                  <Text style={[styles.splitPace, s.isFastest && { color: '#FCD34D', fontWeight: '800' }]}>
+                  <Text style={[styles.splitPace, { color: theme.textPrimary }, s.isFastest && { color: theme.warning, fontWeight: '800' }]}>
                     {formatPace(s.paceMinPerKm)}
                     {s.isFastest ? '  🏆' : ''}
                   </Text>
                 </View>
               );
             })}
-            <Text style={styles.splitsHint}>min/km · 🏆 = km mais rápido</Text>
+            <Text style={[styles.splitsHint, { color: theme.textMuted }]}>min/km · 🏆 = km mais rápido</Text>
           </Animated.View>
         )}
 
         {/* ── AI Summary ── */}
-        <Animated.View style={[styles.summaryCard, { opacity: headerFade }]}>
+        <Animated.View style={[styles.summaryCard, { opacity: headerFade, backgroundColor: theme.primarySoft, borderColor: accent + '25' }]}>
           <View style={styles.summaryHeader}>
-            <Ionicons name="sparkles" size={16} color={ACCENT} />
-            <Text style={styles.summaryTitle}>Resumo do treino</Text>
+            <Ionicons name="sparkles" size={16} color={accent} />
+            <Text style={[styles.summaryTitle, { color: accent }]}>Resumo do treino</Text>
           </View>
-          <Text style={styles.summaryText}>
+          <Text style={[styles.summaryText, { color: theme.textPrimary }]}>
             {generateWorkoutSummary({
               distanceKm: (activity.distance ?? 0) / 1000,
               durationMinutes: (activity.duration ?? 0) / 60,
@@ -658,8 +662,8 @@ function ActivitySummaryInner({ navigation, route }: Props) {
               </View>
             ) : (
               <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPostPhoto} activeOpacity={0.8}>
-                <Ionicons name="camera-outline" size={20} color={ACCENT} />
-                <Text style={styles.addPhotoText}>Adicionar foto à publicação</Text>
+                <Ionicons name="camera-outline" size={20} color={accent} />
+                <Text style={[styles.addPhotoText, { color: accent }]}>Adicionar foto à publicação</Text>
               </TouchableOpacity>
             )
           )}
@@ -669,9 +673,9 @@ function ActivitySummaryInner({ navigation, route }: Props) {
             <Pressable
               onPress={handlePostToFeed}
               disabled={posting}
-              style={({ pressed }) => [styles.postBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [styles.postBtn, { shadowColor: accent }, pressed && { opacity: 0.85 }]}
             >
-              <LinearGradient colors={[ACCENT, '#FF3D00']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.postBtnInner}>
+              <LinearGradient colors={[accent, accentEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.postBtnInner}>
                 {posting ? (
                   <>
                     <ActivityIndicator size="small" color="#fff" />
@@ -695,23 +699,23 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
           {/* Secondary: Export GPX */}
           {activity.points && activity.points.length > 0 && (
-            <TouchableOpacity style={styles.secondaryBtn} onPress={handleExport}>
-              <Ionicons name="download-outline" size={18} color={ACCENT} />
-              <Text style={styles.secondaryBtnText}>Exportar rota (GPX / CSV)</Text>
+            <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: theme.primarySoft, borderColor: accent + '28' }]} onPress={handleExport}>
+              <Ionicons name="download-outline" size={18} color={accent} />
+              <Text style={[styles.secondaryBtnText, { color: accent }]}>Exportar rota (GPX / CSV)</Text>
             </TouchableOpacity>
           )}
 
           {/* Secondary: Criar segmento a partir desta rota */}
           {activity.points && activity.points.length > 1 && (
-            <TouchableOpacity style={styles.secondaryBtn} onPress={() => setShowSegModal(true)}>
-              <Ionicons name="flag-outline" size={18} color={ACCENT} />
-              <Text style={styles.secondaryBtnText}>Criar segmento desta rota</Text>
+            <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: theme.primarySoft, borderColor: accent + '28' }]} onPress={() => setShowSegModal(true)}>
+              <Ionicons name="flag-outline" size={18} color={accent} />
+              <Text style={[styles.secondaryBtnText, { color: accent }]}>Criar segmento desta rota</Text>
             </TouchableOpacity>
           )}
 
           {/* Tertiary: Go home */}
-          <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.popToTop()}>
-            <Text style={styles.homeBtnText}>Pronto</Text>
+          <TouchableOpacity style={[styles.homeBtn, { borderColor: theme.border }]} onPress={() => navigation.popToTop()}>
+            <Text style={[styles.homeBtnText, { color: theme.textSecondary }]}>Pronto</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -720,25 +724,25 @@ function ActivitySummaryInner({ navigation, route }: Props) {
         {/* Modal: nomear e criar segmento desta rota */}
         <Modal visible={showSegModal} transparent animationType="fade" onRequestClose={() => setShowSegModal(false)}>
           <View style={styles.segModalOverlay}>
-            <View style={styles.segModalCard}>
-              <Ionicons name="flag" size={28} color={ACCENT} style={{ alignSelf: 'center' }} />
-              <Text style={styles.segModalTitle}>Criar segmento</Text>
-              <Text style={styles.segModalSub}>
+            <View style={[styles.segModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Ionicons name="flag" size={28} color={accent} style={{ alignSelf: 'center' }} />
+              <Text style={[styles.segModalTitle, { color: theme.textPrimary }]}>Criar segmento</Text>
+              <Text style={[styles.segModalSub, { color: theme.textSecondary }]}>
                 Transforme este trecho num desafio. Outros atletas vão competir pelo melhor tempo (KOM/QOM).
               </Text>
               <TextInput
-                style={styles.segInput}
+                style={[styles.segInput, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
                 value={segName}
                 onChangeText={setSegName}
                 placeholder="Ex: Subida do Parque"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor={theme.placeholder}
                 maxLength={100}
               />
               <View style={styles.segModalActions}>
-                <TouchableOpacity style={styles.segCancel} onPress={() => setShowSegModal(false)}>
-                  <Text style={styles.segCancelText}>Cancelar</Text>
+                <TouchableOpacity style={[styles.segCancel, { borderColor: theme.border }]} onPress={() => setShowSegModal(false)}>
+                  <Text style={[styles.segCancelText, { color: theme.textSecondary }]}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.segSave} onPress={createSegment} disabled={creatingSeg}>
+                <TouchableOpacity style={[styles.segSave, { backgroundColor: accent }]} onPress={createSegment} disabled={creatingSeg}>
                   {creatingSeg ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
@@ -803,11 +807,20 @@ function StatCard({
   label: string;
   accent?: boolean;
 }) {
+  const theme = useThemeStore((s) => s.theme);
+  const accentColor = theme.primary;
+
   return (
-    <View style={[cardStyles.card, accent && cardStyles.cardAccent]}>
-      <Ionicons name={icon} size={18} color={accent ? ACCENT : colors.dark.secondaryText} />
-      <Text style={[cardStyles.value, accent && { color: ACCENT }]}>{value}</Text>
-      <Text style={cardStyles.label}>{label}</Text>
+    <View
+      style={[
+        cardStyles.card,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+        accent && { borderColor: accentColor + '35', backgroundColor: theme.primarySoft },
+      ]}
+    >
+      <Ionicons name={icon} size={18} color={accent ? accentColor : theme.textSecondary} />
+      <Text style={[cardStyles.value, { color: accent ? accentColor : theme.textPrimary }]}>{value}</Text>
+      <Text style={[cardStyles.label, { color: theme.textSecondary }]}>{label}</Text>
     </View>
   );
 }

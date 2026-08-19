@@ -22,6 +22,7 @@ import { Share } from 'react-native';
 import { announce, speak, setCoachEnabled, getCoachEnabled } from '../../services/audio-coach.service';
 import { AutoPauseDetector } from '../../utils/auto-pause';
 import { showToast } from '../../components/ui/Toast';
+import { useThemeStore } from '../../store/themeStore';
 // HoldToFinishButton and ConfirmModal replaced by simple tap + Alert
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -33,6 +34,7 @@ type Props = {
 
 export default function ActiveTrackingScreen({ navigation, route }: Props) {
   const { activityId } = route.params;
+  const theme = useThemeStore((s) => s.theme);
   const [points, setPoints] = useState<{ latitude: number; longitude: number; altitude?: number; timestamp?: number }[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -427,29 +429,30 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   const calories = Math.round((met * userWeightKg * elapsed) / 3600);
   const altitudeM = currentAltitude != null ? Math.round(currentAltitude) : '--';
   const elevationGainStr = elevationGain > 0 ? `+${Math.round(elevationGain)}` : '0';
+  const accent = theme.primary;
 
   // Overlay de contagem regressiva — cobre tudo até começar
   if (countdown !== null && countdown > 0) {
     return (
       <TouchableOpacity
-        style={styles.countdownOverlay}
+        style={[styles.countdownOverlay, { backgroundColor: theme.background }]}
         activeOpacity={1}
         onPress={skipCountdown}
         accessibilityRole="button"
         accessibilityLabel="Toque para começar agora"
       >
-        <Text style={styles.countdownLabel}>Preparar…</Text>
-        <Text style={styles.countdownNumber}>{countdown}</Text>
-        <View style={styles.countdownSkip}>
-          <Ionicons name="play-skip-forward" size={16} color="#FF6B35" />
-          <Text style={styles.countdownSkipText}>Toque para começar agora</Text>
+        <Text style={[styles.countdownLabel, { color: theme.textSecondary }]}>Preparar…</Text>
+        <Text style={[styles.countdownNumber, { color: accent, textShadowColor: accent + '66' }]}>{countdown}</Text>
+        <View style={[styles.countdownSkip, { borderColor: accent + '55', backgroundColor: theme.primarySoft }]}>
+          <Ionicons name="play-skip-forward" size={16} color={accent} />
+          <Text style={[styles.countdownSkipText, { color: accent }]}>Toque para começar agora</Text>
         </View>
       </TouchableOpacity>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Full-screen map */}
       <MapView
         ref={mapRef}
@@ -486,25 +489,25 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             </View>
           )}
           <TouchableOpacity
-            style={[styles.lockBtn, audioOn && styles.lockBtnActive]}
+            style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }, audioOn && { backgroundColor: accent }]}
             onPress={() => { const next = !audioOn; setAudioOn(next); setCoachEnabled(next); }}
             accessibilityRole="switch"
             accessibilityState={{ checked: audioOn }}
             accessibilityLabel={audioOn ? 'Narração por voz ligada' : 'Narração por voz desligada'}
           >
-            <Ionicons name={audioOn ? 'volume-high' : 'volume-mute'} size={18} color={audioOn ? '#fff' : colors.dark.text} />
+            <Ionicons name={audioOn ? 'volume-high' : 'volume-mute'} size={18} color={audioOn ? '#fff' : theme.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.lockBtn, autoPauseOn && styles.lockBtnActive]}
+            style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }, autoPauseOn && { backgroundColor: accent }]}
             onPress={() => setAutoPauseOn((v) => !v)}
             accessibilityRole="switch"
             accessibilityState={{ checked: autoPauseOn }}
             accessibilityLabel={autoPauseOn ? 'Pausa automática ligada' : 'Pausa automática desligada'}
           >
-            <Ionicons name={autoPauseOn ? 'pause-circle' : 'pause-circle-outline'} size={18} color={autoPauseOn ? '#fff' : colors.dark.text} />
+            <Ionicons name={autoPauseOn ? 'pause-circle' : 'pause-circle-outline'} size={18} color={autoPauseOn ? '#fff' : theme.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.lockBtn, liveUrl && styles.lockBtnActive]}
+            style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }, liveUrl && { backgroundColor: accent }]}
             onPress={handleShareLive}
             disabled={sharing}
             accessibilityRole="button"
@@ -513,11 +516,11 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             <Ionicons
               name={liveUrl ? 'radio' : 'share-social-outline'}
               size={18}
-              color={liveUrl ? colors.white : colors.dark.text}
+              color={liveUrl ? colors.white : theme.textPrimary}
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.lockBtn}
+            style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }]}
             onPress={() => setIsLocked(!isLocked)}
             accessibilityRole="button"
             accessibilityLabel={isLocked ? 'Desbloquear a tela' : 'Bloquear a tela contra toques'}
@@ -525,14 +528,14 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             <Ionicons
               name={isLocked ? 'lock-closed' : 'lock-open-outline'}
               size={18}
-              color={colors.dark.text}
+              color={theme.textPrimary}
             />
           </TouchableOpacity>
         </View>
         {liveUrl && (
-          <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText} numberOfLines={1}>
+          <View style={[styles.liveBadge, { backgroundColor: theme.primarySoft, borderColor: accent + '66' }]}>
+            <View style={[styles.liveDot, { backgroundColor: accent }]} />
+            <Text style={[styles.liveText, { color: accent }]} numberOfLines={1}>
               AO VIVO • {liveUrl.replace(/^https?:\/\//, '')}
             </Text>
           </View>
@@ -540,7 +543,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       </View>
 
       {/* Bottom metrics panel — Strava-style hero stats */}
-      <View style={styles.bottomPanel}>
+      <View style={[styles.bottomPanel, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
         {/* HERO: Distância grande (foco principal) */}
         <View
           style={styles.heroBlock}
@@ -548,60 +551,60 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
           accessibilityRole="text"
           accessibilityLabel={`Distância: ${distanceKm} quilômetros`}
         >
-          <Text style={styles.heroValue}>{distanceKm}</Text>
-          <Text style={styles.heroLabel}>QUILÔMETROS</Text>
+          <Text style={[styles.heroValue, { color: theme.textPrimary }]}>{distanceKm}</Text>
+          <Text style={[styles.heroLabel, { color: theme.textSecondary }]}>QUILÔMETROS</Text>
         </View>
 
         {/* Secondary row: Tempo + Pace */}
-        <View style={styles.secondaryRow}>
+        <View style={[styles.secondaryRow, { backgroundColor: theme.surfaceSecondary }]}>
           <View
             style={styles.secondaryBox}
             accessible
             accessibilityLabel={`Tempo: ${formatTime(elapsed)}`}
           >
-            <Text style={styles.secondaryValue}>{formatTime(elapsed)}</Text>
-            <Text style={styles.secondaryLabel}>Tempo</Text>
+            <Text style={[styles.secondaryValue, { color: theme.textPrimary }]}>{formatTime(elapsed)}</Text>
+            <Text style={[styles.secondaryLabel, { color: theme.textSecondary }]}>Tempo</Text>
           </View>
-          <View style={styles.secondaryDivider} />
+          <View style={[styles.secondaryDivider, { backgroundColor: theme.border }]} />
           <View
             style={styles.secondaryBox}
             accessible
             accessibilityLabel={`Ritmo: ${pace} por quilômetro`}
           >
-            <Text style={styles.secondaryValue}>{pace}</Text>
-            <Text style={styles.secondaryLabel}>Pace /km</Text>
+            <Text style={[styles.secondaryValue, { color: theme.textPrimary }]}>{pace}</Text>
+            <Text style={[styles.secondaryLabel, { color: theme.textSecondary }]}>Pace /km</Text>
           </View>
         </View>
 
         {/* Tertiary row: calorias, BPM-like, altitude */}
         <View style={styles.tertiaryRow}>
-          <View style={styles.tertiaryBox}>
-            <Ionicons name="flame" size={14} color="#FF6B35" />
-            <Text style={styles.tertiaryValue}>{calories}</Text>
-            <Text style={styles.tertiaryLabel}>kcal</Text>
+          <View style={[styles.tertiaryBox, { backgroundColor: theme.surfaceSecondary }]}>
+            <Ionicons name="flame" size={14} color={accent} />
+            <Text style={[styles.tertiaryValue, { color: theme.textPrimary }]}>{calories}</Text>
+            <Text style={[styles.tertiaryLabel, { color: theme.textSecondary }]}>kcal</Text>
           </View>
-          <View style={styles.tertiaryBox}>
+          <View style={[styles.tertiaryBox, { backgroundColor: theme.surfaceSecondary }]}>
             <Ionicons name="speedometer-outline" size={14} color="#3B82F6" />
-            <Text style={styles.tertiaryValue}>{speed}</Text>
-            <Text style={styles.tertiaryLabel}>km/h</Text>
+            <Text style={[styles.tertiaryValue, { color: theme.textPrimary }]}>{speed}</Text>
+            <Text style={[styles.tertiaryLabel, { color: theme.textSecondary }]}>km/h</Text>
           </View>
-          <View style={styles.tertiaryBox}>
+          <View style={[styles.tertiaryBox, { backgroundColor: theme.surfaceSecondary }]}>
             <Ionicons name="trending-up" size={14} color="#10B981" />
-            <Text style={styles.tertiaryValue}>{elevationGainStr}</Text>
-            <Text style={styles.tertiaryLabel}>subida m</Text>
+            <Text style={[styles.tertiaryValue, { color: theme.textPrimary }]}>{elevationGainStr}</Text>
+            <Text style={[styles.tertiaryLabel, { color: theme.textSecondary }]}>subida m</Text>
           </View>
-          <View style={styles.tertiaryBox}>
+          <View style={[styles.tertiaryBox, { backgroundColor: theme.surfaceSecondary }]}>
             <Ionicons name="navigate" size={14} color="#A78BFA" />
-            <Text style={styles.tertiaryValue}>{altitudeM}</Text>
-            <Text style={styles.tertiaryLabel}>altitude</Text>
+            <Text style={[styles.tertiaryValue, { color: theme.textPrimary }]}>{altitudeM}</Text>
+            <Text style={[styles.tertiaryLabel, { color: theme.textSecondary }]}>altitude</Text>
           </View>
         </View>
 
         {/* Voltas inline (apenas última) */}
         {laps.length > 0 && (
           <View style={styles.lastLap}>
-            <Ionicons name="flag" size={14} color={colors.dark.accent} />
-            <Text style={styles.lastLapText}>
+            <Ionicons name="flag" size={14} color={accent} />
+            <Text style={[styles.lastLapText, { color: theme.textPrimary }]}>
               Última volta {laps.length}: {formatTime(laps[laps.length - 1].time)} • {(laps[laps.length - 1].distance / 1000).toFixed(2)} km
             </Text>
           </View>
@@ -617,13 +620,13 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             accessibilityRole="button"
             accessibilityLabel={`Marcar volta ${laps.length + 1}`}
           >
-            <Ionicons name="flag-outline" size={22} color={colors.dark.text} />
-            <Text style={styles.sideBtnLabel}>{isPaused ? `${laps.length} voltas` : `Volta ${laps.length + 1}`}</Text>
+            <Ionicons name="flag-outline" size={22} color={theme.textPrimary} />
+            <Text style={[styles.sideBtnLabel, { color: theme.textPrimary }]}>{isPaused ? `${laps.length} voltas` : `Volta ${laps.length + 1}`}</Text>
           </TouchableOpacity>
 
           {/* CENTRO: Pause/Resume (sempre principal) */}
           <TouchableOpacity
-            style={[styles.mainControlBtn, isPaused ? styles.resumeBtn : styles.pauseBtn]}
+            style={[styles.mainControlBtn, isPaused ? { backgroundColor: theme.success } : { backgroundColor: accent, shadowColor: accent }]}
             onPress={togglePause}
             accessibilityRole="button"
             accessibilityLabel={isPaused ? 'Retomar treino' : 'Pausar treino'}
