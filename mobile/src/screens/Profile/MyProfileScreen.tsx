@@ -32,6 +32,7 @@ import { segmentsApi } from '../../services/segments.service';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { showToast } from '../../components/ui/Toast';
+import { confirmAsync } from '../../utils/confirm';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'MyProfile'>;
@@ -67,7 +68,7 @@ export default function MyProfileScreen({ navigation }: Props) {
   const theme = useThemeStore((s) => s.theme);
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, logout } = useAuthStore();
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [stats, setStats] = useState<Stats>({
     totalActivities: 0, totalDistanceKm: 0, weeklyDistanceKm: 0, totalDuration: 0,
@@ -167,6 +168,17 @@ export default function MyProfileScreen({ navigation }: Props) {
       });
     } catch (error) {
       console.log('Share error:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    const ok = await confirmAsync('Sair da conta?', 'Você voltará para a tela inicial do Sync.', {
+      confirmText: 'Sair',
+      destructive: true,
+    });
+    if (ok) {
+      await setThemeMode('dark');
+      await logout();
     }
   };
 
@@ -398,45 +410,6 @@ export default function MyProfileScreen({ navigation }: Props) {
         <StreakBadge days={stats.currentStreak} bestDays={stats.bestStreak} />
       </View>
 
-      <View style={[styles.themeQuickCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.themeQuickTitleRow}>
-          <View style={[styles.themeQuickIcon, { backgroundColor: theme.primarySoft }]}>
-            <Ionicons name={theme.mode === 'dark' ? 'moon' : 'sunny'} size={18} color={theme.primary} />
-          </View>
-          <View style={styles.themeQuickText}>
-            <Text style={[styles.themeQuickTitle, { color: theme.textPrimary }]}>Aparência</Text>
-            <Text style={[styles.themeQuickSub, { color: theme.textSecondary }]}>Modo claro ou escuro</Text>
-          </View>
-        </View>
-        <View style={[styles.themeSegment, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-          {(['dark', 'light'] as const).map((mode) => {
-            const active = themeMode === mode;
-            return (
-              <TouchableOpacity
-                key={mode}
-                style={[
-                  styles.themeSegmentButton,
-                  { backgroundColor: active ? theme.primary : 'transparent' },
-                ]}
-                onPress={() => setThemeMode(mode)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Ionicons
-                  name={mode === 'dark' ? 'moon-outline' : 'sunny-outline'}
-                  size={16}
-                  color={active ? theme.primaryText : theme.textSecondary}
-                />
-                <Text style={[styles.themeSegmentText, { color: active ? theme.primaryText : theme.textSecondary }]}>
-                  {mode === 'dark' ? 'Escuro' : 'Claro'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
       {/* Território conquistado (jogo de conquista) */}
       {territory && territory.cells > 0 && (
         <TouchableOpacity
@@ -609,6 +582,56 @@ export default function MyProfileScreen({ navigation }: Props) {
         ))}
       </View>
 
+      <View style={[styles.profileFooterPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={styles.themeQuickTitleRow}>
+          <View style={[styles.themeQuickIcon, { backgroundColor: theme.primarySoft }]}>
+            <Ionicons name={theme.mode === 'dark' ? 'moon' : 'sunny'} size={18} color={theme.primary} />
+          </View>
+          <View style={styles.themeQuickText}>
+            <Text style={[styles.themeQuickTitle, { color: theme.textPrimary }]}>Aparência</Text>
+            <Text style={[styles.themeQuickSub, { color: theme.textSecondary }]}>Modo claro ou escuro</Text>
+          </View>
+        </View>
+        <View style={[styles.themeSegment, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+          {(['dark', 'light'] as const).map((mode) => {
+            const active = themeMode === mode;
+            return (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.themeSegmentButton,
+                  { backgroundColor: active ? theme.primary : 'transparent' },
+                ]}
+                onPress={() => setThemeMode(mode)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Ionicons
+                  name={mode === 'dark' ? 'moon-outline' : 'sunny-outline'}
+                  size={16}
+                  color={active ? theme.primaryText : theme.textSecondary}
+                />
+                <Text style={[styles.themeSegmentText, { color: active ? theme.primaryText : theme.textSecondary }]}>
+                  {mode === 'dark' ? 'Escuro' : 'Claro'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.logoutButton, { borderColor: theme.danger + '55', backgroundColor: theme.dangerSoft }]}
+          onPress={handleLogout}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel="Sair da conta"
+        >
+          <Ionicons name="log-out-outline" size={18} color={theme.danger} />
+          <Text style={[styles.logoutButtonText, { color: theme.danger }]}>Sair da conta</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={{ height: TAB_BAR_HEIGHT + insets.bottom + spacing.md }} />
     </ScrollView>
   );
@@ -730,8 +753,9 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
   },
-  themeQuickCard: {
+  profileFooterPanel: {
     marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
     marginBottom: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
@@ -779,6 +803,20 @@ const styles = StyleSheet.create({
   },
   themeSegmentText: {
     fontSize: 12,
+    fontWeight: '800',
+  },
+  logoutButton: {
+    minHeight: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: spacing.xs,
+  },
+  logoutButtonText: {
+    fontSize: 13,
     fontWeight: '800',
   },
   statsRow: {
