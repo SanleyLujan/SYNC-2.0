@@ -335,6 +335,118 @@ export default function DiscoveryScreen({ navigation }: Props) {
   }, [authUser]);
   const recommendation = weather ? getExerciseRecommendation(weather) : null;
 
+  const renderFilterModal = () => (
+    <Modal visible={showFilters} animationType="slide" transparent onRequestClose={() => setShowFilters(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 16) + spacing.lg }]}>
+          <View style={styles.modalHandle} />
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Filtros</Text>
+            <TouchableOpacity
+              style={{ paddingVertical: 8, paddingHorizontal: 4, minHeight: 44, justifyContent: 'center' }}
+              onPress={() => {
+                setFilterDistance(25);
+                setFilterLevel('all');
+                setFilterSport('all');
+              }}
+            >
+              <Text style={[styles.resetText, { color: theme.primary }]}>Resetar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Distancia maxima</Text>
+          <View style={styles.filterChips}>
+            {DISTANCE_OPTIONS.map((d) => (
+              <TouchableOpacity
+                key={d}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  filterDistance === d && { backgroundColor: theme.primary, borderColor: theme.primary },
+                ]}
+                onPress={() => setFilterDistance(d)}
+              >
+                <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterDistance === d && { color: theme.primaryText }]}>
+                  {d} km
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Nivel</Text>
+          <View style={styles.filterChips}>
+            {LEVEL_OPTIONS.map((l) => (
+              <TouchableOpacity
+                key={l.id}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  filterLevel === l.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+                ]}
+                onPress={() => setFilterLevel(l.id)}
+              >
+                <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterLevel === l.id && { color: theme.primaryText }]}>
+                  {l.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Esporte</Text>
+          <View style={styles.filterChips}>
+            {SPORT_FILTER_OPTIONS.map((s) => (
+              <TouchableOpacity
+                key={s.id}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  filterSport === s.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+                ]}
+                onPress={() => setFilterSport(s.id)}
+              >
+                <Ionicons
+                  name={s.icon}
+                  size={14}
+                  color={filterSport === s.id ? theme.primaryText : theme.textPrimary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterSport === s.id && { color: theme.primaryText }]}>
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={styles.applyFilterBtn}
+            onPress={() => {
+              setShowFilters(false);
+              loadUsers();
+            }}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={theme.gradientPrimary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.applyFilterGradient}
+            >
+              <Ionicons name="checkmark" size={20} color={colors.white} />
+              <Text style={styles.applyFilterText}>Aplicar filtros</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.closeModalBtn}
+            onPress={() => setShowFilters(false)}
+          >
+            <Text style={[styles.closeModalText, { color: theme.textSecondary }]}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
@@ -477,6 +589,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
           <Ionicons name="options-outline" size={16} color={theme.primary} />
           <Text style={[styles.adjustFiltersText, { color: theme.primary }]}>Ajustar filtros</Text>
         </TouchableOpacity>
+        {renderFilterModal()}
       </View>
     );
   }
@@ -704,116 +817,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Filter Modal */}
-      <Modal visible={showFilters} animationType="slide" transparent onRequestClose={() => setShowFilters(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 16) + spacing.lg }]}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Filtros</Text>
-              <TouchableOpacity
-                style={{ paddingVertical: 8, paddingHorizontal: 4, minHeight: 44, justifyContent: 'center' }}
-                onPress={() => {
-                  setFilterDistance(25);
-                  setFilterLevel('all');
-                  setFilterSport('all');
-                }}
-              >
-                <Text style={[styles.resetText, { color: theme.primary }]}>Resetar</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Distancia maxima</Text>
-            <View style={styles.filterChips}>
-              {DISTANCE_OPTIONS.map((d) => (
-                <TouchableOpacity
-                  key={d}
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                    filterDistance === d && { backgroundColor: theme.primary, borderColor: theme.primary },
-                  ]}
-                  onPress={() => setFilterDistance(d)}
-                >
-                  <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterDistance === d && { color: theme.primaryText }]}>
-                    {d} km
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Nivel</Text>
-            <View style={styles.filterChips}>
-              {LEVEL_OPTIONS.map((l) => (
-                <TouchableOpacity
-                  key={l.id}
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                    filterLevel === l.id && { backgroundColor: theme.primary, borderColor: theme.primary },
-                  ]}
-                  onPress={() => setFilterLevel(l.id)}
-                >
-                  <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterLevel === l.id && { color: theme.primaryText }]}>
-                    {l.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={[styles.filterLabel, { color: theme.textPrimary }]}>Esporte</Text>
-            <View style={styles.filterChips}>
-              {SPORT_FILTER_OPTIONS.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                    filterSport === s.id && { backgroundColor: theme.primary, borderColor: theme.primary },
-                  ]}
-                  onPress={() => setFilterSport(s.id)}
-                >
-                  <Ionicons
-                    name={s.icon}
-                    size={14}
-                    color={filterSport === s.id ? theme.primaryText : theme.textPrimary}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text style={[styles.filterChipText, { color: theme.textSecondary }, filterSport === s.id && { color: theme.primaryText }]}>
-                    {s.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={styles.applyFilterBtn}
-              onPress={() => {
-                setShowFilters(false);
-                loadUsers();
-              }}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={theme.gradientPrimary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.applyFilterGradient}
-              >
-                <Ionicons name="checkmark" size={20} color={colors.white} />
-                <Text style={styles.applyFilterText}>Aplicar filtros</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.closeModalBtn}
-              onPress={() => setShowFilters(false)}
-            >
-              <Text style={[styles.closeModalText, { color: theme.textSecondary }]}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {renderFilterModal()}
     </View>
   );
 }
