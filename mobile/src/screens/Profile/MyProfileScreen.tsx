@@ -358,12 +358,24 @@ export default function MyProfileScreen({ navigation }: Props) {
           <Ionicons name="pencil-outline" size={18} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatarRing}>
+          <View style={[styles.avatarContainer, { shadowColor: theme.primary }]}>
+            <View style={[
+              styles.avatarRing,
+              {
+                borderColor: theme.primary,
+                backgroundColor: theme.mode === 'dark' ? 'rgba(3,9,20,0.82)' : colors.white,
+              },
+            ]}>
               <Logo size={58} variant="filled" />
             </View>
             <TouchableOpacity
-              style={styles.editAvatarBtn}
+              style={[
+                styles.editAvatarBtn,
+                {
+                  backgroundColor: theme.primary,
+                  borderColor: theme.mode === 'dark' ? colors.white : theme.background,
+                },
+              ]}
               onPress={pickBanner}
               disabled={uploadingBanner}
               accessibilityRole="button"
@@ -397,20 +409,20 @@ export default function MyProfileScreen({ navigation }: Props) {
             </View>
           )}
           {user.level && (levelIcons[user.level] || levelLabels[user.level]) && (
-            <View style={styles.levelBadge}>
+            <View style={[styles.levelBadge, { backgroundColor: theme.primarySoft }]}>
               <Ionicons
                 name={(levelIcons[user.level] || 'fitness') as any}
                 size={14}
-                color={colors.white}
+                color={theme.primary}
               />
-              <Text style={styles.levelText}>{levelLabels[user.level] || user.level}</Text>
+              <Text style={[styles.levelText, { color: theme.primary }]}>{levelLabels[user.level] || user.level}</Text>
             </View>
           )}
         </View>
       </ImageBackground>
 
       <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.md }}>
-        <View style={[styles.profileGoalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.profileGoalCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.primary }]}>
           <View style={styles.profileGoalSide}>
             <View style={[styles.profileGoalIcon, { backgroundColor: theme.primarySoft }]}>
               <Ionicons name="water" size={24} color={theme.primary} />
@@ -706,7 +718,6 @@ const styles = StyleSheet.create({
     // sem isso o box-shadow vira um quadrado em volta da foto redonda.
     borderRadius: 56,
     // Glow fica no container (overflow visível) — o recorte circular vai no ring
-    shadowColor: colors.blue,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.85,
     shadowRadius: 16,
@@ -717,9 +728,7 @@ const styles = StyleSheet.create({
     height: 112,
     borderRadius: 56,
     borderWidth: 3,
-    borderColor: colors.blue,
     overflow: 'hidden', // recorta a foto dentro do círculo (corrige foto quadrada no web)
-    backgroundColor: 'rgba(3,9,20,0.82)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -730,7 +739,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.blue,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -775,7 +783,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(58,134,255,0.28)',
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: borderRadius.full,
@@ -793,7 +800,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: colors.blue,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.16,
     shadowRadius: 20,
