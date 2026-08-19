@@ -72,6 +72,14 @@ export const authService = {
     await api.post('/auth/reset-password', { token, newPassword });
   },
 
+  async verifyEmail(token: string): Promise<void> {
+    await api.post('/auth/verify-email', { token });
+  },
+
+  async resendVerification(): Promise<void> {
+    await api.post('/auth/resend-verification');
+  },
+
   async logout(): Promise<void> {
     // Token vai pro SecureStore (criptografado)
     await secureStorage.removeItem('@sync:token');

@@ -28,6 +28,7 @@ export interface User {
   heightCm?: number;
   gender?: 'male' | 'female' | 'other';
   isActive: boolean;
+  emailVerified?: boolean;
   isVerified?: boolean;
   subscriptionTier?: 'free' | 'premium' | 'atleta_pro';
   onboardingCompleted: boolean;

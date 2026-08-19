@@ -6,11 +6,13 @@ import { Platform } from 'react-native';
 import { View, Text, TouchableOpacity } from 'react-native';
 import RootNavigator from './src/navigation/RootNavigator';
 import LiveViewScreen from './src/screens/Live/LiveViewScreen';
+import VerifyEmailScreen from './src/screens/Auth/VerifyEmailScreen';
 import ToastHost from './src/components/ui/Toast';
 import AccessibilityEffects from './src/components/AccessibilityEffects';
 import ConnectionBanner from './src/components/ConnectionBanner';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { colors, borderRadius } from './src/theme';
+import { useThemeStore } from './src/store/themeStore';
 
 // Fallback global: se QUALQUER tela quebrar no render, mostra isto em vez de
 // uma tela branca. No web dá pra recarregar; no nativo o botão tenta reabrir.
@@ -56,18 +58,38 @@ function getLiveToken(): string | null {
   return m?.[1] || null;
 }
 
+function getEmailVerificationToken(): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  if (!window.location.pathname.match(/^\/verify-email\/?$/i)) return null;
+  return new URLSearchParams(window.location.search).get('token');
+}
+
 export default function App() {
+  const theme = useThemeStore((s) => s.theme);
+  const loadTheme = useThemeStore((s) => s.loadTheme);
   const liveToken = getLiveToken();
+  const emailVerificationToken = getEmailVerificationToken();
 
   useEffect(() => {
+    loadTheme();
     registerServiceWorker();
-  }, []);
+  }, [loadTheme]);
 
   if (liveToken) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="light" />
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
+        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
         <LiveViewScreen token={liveToken} />
+      </GestureHandlerRootView>
+    );
+  }
+
+  if (emailVerificationToken) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
+        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+        <VerifyEmailScreen token={emailVerificationToken} />
+        <ToastHost />
       </GestureHandlerRootView>
     );
   }
@@ -77,23 +99,23 @@ export default function App() {
   const isWeb = Platform.OS === 'web';
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
       <View
         style={
           isWeb
-            ? { flex: 1, alignItems: 'center', backgroundColor: colors.background }
+            ? { flex: 1, alignItems: 'center', backgroundColor: theme.background }
             : { flex: 1 }
         }
       >
         <View
           style={
             isWeb
-              ? { flex: 1, width: '100%', maxWidth: 480, backgroundColor: colors.background, overflow: 'hidden' }
+              ? { flex: 1, width: '100%', maxWidth: 480, backgroundColor: theme.background, overflow: 'hidden' }
               : { flex: 1 }
           }
         >
           <NavigationContainer>
-            <StatusBar style="auto" />
+            <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
             <AccessibilityEffects />
             <ConnectionBanner />
             <ErrorBoundary fallback={<GlobalCrashFallback />}>

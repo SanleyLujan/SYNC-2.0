@@ -11,6 +11,7 @@ import AuthNavigator from './AuthNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
 import MainTabNavigator from './MainTabNavigator';
 import NetworkBanner from '../components/NetworkBanner';
+import EmailVerificationBanner from '../components/EmailVerificationBanner';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -61,6 +62,7 @@ export default function RootNavigator() {
         )}
       </Stack.Navigator>
       <NetworkBanner />
+      <EmailVerificationBanner />
     </View>
   );
 }

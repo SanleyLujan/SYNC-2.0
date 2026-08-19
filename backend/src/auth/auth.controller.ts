@@ -47,6 +47,13 @@ class RefreshDto {
   refreshToken: string;
 }
 
+class VerifyEmailDto {
+  @IsString()
+  @MinLength(32)
+  @MaxLength(128)
+  token: string;
+}
+
 @ApiTags('Auth')
 @Controller('api/auth')
 export class AuthController {
@@ -82,6 +89,22 @@ export class AuthController {
   @ApiOperation({ summary: 'Redefinir senha com token' })
   resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
     return this.authService.resetPassword(dto.token, dto.newPassword, req);
+  }
+
+  @Post('verify-email')
+  @Throttle({ default: { ttl: 300_000, limit: 10 } })
+  @ApiOperation({ summary: 'Confirmar email com token' })
+  verifyEmail(@Body() dto: VerifyEmailDto, @Req() req: Request) {
+    return this.authService.verifyEmail(dto.token, req);
+  }
+
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { ttl: 300_000, limit: 3 } })
+  @ApiOperation({ summary: 'Reenviar email de confirmacao' })
+  resendVerification(@CurrentUser() user: User, @Req() req: Request) {
+    return this.authService.resendVerification(user.id, req);
   }
 
   @Post('change-password')

@@ -50,5 +50,5 @@ if (isProduction || process.env.DATABASE_URL) {
   };
 }
 
-export const AppDataSource = new DataSource(options);
+const AppDataSource = new DataSource(options);
 export default AppDataSource;

@@ -101,6 +101,15 @@ export class User {
   @Column({ default: false })
   onboardingCompleted: boolean;
 
+  @Column({ default: false })
+  emailVerified: boolean;
+
+  @Column({ nullable: true, select: false, type: 'varchar' })
+  emailVerificationToken: string | null;
+
+  @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', nullable: true, select: false })
+  emailVerificationExpires: Date | null;
+
   @Column({ nullable: true, select: false, type: 'varchar' })
   resetPasswordToken: string | null;
 

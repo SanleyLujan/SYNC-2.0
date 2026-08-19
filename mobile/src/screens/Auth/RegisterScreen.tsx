@@ -124,7 +124,7 @@ export default function RegisterScreen({ navigation }: Props) {
         cpf: cpf.replace(/\D/g, '') || undefined,
       });
       // Popup de sucesso antes de cair na seleção de perguntas (onboarding)
-      showToast('Conta criada com sucesso! 🎉 Vamos personalizar seu perfil', 'success');
+      showToast('Conta criada! Enviamos um link para confirmar seu email.', 'success');
     } catch (error: any) {
       const status = error.response?.status;
       const msg = error.response?.data?.message;

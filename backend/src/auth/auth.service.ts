@@ -14,6 +14,7 @@ import { User } from '../users/entities/user.entity';
 import { BannedCpf } from '../users/entities/banned-cpf.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { EmailService } from './email.service';
 import { AuditService } from '../common/security/audit.service';
 import { Request } from 'express';
 
@@ -48,6 +49,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
     private readonly audit: AuditService,
   ) {}
 
@@ -98,11 +100,15 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+    const verification = this.createEmailVerificationToken();
 
     const user = this.userRepository.create({
       name: dto.name.trim().slice(0, 100),
       email,
       password: hashedPassword,
+      emailVerified: false,
+      emailVerificationToken: verification.hashedToken,
+      emailVerificationExpires: verification.expires,
       ...(cpfHash && { cpfHash }),
       ...(dto.weightKg != null && { weightKg: dto.weightKg }),
       ...(dto.heightCm != null && { heightCm: dto.heightCm }),
@@ -111,6 +117,7 @@ export class AuthService {
 
     await this.userRepository.save(user);
     await this.audit.log({ userId: user.id, event: 'register_success', req });
+    await this.sendVerificationEmailSafe(user, verification.token);
 
     const token = this.generateToken(user);
 
@@ -162,6 +169,7 @@ export class AuthService {
         name: (payload.name || email.split('@')[0]).slice(0, 100),
         email,
         password: randomPwd,
+        emailVerified: true,
         isVerified: true,
       };
       if (payload.picture) newUser.avatarUrl = payload.picture;
@@ -273,6 +281,50 @@ export class AuthService {
     };
   }
 
+  async verifyEmail(token: string, req?: Request): Promise<{ ok: true; message: string }> {
+    const hashedToken = this.hashToken(token);
+
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.emailVerificationToken')
+      .addSelect('user.emailVerificationExpires')
+      .where('user.emailVerificationToken = :token', { token: hashedToken })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
+
+    if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
+      throw new BadRequestException('Link de confirmacao invalido ou expirado');
+    }
+
+    await this.userRepository.update(user.id, {
+      emailVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpires: null,
+    });
+    await this.audit.log({ userId: user.id, event: 'email_verified', req });
+
+    return { ok: true, message: 'Email confirmado com sucesso' };
+  }
+
+  async resendVerification(userId: string, req?: Request): Promise<{ ok: true; message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Usuário não encontrado');
+
+    if (user.emailVerified) {
+      return { ok: true, message: 'Email ja confirmado' };
+    }
+
+    const verification = this.createEmailVerificationToken();
+    await this.userRepository.update(user.id, {
+      emailVerificationToken: verification.hashedToken,
+      emailVerificationExpires: verification.expires,
+    });
+    await this.audit.log({ userId: user.id, event: 'email_verification_resent', req });
+    await this.sendVerificationEmailSafe(user, verification.token);
+
+    return { ok: true, message: 'Email de confirmacao reenviado' };
+  }
+
   async changePassword(userId: string, currentPassword: string, newPassword: string, req?: Request): Promise<void> {
     this.assertStrongPassword(newPassword);
     const user = await this.userRepository
@@ -344,8 +396,32 @@ export class AuthService {
       heightCm: user.heightCm,
       gender: user.gender,
       isActive: user.isActive,
+      emailVerified: user.emailVerified,
       createdAt: user.createdAt,
     };
+  }
+
+  private createEmailVerificationToken(): { token: string; hashedToken: string; expires: Date } {
+    const token = crypto.randomBytes(32).toString('hex');
+    return {
+      token,
+      hashedToken: this.hashToken(token),
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    };
+  }
+
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  private async sendVerificationEmailSafe(user: User, token: string): Promise<void> {
+    try {
+      await this.emailService.sendVerificationEmail(user.email, user.name, token);
+    } catch (error) {
+      this.logger.error(
+        `Falha ao enviar email de verificacao para user=${user.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /** Senha forte: mín 8 chars, ≥1 letra, ≥1 número, não em blacklist de óbvias. */

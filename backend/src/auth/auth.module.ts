@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { EmailService } from './email.service';
 import { JwtStrategy } from './guards/jwt.strategy';
 import { RefreshTokenService } from './refresh-token.service';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -22,7 +23,7 @@ import { User } from '../users/entities/user.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshTokenService],
+  providers: [AuthService, EmailService, JwtStrategy, RefreshTokenService],
   exports: [AuthService, JwtModule, RefreshTokenService],
 })
 export class AuthModule {}
