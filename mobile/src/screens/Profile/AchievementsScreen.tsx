@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   TouchableOpacity,
-  Platform,
   RefreshControl,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useThemeStore } from '../../store/themeStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'Achievements'>;
@@ -25,6 +24,7 @@ type Props = {
 
 export default function AchievementsScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [xpData, setXpData] = useState<UserXP | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,21 +64,30 @@ export default function AchievementsScreen({ navigation }: Props) {
   const renderAchievement = ({ item }: { item: Achievement }) => {
     const isUnlocked = !!item.unlockedAt;
     return (
-      <View style={[styles.achievementCard, !isUnlocked && styles.achievementCardLocked]}>
-        <View style={[styles.iconWrap, !isUnlocked && styles.iconWrapLocked]}>
+      <View
+        style={[
+          styles.achievementCard,
+          { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.mode === 'dark' ? '#000' : theme.primary },
+          !isUnlocked && styles.achievementCardLocked,
+        ]}
+      >
+        <View style={[
+          styles.iconWrap,
+          { backgroundColor: isUnlocked ? theme.primarySoft : theme.surfaceSecondary },
+        ]}>
           <Text style={[styles.achievementIcon, !isUnlocked && styles.achievementIconLocked]}>
             {item.icon}
           </Text>
         </View>
         <View style={styles.achievementInfo}>
-          <Text style={[styles.achievementName, !isUnlocked && styles.lockedText]}>
+          <Text style={[styles.achievementName, { color: isUnlocked ? theme.textPrimary : theme.textSecondary }]}>
             {isUnlocked ? item.name : '???'}
           </Text>
-          <Text style={[styles.achievementDesc, !isUnlocked && styles.lockedText]}>
+          <Text style={[styles.achievementDesc, { color: theme.textSecondary }]}>
             {isUnlocked ? item.description : 'Continue treinando para desbloquear'}
           </Text>
           {isUnlocked && item.unlockedAt && (
-            <Text style={styles.unlockedDate}>
+            <Text style={[styles.unlockedDate, { color: theme.primary }]}>
               {new Date(item.unlockedAt).toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: 'short',
@@ -90,11 +99,11 @@ export default function AchievementsScreen({ navigation }: Props) {
         <View style={styles.xpBadge}>
           {isUnlocked ? (
             <>
-              <Text style={styles.xpValue}>+{item.xp}</Text>
-              <Text style={styles.xpLabel}>XP</Text>
+              <Text style={[styles.xpValue, { color: theme.primary }]}>+{item.xp}</Text>
+              <Text style={[styles.xpLabel, { color: theme.textSecondary }]}>XP</Text>
             </>
           ) : (
-            <Ionicons name="lock-closed" size={16} color={colors.dark.secondaryText} />
+            <Ionicons name="lock-closed" size={16} color={theme.textSecondary} />
           )}
         </View>
       </View>
@@ -103,60 +112,65 @@ export default function AchievementsScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: Math.max(insets.top + 12, 56) }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, paddingTop: Math.max(insets.top + 12, 56) }]}>
         <SkeletonList count={7} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
         <TouchableOpacity
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color={colors.dark.text} />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Conquistas</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Conquistas</Text>
         <View style={{ width: 38 }} />
       </LinearGradient>
 
       {/* XP Banner */}
       {xpData && (
         <LinearGradient
-          colors={['#1A1A35', '#12122A']}
-          style={styles.xpBanner}
+          colors={theme.mode === 'dark'
+            ? [theme.surfaceElevated, theme.surface]
+            : [theme.surface, theme.surfaceSecondary]}
+          style={[styles.xpBanner, { borderColor: theme.primary + '35', shadowColor: theme.primary }]}
         >
           <View style={styles.xpLeft}>
-            <Text style={styles.xpLevelLabel}>NÍVEL</Text>
-            <Text style={styles.xpLevel}>{xpData.level}</Text>
+            <Text style={[styles.xpLevelLabel, { color: theme.textSecondary }]}>NÍVEL</Text>
+            <Text style={[styles.xpLevel, { color: theme.primary }]}>{xpData.level}</Text>
           </View>
           <View style={styles.xpCenter}>
-            <Text style={styles.xpTotal}>{xpData.totalXP} XP</Text>
-            <View style={styles.xpBar}>
+            <Text style={[styles.xpTotal, { color: theme.textPrimary }]}>{xpData.totalXP} XP</Text>
+            <View style={[styles.xpBar, { backgroundColor: theme.divider }]}>
               <View
                 style={[
                   styles.xpBarFill,
+                  { backgroundColor: theme.primary },
                   { width: `${((xpData.totalXP % 500) / 500) * 100}%` },
                 ]}
               />
             </View>
-            <Text style={styles.xpNext}>
+            <Text style={[styles.xpNext, { color: theme.textSecondary }]}>
               {500 - (xpData.totalXP % 500)} XP para o próximo nível
             </Text>
           </View>
           <View style={styles.xpRight}>
-            <Text style={styles.xpCountLabel}>CONQUISTAS</Text>
-            <Text style={styles.xpCount}>
+            <Text style={[styles.xpCountLabel, { color: theme.textSecondary }]}>CONQUISTAS</Text>
+            <Text style={[styles.xpCount, { color: theme.textPrimary }]}>
               {unlockedCount}/{totalCount}
             </Text>
           </View>
@@ -170,11 +184,11 @@ export default function AchievementsScreen({ navigation }: Props) {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
         ListHeaderComponent={
           achievements.length > 0 ? (
-            <Text style={styles.sectionLabel}>
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
               {unlockedCount} de {totalCount} conquistas desbloqueadas
             </Text>
           ) : null
@@ -182,11 +196,11 @@ export default function AchievementsScreen({ navigation }: Props) {
         ListEmptyComponent={
           error ? (
             <View style={styles.emptyWrap}>
-              <Ionicons name="cloud-offline-outline" size={56} color="rgba(255,255,255,0.2)" />
-              <Text style={styles.emptyTitle}>Erro ao carregar</Text>
-              <Text style={styles.emptyText}>Não foi possível buscar suas conquistas.</Text>
+              <Ionicons name="cloud-offline-outline" size={56} color={theme.textMuted} />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Erro ao carregar</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Não foi possível buscar suas conquistas.</Text>
               <TouchableOpacity
-                style={styles.retryBtn}
+                style={[styles.retryBtn, { backgroundColor: theme.primary }]}
                 onPress={() => loadData()}
                 accessibilityRole="button"
                 accessibilityLabel="Tentar novamente"
@@ -197,9 +211,9 @@ export default function AchievementsScreen({ navigation }: Props) {
             </View>
           ) : (
             <View style={styles.emptyWrap}>
-              <Ionicons name="trophy-outline" size={56} color="rgba(255,255,255,0.2)" />
-              <Text style={styles.emptyTitle}>Sem conquistas ainda</Text>
-              <Text style={styles.emptyText}>Complete treinos pra desbloquear medalhas e XP.</Text>
+              <Ionicons name="trophy-outline" size={56} color={theme.textMuted} />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Sem conquistas ainda</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Complete treinos pra desbloquear medalhas e XP.</Text>
             </View>
           )
         }

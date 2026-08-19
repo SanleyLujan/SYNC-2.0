@@ -30,7 +30,6 @@ import { segmentsApi } from '../../services/segments.service';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { showToast } from '../../components/ui/Toast';
-import { confirmAsync } from '../../utils/confirm';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'MyProfile'>;
@@ -64,9 +63,7 @@ interface Stats {
 export default function MyProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useThemeStore((s) => s.theme);
-  const themeMode = useThemeStore((s) => s.mode);
-  const setThemeMode = useThemeStore((s) => s.setMode);
-  const { user, setUser, logout } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [stats, setStats] = useState<Stats>({
     totalActivities: 0, totalDistanceKm: 0, weeklyDistanceKm: 0, totalDuration: 0,
@@ -166,17 +163,6 @@ export default function MyProfileScreen({ navigation }: Props) {
       });
     } catch (error) {
       console.log('Share error:', error);
-    }
-  };
-
-  const handleLogout = async () => {
-    const ok = await confirmAsync('Sair da conta?', 'Você voltará para a tela inicial do Sync.', {
-      confirmText: 'Sair',
-      destructive: true,
-    });
-    if (ok) {
-      await setThemeMode('dark');
-      await logout();
     }
   };
 
@@ -329,34 +315,11 @@ export default function MyProfileScreen({ navigation }: Props) {
       >
         <LinearGradient
           colors={theme.mode === 'dark'
-            ? ['rgba(3,9,20,0.10)', 'rgba(3,9,20,0.62)', 'rgba(3,9,20,0.98)']
-            : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.35)', 'rgba(247,248,251,0.98)']}
-          locations={[0, 0.5, 1]}
+            ? ['rgba(3,9,20,0.00)', 'rgba(3,9,20,0.36)', 'rgba(3,9,20,0.86)', theme.background]
+            : ['rgba(247,248,251,0.00)', 'rgba(247,248,251,0.46)', 'rgba(247,248,251,0.92)', theme.background]}
+          locations={[0, 0.32, 0.66, 1]}
           style={StyleSheet.absoluteFill}
         />
-        <TouchableOpacity
-          style={[styles.headerActionBtn, styles.headerBackBtn, { top: Math.max(insets.top + 12, 56) }]}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.getParent()?.navigate('FeedTab' as never);
-            }
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.headerActionBtn, styles.bannerEditBtn, { top: Math.max(insets.top + 12, 56) }]}
-          onPress={() => navigation.navigate('EditProfile')}
-          disabled={uploadingBanner}
-          accessibilityRole="button"
-          accessibilityLabel="Editar perfil"
-        >
-          <Ionicons name="pencil-outline" size={18} color="#fff" />
-        </TouchableOpacity>
         <View style={styles.headerContent}>
           <View style={[styles.avatarContainer, { shadowColor: theme.primary }]}>
             <View style={[
@@ -397,7 +360,7 @@ export default function MyProfileScreen({ navigation }: Props) {
               </View>
             )}
             {(user as any).subscriptionTier === 'premium' && (
-              <View style={[styles.tierBadge, { backgroundColor: '#FF6B35' }]}>
+              <View style={[styles.tierBadge, { backgroundColor: theme.primary }]}>
                 <Ionicons name="star" size={10} color="#fff" />
               </View>
             )}
@@ -526,19 +489,19 @@ export default function MyProfileScreen({ navigation }: Props) {
       {/* Bio */}
       {user.bio && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sobre</Text>
-          <Text style={styles.bio}>{user.bio}</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Sobre</Text>
+          <Text style={[styles.bio, { color: theme.textPrimary }]}>{user.bio}</Text>
         </View>
       )}
 
       {/* Sports */}
       {user.sports && user.sports.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Esportes</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Esportes</Text>
           <View style={styles.tags}>
             {user.sports.map((s) => (
-              <View key={s} style={styles.tag}>
-                <Text style={styles.tagText}>
+              <View key={s} style={[styles.tag, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '28' }]}>
+                <Text style={[styles.tagText, { color: theme.primary }]}>
                   {SPORTS.find((sp) => sp.id === s)?.label || s}
                 </Text>
               </View>
@@ -549,15 +512,15 @@ export default function MyProfileScreen({ navigation }: Props) {
 
       {/* Daily Challenges */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Desafios do dia</Text>
-        <View style={styles.challengesCard}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Desafios do dia</Text>
+        <View style={[styles.challengesCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {[
             {
               icon: 'walk-outline' as const,
               label: 'Registre 1 treino hoje',
               progress: stats.totalActivities > 0 ? 1 : 0,
               total: 1,
-              color: '#FF6B35',
+              color: theme.primary,
             },
             {
               icon: 'navigate-outline' as const,
@@ -578,14 +541,26 @@ export default function MyProfileScreen({ navigation }: Props) {
             const pct = Math.min(1, c.progress / c.total);
             const done = pct >= 1;
             return (
-              <View key={i} style={[styles.challengeItem, i < 2 && styles.challengeDivider]}>
+              <View
+                key={i}
+                style={[
+                  styles.challengeItem,
+                  i < 2 && styles.challengeDivider,
+                  i < 2 && { borderBottomColor: theme.divider },
+                ]}
+              >
                 <View style={[styles.challengeIcon, { backgroundColor: c.color + '18' }]}>
                   <Ionicons name={done ? 'checkmark-circle' : c.icon} size={18} color={done ? colors.success : c.color} />
                 </View>
                 <View style={styles.challengeContent}>
-                  <Text style={[styles.challengeLabel, done && styles.challengeLabelDone]}>{c.label}</Text>
+                  <Text style={[
+                    styles.challengeLabel,
+                    { color: theme.textPrimary },
+                    done && styles.challengeLabelDone,
+                    done && { color: theme.textSecondary },
+                  ]}>{c.label}</Text>
                   <View style={styles.challengeBarWrap}>
-                    <View style={styles.challengeBar}>
+                    <View style={[styles.challengeBar, { backgroundColor: theme.divider }]}>
                       <View style={[styles.challengeBarFill, { width: `${pct * 100}%`, backgroundColor: done ? colors.success : c.color }]} />
                     </View>
                     <Text style={[styles.challengeProgress, { color: done ? colors.success : c.color }]}>
@@ -621,56 +596,6 @@ export default function MyProfileScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <View style={[styles.profileFooterPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.themeQuickTitleRow}>
-          <View style={[styles.themeQuickIcon, { backgroundColor: theme.primarySoft }]}>
-            <Ionicons name={theme.mode === 'dark' ? 'moon' : 'sunny'} size={18} color={theme.primary} />
-          </View>
-          <View style={styles.themeQuickText}>
-            <Text style={[styles.themeQuickTitle, { color: theme.textPrimary }]}>Aparência</Text>
-            <Text style={[styles.themeQuickSub, { color: theme.textSecondary }]}>Modo claro ou escuro</Text>
-          </View>
-        </View>
-        <View style={[styles.themeSegment, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-          {(['dark', 'light'] as const).map((mode) => {
-            const active = themeMode === mode;
-            return (
-              <TouchableOpacity
-                key={mode}
-                style={[
-                  styles.themeSegmentButton,
-                  { backgroundColor: active ? theme.primary : 'transparent' },
-                ]}
-                onPress={() => setThemeMode(mode)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Ionicons
-                  name={mode === 'dark' ? 'moon-outline' : 'sunny-outline'}
-                  size={16}
-                  color={active ? theme.primaryText : theme.textSecondary}
-                />
-                <Text style={[styles.themeSegmentText, { color: active ? theme.primaryText : theme.textSecondary }]}>
-                  {mode === 'dark' ? 'Escuro' : 'Claro'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.logoutButton, { borderColor: theme.danger + '55', backgroundColor: theme.dangerSoft }]}
-          onPress={handleLogout}
-          activeOpacity={0.78}
-          accessibilityRole="button"
-          accessibilityLabel="Sair da conta"
-        >
-          <Ionicons name="log-out-outline" size={18} color={theme.danger} />
-          <Text style={[styles.logoutButtonText, { color: theme.danger }]}>Sair da conta</Text>
-        </TouchableOpacity>
-      </View>
-
       <View style={{ height: TAB_BAR_HEIGHT + insets.bottom + spacing.md }} />
     </ScrollView>
   );
@@ -684,27 +609,7 @@ const styles = StyleSheet.create({
   headerGradient: {
     minHeight: 280,
     paddingBottom: spacing.xl + 28,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
     overflow: 'hidden',
-  },
-  headerActionBtn: {
-    position: 'absolute',
-    top: 56, // overridden dynamically with insets.top
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 18,
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  headerBackBtn: {
-    left: spacing.lg,
-  },
-  bannerEditBtn: {
-    right: spacing.lg,
   },
   headerContent: {
     alignItems: 'center',
@@ -849,72 +754,6 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
   },
-  profileFooterPanel: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  themeQuickTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  themeQuickIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  themeQuickText: {
-    flex: 1,
-  },
-  themeQuickTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: '800',
-  },
-  themeQuickSub: {
-    fontSize: fontSize.xs,
-    marginTop: 2,
-  },
-  themeSegment: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 4,
-    gap: 4,
-  },
-  themeSegmentButton: {
-    flex: 1,
-    minHeight: 38,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  themeSegmentText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  logoutButton: {
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: spacing.xs,
-  },
-  logoutButtonText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
   statsRow: {
     flexDirection: 'row',
     marginHorizontal: spacing.lg,
@@ -1044,6 +883,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
+    borderWidth: 1,
   },
   tagText: {
     fontSize: fontSize.sm,

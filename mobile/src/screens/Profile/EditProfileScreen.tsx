@@ -16,6 +16,7 @@ import { SPORTS } from '../../types';
 import { colors, fontSize, spacing } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useThemeStore } from '../../store/themeStore';
 import * as ImagePicker from 'expo-image-picker';
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import Input from '../../components/ui/Input';
@@ -28,8 +29,6 @@ import { showToast } from '../../components/ui/Toast';
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'EditProfile'>;
 };
-
-const ACCENT = '#FF6B35';
 
 // Perguntas estilo Tinder pra deixar o perfil mais atraente
 const PROMPT_QUESTIONS = [
@@ -63,6 +62,7 @@ function resizeAvatarForWeb(uri: string, size: number): Promise<string> {
 
 export default function EditProfileScreen({ navigation }: Props) {
   const { user, setUser } = useAuthStore();
+  const theme = useThemeStore((s) => s.theme);
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [sports, setSports] = useState<string[]>(user?.sports || []);
@@ -154,14 +154,17 @@ export default function EditProfileScreen({ navigation }: Props) {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer style={{ backgroundColor: theme.background }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.centered}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={22} color="#fff" />
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+            >
+              <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.title}>Editar perfil</Text>
+            <Text style={[styles.title, { color: theme.textPrimary }]}>Editar perfil</Text>
             <View style={{ width: 40 }} />
           </View>
 
@@ -169,18 +172,18 @@ export default function EditProfileScreen({ navigation }: Props) {
           <View style={styles.avatarSection}>
             <TouchableOpacity onPress={pickAvatar} disabled={uploadingAvatar} activeOpacity={0.8} style={styles.avatarWrap}>
               {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+                <Image source={{ uri: user.avatarUrl }} style={[styles.avatar, { borderColor: theme.primary }]} />
               ) : (
                 <LinearGradient
-                  colors={[ACCENT, '#FF5021']}
-                  style={[styles.avatar, styles.avatarPlaceholder]}
+                  colors={theme.gradientPrimary}
+                  style={[styles.avatar, styles.avatarPlaceholder, { borderColor: theme.primary }]}
                 >
                   <Text style={styles.avatarInitial}>
                     {(name || 'S').charAt(0).toUpperCase()}
                   </Text>
                 </LinearGradient>
               )}
-              <View style={styles.avatarEditBadge}>
+              <View style={[styles.avatarEditBadge, { backgroundColor: theme.primary, borderColor: theme.background }]}>
                 {uploadingAvatar ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
@@ -188,7 +191,7 @@ export default function EditProfileScreen({ navigation }: Props) {
                 )}
               </View>
             </TouchableOpacity>
-            <Text style={styles.avatarHint}>Toque para trocar sua foto</Text>
+            <Text style={[styles.avatarHint, { color: theme.textSecondary }]}>Toque para trocar sua foto</Text>
           </View>
 
           <Input label="Nome" value={name} onChangeText={setName} maxLength={50} />
@@ -201,11 +204,11 @@ export default function EditProfileScreen({ navigation }: Props) {
             maxLength={300}
           />
 
-          <Text style={styles.label}>Frases pra atrair (estilo Tinder)</Text>
-          <Text style={styles.promptHint}>Responda o que quiser — aparece no seu card no Descobrir.</Text>
+          <Text style={[styles.label, { color: theme.textPrimary }]}>Frases pra atrair (estilo Tinder)</Text>
+          <Text style={[styles.promptHint, { color: theme.textSecondary }]}>Responda o que quiser — aparece no seu card no Descobrir.</Text>
           {PROMPT_QUESTIONS.map((q) => (
             <View key={q} style={styles.promptBlock}>
-              <Text style={styles.promptQ}>{q}</Text>
+              <Text style={[styles.promptQ, { color: theme.primary }]}>{q}</Text>
               <Input
                 value={promptAnswers[q] || ''}
                 onChangeText={(v) => setPromptAnswers((prev) => ({ ...prev, [q]: v }))}
@@ -215,7 +218,7 @@ export default function EditProfileScreen({ navigation }: Props) {
             </View>
           ))}
 
-          <Text style={styles.label}>Esportes</Text>
+          <Text style={[styles.label, { color: theme.textPrimary }]}>Esportes</Text>
           <View style={styles.chips}>
             {SPORTS.map((s) => (
               <Chip
@@ -278,7 +281,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: ACCENT,
   },
   avatarPlaceholder: {
     justifyContent: 'center',
@@ -296,11 +298,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: ACCENT,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: colors.background,
   },
   avatarHint: {
     marginTop: spacing.sm,
@@ -310,12 +310,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: fontSize.sm,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap' },
-  promptHint: { color: colors.secondaryText, fontSize: fontSize.xs, marginBottom: spacing.sm, marginTop: -spacing.xs },
+  promptHint: { fontSize: fontSize.xs, marginBottom: spacing.sm, marginTop: -spacing.xs },
   promptBlock: { marginBottom: spacing.xs },
-  promptQ: { color: ACCENT, fontSize: fontSize.xs, fontWeight: '700', marginBottom: 2 },
+  promptQ: { fontSize: fontSize.xs, fontWeight: '700', marginBottom: 2 },
 });

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Skeleton from '../../components/ui/Skeleton';
 import api from '../../services/api';
 import { computeUserXP } from '../../utils/xp-system';
+import { useThemeStore } from '../../store/themeStore';
 
 type Period = 'week' | 'month' | 'year';
 
@@ -49,6 +50,7 @@ function isInPeriod(date: Date, period: Period): boolean {
 
 export default function StatsDashboardScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [period, setPeriod] = useState<Period>('week');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,36 +126,38 @@ export default function StatsDashboardScreen({ navigation }: any) {
   const xp = computeUserXP(Math.round(totalKm * 10) + totalActivities * 50);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
       >
         <TouchableOpacity
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
           onPress={() => navigation?.goBack?.()}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Estatísticas</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Estatísticas</Text>
         <View style={{ width: 38 }} />
       </LinearGradient>
 
       {/* Banner de erro de carregamento */}
       {error && (
         <TouchableOpacity
-          style={styles.errorBanner}
+          style={[styles.errorBanner, { backgroundColor: theme.dangerSoft, borderColor: theme.danger + '35' }]}
           onPress={loadData}
           accessibilityRole="button"
           accessibilityLabel="Erro ao carregar. Tocar para tentar novamente."
         >
-          <Ionicons name="cloud-offline-outline" size={16} color="#F87171" />
-          <Text style={styles.errorBannerText}>Erro ao carregar. Toque para tentar de novo.</Text>
-          <Ionicons name="refresh" size={16} color="#F87171" />
+          <Ionicons name="cloud-offline-outline" size={16} color={theme.danger} />
+          <Text style={[styles.errorBannerText, { color: theme.danger }]}>Erro ao carregar. Toque para tentar de novo.</Text>
+          <Ionicons name="refresh" size={16} color={theme.danger} />
         </TouchableOpacity>
       )}
 
@@ -162,13 +166,19 @@ export default function StatsDashboardScreen({ navigation }: any) {
         {(['week', 'month', 'year'] as Period[]).map((p) => (
           <TouchableOpacity
             key={p}
-            style={[styles.periodBtn, period === p && styles.periodBtnActive]}
+            style={[
+              styles.periodBtn,
+              {
+                backgroundColor: period === p ? theme.primary : theme.surface,
+                borderColor: period === p ? theme.primary : theme.border,
+              },
+            ]}
             onPress={() => setPeriod(p)}
             accessibilityRole="tab"
             accessibilityState={{ selected: period === p }}
             accessibilityLabel={p === 'week' ? 'Semana' : p === 'month' ? 'Mês' : 'Ano'}
           >
-            <Text style={[styles.periodLabel, period === p && styles.periodLabelActive]}>
+            <Text style={[styles.periodLabel, { color: period === p ? theme.primaryText : theme.textSecondary }]}>
               {p === 'week' ? 'Semana' : p === 'month' ? 'Mês' : 'Ano'}
             </Text>
           </TouchableOpacity>
@@ -177,7 +187,7 @@ export default function StatsDashboardScreen({ navigation }: any) {
 
       {/* HERO STATS */}
       <LinearGradient
-        colors={['#FF6B35', '#FF4500']}
+        colors={theme.gradientPrimary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.hero}
@@ -197,26 +207,26 @@ export default function StatsDashboardScreen({ navigation }: any) {
       {/* STATS GRID */}
       <View style={styles.statsGrid}>
         {[
-          { icon: 'fitness', value: totalActivities, label: 'Atividades', color: '#3B82F6' },
-          { icon: 'time', value: formatDuration(totalDuration), label: 'Tempo', color: '#A78BFA' },
-          { icon: 'flame', value: totalCalories, label: 'Calorias', color: '#FF6B35' },
+          { icon: 'fitness', value: totalActivities, label: 'Atividades', color: theme.blue },
+          { icon: 'time', value: formatDuration(totalDuration), label: 'Tempo', color: theme.purple },
+          { icon: 'flame', value: totalCalories, label: 'Calorias', color: theme.primary },
           {
             icon: 'speedometer',
             value: avgPace ? `${Math.floor(avgPace)}:${Math.round((avgPace - Math.floor(avgPace)) * 60).toString().padStart(2, '0')}` : '--:--',
             label: 'Pace /km',
-            color: '#10B981',
+            color: theme.success,
           },
         ].map((s, i) => (
-          <View key={i} style={styles.statCard}>
+          <View key={i} style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Ionicons name={s.icon as any} size={20} color={s.color} />
-            <Text style={styles.statValue}>{s.value}</Text>
-            <Text style={styles.statLabel}>{s.label}</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary }]}>{s.value}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{s.label}</Text>
           </View>
         ))}
       </View>
 
       {/* CHART */}
-      <Text style={styles.sectionTitle}>Distância por {period === 'week' ? 'dia' : period === 'month' ? 'semana' : 'mês'}</Text>
+      <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Distância por {period === 'week' ? 'dia' : period === 'month' ? 'semana' : 'mês'}</Text>
       <View style={styles.chart}>
         {buckets.map((b, i) => {
           const h = Math.max((b.value / maxBucket) * 100, 4);
@@ -224,14 +234,14 @@ export default function StatsDashboardScreen({ navigation }: any) {
             <View key={i} style={styles.barCol}>
               <View style={styles.barTrack}>
                 <LinearGradient
-                  colors={['#FF6B35', '#FF4500']}
+                  colors={theme.gradientPrimary}
                   style={[styles.bar, { height: `${h}%` }]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
                 />
               </View>
-              <Text style={styles.barValue}>{b.value > 0 ? b.value.toFixed(1) : ''}</Text>
-              <Text style={styles.barLabel}>{b.label}</Text>
+              <Text style={[styles.barValue, { color: theme.textPrimary }]}>{b.value > 0 ? b.value.toFixed(1) : ''}</Text>
+              <Text style={[styles.barLabel, { color: theme.textSecondary }]}>{b.label}</Text>
             </View>
           );
         })}
@@ -240,17 +250,17 @@ export default function StatsDashboardScreen({ navigation }: any) {
       {/* SPORT DISTRIBUTION */}
       {sportEntries.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>Por esporte</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Por esporte</Text>
           <View style={styles.sportList}>
             {sportEntries.map(([sport, count]) => {
               const pct = (count / totalActivities) * 100;
               return (
                 <View key={sport} style={styles.sportRow}>
-                  <Text style={styles.sportName}>{sport}</Text>
-                  <View style={styles.sportBar}>
-                    <View style={[styles.sportBarFill, { width: `${pct}%` }]} />
+                  <Text style={[styles.sportName, { color: theme.textPrimary }]}>{sport}</Text>
+                  <View style={[styles.sportBar, { backgroundColor: theme.divider }]}>
+                    <View style={[styles.sportBarFill, { width: `${pct}%`, backgroundColor: theme.primary }]} />
                   </View>
-                  <Text style={styles.sportCount}>{count}</Text>
+                  <Text style={[styles.sportCount, { color: theme.textPrimary }]}>{count}</Text>
                 </View>
               );
             })}
@@ -268,8 +278,8 @@ export default function StatsDashboardScreen({ navigation }: any) {
 
       {filtered.length === 0 && !loading && (
         <View style={styles.empty}>
-          <Ionicons name="bar-chart-outline" size={56} color={colors.dark.secondaryText} />
-          <Text style={styles.emptyText}>
+          <Ionicons name="bar-chart-outline" size={56} color={theme.textMuted} />
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
             Sem atividades neste período. Comece a treinar pra ver suas estatísticas aqui!
           </Text>
         </View>

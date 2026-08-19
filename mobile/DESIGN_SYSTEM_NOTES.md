@@ -41,9 +41,31 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
 
 - Perfil / Dias consecutivos
   - Arquivo principal: `src/screens/Profile/MyProfileScreen.tsx`
-  - O header do perfil usa foto de capa, logo central em aro azul, botao de voltar, botao de editar e camera para trocar capa.
+  - O header do perfil usa foto de capa, logo central e camera para trocar capa.
+  - O botao de voltar e o botao de lapis foram removidos do topo do perfil; a navegacao de edicao fica no menu do perfil e em Configuracoes.
+  - A transicao da foto de capa para o fundo da pagina fica no `LinearGradient` dentro de `ImageBackground`.
   - O card de sequencia/meta do perfil fica em `profileGoalCard` e usa `theme.surface`, `theme.border`, `theme.primary`, `theme.primarySoft`.
+  - Aparencia e sair da conta ficam em `src/screens/Settings/SettingsScreen.tsx`, nao no rodape do perfil.
   - `src/components/StreakBadge.tsx` ainda existe para outros pontos que precisem do badge reutilizavel.
+
+- Editar perfil
+  - Arquivo: `src/screens/Profile/EditProfileScreen.tsx`
+  - Usa `useThemeStore` nos textos, botoes, avatar, inputs e chips.
+  - Inputs globais ficam em `src/components/ui/Input.tsx`.
+  - Chips globais ficam em `src/components/ui/Chip.tsx`.
+
+- Conquistas
+  - Arquivo: `src/screens/Profile/AchievementsScreen.tsx`
+  - Header, banner de XP, cards, estados vazios e retry seguem `theme.background`, `theme.surface`, `theme.border`, `theme.primary`, `theme.textPrimary` e `theme.textSecondary`.
+
+- Dashboard de Stats
+  - Arquivo: `src/screens/Stats/StatsDashboardScreen.tsx`
+  - Header, seletor de periodo, hero, cards, grafico e lista por esporte usam tokens de tema.
+
+- Planos de treino
+  - Arquivo: `src/screens/Training/TrainingPlanScreen.tsx`
+  - Header, cards de plano, semana atual, treinos e proximas semanas seguem claro/escuro.
+  - Badges dos planos usam `theme.gradientSuccess`, `theme.gradientPrimary` e `theme.gradientGame`.
 
 - Treino ativo e resumo
   - Arquivos:
@@ -103,9 +125,6 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
 
 - `src/screens/Challenges/ChallengesScreen.tsx`
   - Ainda parece conter muitos `#FF6B35` e fundos fixos.
-
-- `src/screens/Training/TrainingPlanScreen.tsx`
-  - Tem bastante cor escura fixa e pode precisar de ajuste para modo claro.
 
 - `src/components/PostWorkoutRatingModal.tsx`
   - Já foi revisado, mas as cores especificas de tipos de treino e escala de dor continuam semânticas.

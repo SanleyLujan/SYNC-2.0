@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PLANS, TrainingPlan, WeekPlan, getCurrentWeek } from '../../utils/training-plans';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemeStore } from '../../store/themeStore';
 
 const STORAGE_KEY = '@sync:training-plan';
 
@@ -19,6 +20,7 @@ const WORKOUT_ICONS: Record<string, string> = {
 
 export default function TrainingPlanScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const [selectedPlan, setSelectedPlan] = useState<TrainingPlan | null>(null);
   const [startedAt, setStartedAt] = useState<Date | null>(null);
   const [currentWeek, setCurrentWeek] = useState<WeekPlan | null>(null);
@@ -55,34 +57,36 @@ export default function TrainingPlanScreen({ navigation }: any) {
   if (selectedPlan && currentWeek) {
     const weekIndex = currentWeek.weekNumber;
     return (
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 100 }}>
         <LinearGradient
-          colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+          colors={theme.mode === 'dark'
+            ? ['#071427', '#040B16', theme.background]
+            : ['#FFFFFF', '#F9FAFC', theme.background]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
         >
           <TouchableOpacity
             onPress={() => navigation?.goBack?.()}
-            style={styles.backBtn}
+            style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
             accessibilityRole="button"
             accessibilityLabel="Voltar"
           >
-            <Ionicons name="arrow-back" size={22} color={colors.dark.text} />
+            <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.title}>{selectedPlan.name}</Text>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>{selectedPlan.name}</Text>
           <TouchableOpacity
             onPress={stopPlan}
-            style={styles.backBtn}
+            style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             accessibilityRole="button"
             accessibilityLabel="Encerrar plano de treino"
           >
-            <Ionicons name="close-circle-outline" size={22} color={colors.dark.secondaryText} />
+            <Ionicons name="close-circle-outline" size={22} color={theme.textSecondary} />
           </TouchableOpacity>
         </LinearGradient>
 
         <LinearGradient
-          colors={['#FF6B35', '#FF4500']}
+          colors={theme.gradientPrimary}
           style={styles.banner}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -101,26 +105,26 @@ export default function TrainingPlanScreen({ navigation }: any) {
           </View>
         </LinearGradient>
 
-        <Text style={styles.sectionTitle}>Esta semana</Text>
+        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Esta semana</Text>
         {currentWeek.workouts.map((w, i) => (
-          <View key={i} style={styles.workout}>
-            <View style={[styles.workoutIcon, w.type === 'rest' && { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-              <Ionicons name={(WORKOUT_ICONS[w.type] as any) || 'walk'} size={18} color={w.type === 'rest' ? '#888' : '#FF6B35'} />
+          <View key={i} style={[styles.workout, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.mode === 'dark' ? '#000' : theme.primary }]}>
+            <View style={[styles.workoutIcon, { backgroundColor: w.type === 'rest' ? theme.surfaceSecondary : theme.primarySoft }]}>
+              <Ionicons name={(WORKOUT_ICONS[w.type] as any) || 'walk'} size={18} color={w.type === 'rest' ? theme.textSecondary : theme.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.workoutTitle}>{i + 1}. {w.title}</Text>
-              <Text style={styles.workoutDesc}>{w.description}</Text>
-              {w.targetKm && <Text style={styles.workoutMeta}>🎯 {w.targetKm} km</Text>}
-              {w.targetMinutes && <Text style={styles.workoutMeta}>⏱️ {w.targetMinutes} min</Text>}
+              <Text style={[styles.workoutTitle, { color: theme.textPrimary }]}>{i + 1}. {w.title}</Text>
+              <Text style={[styles.workoutDesc, { color: theme.textSecondary }]}>{w.description}</Text>
+              {w.targetKm && <Text style={[styles.workoutMeta, { color: theme.primary }]}>🎯 {w.targetKm} km</Text>}
+              {w.targetMinutes && <Text style={[styles.workoutMeta, { color: theme.primary }]}>⏱️ {w.targetMinutes} min</Text>}
             </View>
           </View>
         ))}
 
-        <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Próximas semanas</Text>
+        <Text style={[styles.sectionTitle, { marginTop: spacing.xl, color: theme.textPrimary }]}>Próximas semanas</Text>
         {selectedPlan.plan.slice(weekIndex).map((w) => (
-          <View key={w.weekNumber} style={styles.nextWeek}>
-            <Text style={styles.nextWeekNum}>Semana {w.weekNumber}</Text>
-            <Text style={styles.nextWeekGoal}>{w.goal}</Text>
+          <View key={w.weekNumber} style={[styles.nextWeek, { borderBottomColor: theme.divider }]}>
+            <Text style={[styles.nextWeekNum, { color: theme.textSecondary }]}>Semana {w.weekNumber}</Text>
+            <Text style={[styles.nextWeekGoal, { color: theme.textPrimary }]}>{w.goal}</Text>
           </View>
         ))}
       </ScrollView>
@@ -128,30 +132,41 @@ export default function TrainingPlanScreen({ navigation }: any) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 }}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 60 }}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#040B16', theme.background]
+          : ['#FFFFFF', '#F9FAFC', theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
       >
         <TouchableOpacity
           onPress={() => navigation?.goBack?.()}
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color={colors.dark.text} />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Treinos programados</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Treinos programados</Text>
         <View style={{ width: 38 }} />
       </LinearGradient>
-      <Text style={styles.subtitle}>Escolha sua meta. 100% grátis, baseado em ciência.</Text>
+      <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Escolha sua meta. 100% grátis, baseado em ciência.</Text>
 
       {PLANS.map((plan) => (
-        <TouchableOpacity key={plan.id} style={styles.planCard} onPress={() => startPlan(plan)} activeOpacity={0.85}>
+        <TouchableOpacity
+          key={plan.id}
+          style={[styles.planCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.mode === 'dark' ? '#000' : theme.primary }]}
+          onPress={() => startPlan(plan)}
+          activeOpacity={0.85}
+        >
           <LinearGradient
-            colors={plan.level === 'beginner' ? ['#10B981', '#059669'] : plan.level === 'intermediate' ? ['#3B82F6', '#1E40AF'] : ['#FF6B35', '#FF4500']}
+            colors={plan.level === 'beginner'
+              ? theme.gradientSuccess
+              : plan.level === 'intermediate'
+                ? theme.gradientPrimary
+                : theme.gradientGame}
             style={styles.planBadge}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -159,14 +174,14 @@ export default function TrainingPlanScreen({ navigation }: any) {
             <Text style={styles.planGoal}>{plan.goalDistanceKm}K</Text>
           </LinearGradient>
           <View style={{ flex: 1, marginLeft: spacing.md }}>
-            <Text style={styles.planName}>{plan.name}</Text>
-            <Text style={styles.planDesc} numberOfLines={2}>{plan.description}</Text>
+            <Text style={[styles.planName, { color: theme.textPrimary }]}>{plan.name}</Text>
+            <Text style={[styles.planDesc, { color: theme.textSecondary }]} numberOfLines={2}>{plan.description}</Text>
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
-              <Text style={styles.planMeta}>📅 {plan.weeks} semanas</Text>
-              <Text style={styles.planMeta}>📊 {plan.level === 'beginner' ? 'Iniciante' : plan.level === 'intermediate' ? 'Intermediário' : 'Avançado'}</Text>
+              <Text style={[styles.planMeta, { color: theme.primary }]}>📅 {plan.weeks} semanas</Text>
+              <Text style={[styles.planMeta, { color: theme.primary }]}>📊 {plan.level === 'beginner' ? 'Iniciante' : plan.level === 'intermediate' ? 'Intermediário' : 'Avançado'}</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={22} color={colors.dark.secondaryText} />
+          <Ionicons name="chevron-forward" size={22} color={theme.textSecondary} />
         </TouchableOpacity>
       ))}
     </ScrollView>
