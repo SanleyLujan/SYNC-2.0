@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
-import { colors, fontSize, spacing } from '../../theme';
-import { Ionicons } from '@expo/vector-icons';
+import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import Logo from '../../components/Logo';
 
 type Props = {
@@ -47,7 +46,7 @@ export default function SplashScreen({ navigation }: Props) {
 
   return (
     <LinearGradient
-      colors={['#0A0A0F', '#1A1A2E', '#0D1B3D']}
+      colors={['#030914', '#071225', '#0B1733']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
@@ -56,8 +55,11 @@ export default function SplashScreen({ navigation }: Props) {
       <View style={styles.glow} />
 
       <Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
-        <Logo size={90} variant="filled" />
+        <View style={styles.logoBadge}>
+          <Logo size={86} variant="filled" />
+        </View>
         <Text style={styles.logo}>Sync</Text>
+        <Text style={styles.subtitle}>Tinder de esportes</Text>
       </Animated.View>
 
       <Animated.View style={[styles.taglineWrap, { opacity: taglineOpacity }]}>
@@ -80,38 +82,46 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: colors.primary,
-    opacity: 0.08,
-    top: '30%',
+    opacity: 0.10,
+    top: '31%',
   },
   content: {
     alignItems: 'center',
   },
-  logoIcon: {
-    marginBottom: spacing.lg,
-    borderRadius: 28,
-    elevation: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-  },
-  logoGradient: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
+  logoBadge: {
+    width: 128,
+    height: 128,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(3,9,20,0.56)',
+    borderWidth: 1,
+    borderColor: 'rgba(58,134,255,0.26)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.34,
+    shadowRadius: 24,
+    elevation: 10,
   },
   logo: {
-    fontSize: 56,
-    fontWeight: '800',
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: '900',
     color: colors.white,
     textAlign: 'center',
-    letterSpacing: 4,
+    letterSpacing: 0,
+    marginTop: spacing.lg,
+  },
+  subtitle: {
+    fontSize: fontSize.sm,
+    color: 'rgba(255,255,255,0.64)',
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    letterSpacing: 0,
   },
   taglineWrap: {
     position: 'absolute',
