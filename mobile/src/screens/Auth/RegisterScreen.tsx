@@ -127,7 +127,7 @@ export default function RegisterScreen({ navigation }: Props) {
       if (result.emailVerificationSent === false) {
         showToast('Conta criada, mas o email de confirmação não saiu. Confira o Resend/SMTP no Render.', 'info');
       } else {
-        showToast('Conta criada! Enviamos um link para confirmar seu email.', 'success');
+        showToast('Conta criada! O link de confirmação será enviado em instantes.', 'success');
       }
     } catch (error: any) {
       const status = error.response?.status;
