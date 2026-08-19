@@ -71,10 +71,14 @@ export class EmailService {
   ): Promise<void> {
     const port = parseInt(process.env.SMTP_PORT || '465', 10);
     const secure = (process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
+    const timeoutMs = parseInt(process.env.SMTP_TIMEOUT_MS || '15000', 10);
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port,
       secure,
+      connectionTimeout: timeoutMs,
+      greetingTimeout: timeoutMs,
+      socketTimeout: timeoutMs,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
