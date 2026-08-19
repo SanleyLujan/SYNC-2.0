@@ -146,6 +146,8 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
   }, [fade]);
 
   const isWide = width >= 1100;
+  const compactNav = width < 980;
+  const stackedNav = width < 680;
   const cardWidth = isWide ? 350 : Math.min(width - 48, 340);
 
   const scrollToSection = (key: string) => {
@@ -162,7 +164,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
         style={StyleSheet.absoluteFill}
       />
 
-      <View style={styles.nav}>
+      <View style={[styles.nav, stackedNav && styles.navStacked]}>
         <TouchableOpacity
           style={styles.navBrand}
           onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
@@ -173,16 +175,20 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
           <Text style={styles.navBrandText}>SYNC</Text>
         </TouchableOpacity>
 
-        <View style={styles.navLinks}>
-          {[
-            { label: 'Recursos', key: 'features' },
-            { label: 'Planos', key: 'plans' },
-            { label: 'Comunidade', key: 'community' },
-          ].map((item) => (
-            <TouchableOpacity key={item.key} onPress={() => scrollToSection(item.key)}>
-              <Text style={styles.navLink}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={[styles.navLinks, compactNav && styles.navLinksCompact, stackedNav && styles.navLinksStacked]}>
+          {!compactNav && (
+            <>
+              {[
+                { label: 'Recursos', key: 'features' },
+                { label: 'Planos', key: 'plans' },
+                { label: 'Comunidade', key: 'community' },
+              ].map((item) => (
+                <TouchableOpacity key={item.key} onPress={() => scrollToSection(item.key)} style={styles.navLinkTouch}>
+                  <Text style={styles.navLink}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
           <TouchableOpacity onPress={onLogin}>
             <Text style={styles.navLogin}>Entrar</Text>
           </TouchableOpacity>
@@ -417,10 +423,16 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.06)',
     backgroundColor: 'rgba(3,9,20,0.78)',
   },
+  navStacked: {
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
   navBrand: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flexShrink: 0,
+    minWidth: 150,
   },
   navBrandText: {
     color: TEXT,
@@ -430,25 +442,40 @@ const styles = StyleSheet.create({
   navLinks: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.lg,
-    flexWrap: 'wrap',
+    gap: spacing.md,
+    flexWrap: 'nowrap',
     justifyContent: 'flex-end',
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  navLinksCompact: {
+    gap: spacing.md,
+  },
+  navLinksStacked: {
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  navLinkTouch: {
+    flexShrink: 0,
   },
   navLink: {
     color: MUTED,
     fontSize: fontSize.sm,
     fontWeight: '700',
+    flexShrink: 0,
   },
   navLogin: {
     color: TEXT,
     fontSize: fontSize.sm,
     fontWeight: '800',
+    flexShrink: 0,
   },
   navCta: {
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: BLUE,
+    flexShrink: 0,
   },
   navCtaText: {
     color: TEXT,
