@@ -17,16 +17,20 @@ export class EmailService {
     const text = `Oi, ${firstName}! Confirme seu email no Sync: ${verifyUrl}`;
 
     if (apiKey) {
+      this.logger.log(`Enviando email de verificacao via Resend para ${email}`);
       await this.sendWithResend(apiKey, from, email, subject, html, text);
+      this.logger.log(`Email de verificacao enviado via Resend para ${email}`);
       return;
     }
 
     if (this.hasSmtpConfig()) {
+      this.logger.log(`Enviando email de verificacao via SMTP para ${email}`);
       await this.sendWithSmtp(from, email, subject, html, text);
+      this.logger.log(`Email de verificacao enviado via SMTP para ${email}`);
       return;
     }
 
-    this.logger.warn(`Email nao configurado; link de verificacao para ${email}: ${verifyUrl}`);
+    throw new Error(`Email nao configurado; defina RESEND_API_KEY ou SMTP_HOST/SMTP_USER/SMTP_PASS. Link gerado para ${email}: ${verifyUrl}`);
   }
 
   private async sendWithResend(

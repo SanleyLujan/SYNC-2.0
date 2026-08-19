@@ -422,6 +422,7 @@ export class AuthService {
 
   private async sendVerificationEmailSafe(user: User, token: string): Promise<boolean> {
     try {
+      this.logger.log(`Disparando email de verificacao para user=${user.id}`);
       await this.emailService.sendVerificationEmail(user.email, user.name, token);
       return true;
     } catch (error) {
