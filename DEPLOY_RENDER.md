@@ -87,7 +87,7 @@ O arquivo `vercel.json` da raiz ja manda o Vercel instalar e buildar a pasta `mo
 5. Em `Environment Variables`, adicione:
 
 ```env
-EXPO_PUBLIC_API_URL=https://sync-backend.onrender.com/api
+EXPO_PUBLIC_API_URL=https://sync-backend.onrender.com
 ```
 
 Use a URL real do backend Render.

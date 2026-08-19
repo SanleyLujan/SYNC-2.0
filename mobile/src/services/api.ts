@@ -14,7 +14,10 @@ const PROD_API = 'https://sync-production-4830.up.railway.app';
 // 3. Qualquer outro caso (deploy web, celular, preview) → produção (Railway).
 const getApiBase = () => {
   const env = (process.env.EXPO_PUBLIC_API_URL || '').trim();
-  if (env) return env.replace(/\/$/, '') + '/api';
+  if (env) {
+    const normalized = env.replace(/\/$/, '');
+    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+  }
 
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
