@@ -26,7 +26,7 @@ import ChatStack from './stacks/ChatStack';
 import ProfileStack from './stacks/ProfileStack';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
-const ACCENT = '#FF6B35';
+const ACCENT = colors.navigationActive;
 
 // Altura base da barra (sem safe area — o padding bottom é dinâmico via insets)
 const BAR_INNER_HEIGHT = Platform.OS === 'ios' ? 60 : 58;
@@ -101,7 +101,7 @@ function TabItem({
           {
             backgroundColor: pillWidth.interpolate({
               inputRange: [0, 1],
-              outputRange: ['transparent', ACCENT + '20'],
+              outputRange: ['transparent', colors.primarySoft],
             }),
             paddingHorizontal: pillWidth.interpolate({
               inputRange: [0, 1],
@@ -114,7 +114,7 @@ function TabItem({
           <Ionicons
             name={focused ? config.iconActive : config.icon}
             size={20}
-            color={focused ? ACCENT : '#7A7A8E'}
+            color={focused ? colors.navigationActive : colors.navigationInactive}
           />
         </Animated.View>
       </Animated.View>
@@ -123,8 +123,8 @@ function TabItem({
         style={[
           styles.label,
           {
-            color: focused ? ACCENT : '#7A7A8E',
-            fontWeight: focused ? '700' : '500',
+            color: focused ? colors.navigationActive : colors.navigationInactive,
+            fontWeight: focused ? '600' : '500',
           },
         ]}
       >
@@ -161,7 +161,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       {/* Background glassmorphism */}
       <View style={styles.barBg}>
         <LinearGradient
-          colors={['rgba(18,18,28,0.96)', 'rgba(10,10,15,0.99)']}
+          colors={['rgba(31,31,36,0.96)', 'rgba(18,18,22,0.99)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.divider,
   },
   row: {
     flexDirection: 'row',
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#F87171',
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,

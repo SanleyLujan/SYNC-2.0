@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, borderRadius, spacing, typography } from '../../theme';
 
 interface Props {
   visible: boolean;
@@ -29,7 +30,7 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: Props) {
-  const accent = destructive ? '#EF4444' : '#FF6B35';
+  const accent = destructive ? colors.danger : colors.primary;
   return (
     <Modal
       visible={visible}
@@ -84,23 +85,23 @@ export default function ConfirmModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
   dialog: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     width: '100%',
     maxWidth: 340,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.border,
     alignItems: 'center',
     ...(Platform.OS === 'web'
-      ? ({ boxShadow: '0 20px 60px rgba(0,0,0,0.5)' } as any)
-      : { elevation: 12, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 12 } }),
+      ? ({ boxShadow: '0 20px 60px rgba(15,23,42,0.42)' } as any)
+      : { elevation: 12, shadowColor: '#0F172A', shadowOpacity: 0.32, shadowRadius: 24, shadowOffset: { width: 0, height: 12 } }),
   },
   iconCircle: {
     width: 56,
@@ -113,34 +114,35 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#fff',
+    fontFamily: typography.fontFamily,
+    fontWeight: '600',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   message: {
     fontSize: 13,
-    color: '#B8B8CC',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
   },
   actions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
     width: '100%',
     marginTop: 20,
   },
   btn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
   },
   cancelBtn: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.border,
   },
-  cancelTxt: { color: '#B8B8CC', fontWeight: '700', fontSize: 14 },
-  confirmTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  cancelTxt: { color: colors.textSecondary, fontFamily: typography.fontFamily, fontWeight: '600', fontSize: 14 },
+  confirmTxt: { color: colors.primaryText, fontFamily: typography.fontFamily, fontWeight: '600', fontSize: 14 },
 });

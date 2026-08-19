@@ -37,3 +37,6 @@ android/
 *.tsbuildinfo
 .vercel
 .git-commit-msg.txt
+
+# Planos locais / rascunhos de implementacao
+.local-plans/

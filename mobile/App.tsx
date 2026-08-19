@@ -10,26 +10,27 @@ import ToastHost from './src/components/ui/Toast';
 import AccessibilityEffects from './src/components/AccessibilityEffects';
 import ConnectionBanner from './src/components/ConnectionBanner';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { colors, borderRadius } from './src/theme';
 
 // Fallback global: se QUALQUER tela quebrar no render, mostra isto em vez de
 // uma tela branca. No web dá pra recarregar; no nativo o botão tenta reabrir.
 function GlobalCrashFallback() {
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A0A0F', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+    <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <Text style={{ fontSize: 40, marginBottom: 12 }}>🛠️</Text>
-      <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', textAlign: 'center' }}>
+      <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>
         Algo deu errado por aqui
       </Text>
-      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+      <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
         Tivemos um problema ao exibir esta parte do app. Tente recarregar.
       </Text>
       <TouchableOpacity
         onPress={() => { if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.reload(); }}
-        style={{ marginTop: 24, backgroundColor: '#FF6B35', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 14 }}
+        style={{ marginTop: 24, backgroundColor: colors.primary, paddingVertical: 14, paddingHorizontal: 28, borderRadius: borderRadius.md }}
         accessibilityRole="button"
         accessibilityLabel="Recarregar o app"
       >
-        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Recarregar</Text>
+        <Text style={{ color: colors.primaryText, fontWeight: '600', fontSize: 15 }}>Recarregar</Text>
       </TouchableOpacity>
     </View>
   );
@@ -76,18 +77,18 @@ export default function App() {
   const isWeb = Platform.OS === 'web';
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <View
         style={
           isWeb
-            ? { flex: 1, alignItems: 'center', backgroundColor: '#000' }
+            ? { flex: 1, alignItems: 'center', backgroundColor: colors.background }
             : { flex: 1 }
         }
       >
         <View
           style={
             isWeb
-              ? { flex: 1, width: '100%', maxWidth: 480, backgroundColor: '#0A0A0F', overflow: 'hidden' }
+              ? { flex: 1, width: '100%', maxWidth: 480, backgroundColor: colors.background, overflow: 'hidden' }
               : { flex: 1 }
           }
         >

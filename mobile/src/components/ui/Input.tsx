@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, fontSize, spacing } from '../../theme';
+import { colors, borderRadius, fontSize, spacing, typography } from '../../theme';
 
 // WEB: remove o outline de foco do navegador (a "borda branca" extra) e o
 // fundo branco/amarelo do autofill — eles ignoram o CSS do React Native.
@@ -26,10 +26,10 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
       input:-webkit-autofill:hover,
       input:-webkit-autofill:focus,
       input:-webkit-autofill:active {
-        -webkit-text-fill-color: #F0F0FF !important;
-        caret-color: #F0F0FF !important;
-        -webkit-box-shadow: 0 0 0px 1000px #20202E inset !important;
-        box-shadow: 0 0 0px 1000px #20202E inset !important;
+        -webkit-text-fill-color: ${colors.textPrimary} !important;
+        caret-color: ${colors.textPrimary} !important;
+        -webkit-box-shadow: 0 0 0px 1000px ${colors.input} inset !important;
+        box-shadow: 0 0 0px 1000px ${colors.input} inset !important;
         transition: background-color 9999s ease-in-out 0s;
       }
     `;
@@ -64,7 +64,7 @@ export default function Input({
       >
         <TextInput
           style={[styles.input, Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : null]}
-          placeholderTextColor={colors.secondaryText}
+          placeholderTextColor={colors.placeholder}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           secureTextEntry={isPassword && !showPassword}
@@ -78,7 +78,7 @@ export default function Input({
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={22}
-              color={colors.secondaryText}
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
         )}
@@ -94,22 +94,23 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.75)',
+    color: colors.textSecondary,
+    fontFamily: typography.fontFamily,
     fontWeight: '600',
     marginBottom: spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: colors.input,
     borderRadius: borderRadius.md,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
   },
   focused: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderColor: colors.inputFocus,
+    backgroundColor: colors.surfaceElevated,
   },
   errorBorder: {
     borderColor: colors.error,
@@ -118,7 +119,8 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 52,
     fontSize: fontSize.md,
-    color: '#F0F0FF',
+    color: colors.textPrimary,
+    fontFamily: typography.fontFamily,
   },
   eyeIcon: {
     padding: spacing.xs,
@@ -126,6 +128,7 @@ const styles = StyleSheet.create({
   error: {
     fontSize: fontSize.xs,
     color: colors.error,
+    fontFamily: typography.fontFamily,
     marginTop: spacing.xs,
   },
 });

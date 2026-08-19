@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { colors, borderRadius, fontSize, spacing } from '../../theme';
+import { colors, borderRadius, fontSize, spacing, typography } from '../../theme';
 
 interface ChipProps {
   label: string;
@@ -27,23 +27,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: colors.border,
     marginRight: spacing.sm,
     marginBottom: spacing.sm,
   },
   selected: {
-    backgroundColor: 'rgba(255,107,53,0.20)',
-    borderColor: '#FF6B35',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   text: {
     fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.65)',
-    fontWeight: '600',
+    color: colors.textSecondary,
+    fontFamily: typography.fontFamily,
+    fontWeight: '500',
   },
   selectedText: {
-    color: '#FF9A5C',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

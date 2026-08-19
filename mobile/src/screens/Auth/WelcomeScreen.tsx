@@ -17,7 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../../components/ui/Button';
 import Logo from '../../components/Logo';
@@ -96,7 +96,7 @@ const STATS = [
   { value: 'iOS+Android+Web', label: 'plataformas' },
 ];
 
-const ACCENT = '#FF6B35';
+const ACCENT = colors.primary;
 
 export default function WelcomeScreen({ navigation }: Props) {
   const { width: windowWidth } = useWindowDimensions();
@@ -157,7 +157,7 @@ export default function WelcomeScreen({ navigation }: Props) {
       <Animated.View style={[styles.heroWrap, { opacity: imgOpacity }]}>
         <ImageBackground source={{ uri: slide.uri }} style={styles.hero} resizeMode="cover">
           <LinearGradient
-            colors={['rgba(10,10,15,0.15)', 'rgba(10,10,15,0.55)', 'rgba(10,10,15,0.95)', '#0A0A0F']}
+            colors={colors.gradientHero}
             locations={[0, 0.45, 0.82, 1]}
             style={StyleSheet.absoluteFill}
           />
@@ -203,13 +203,13 @@ export default function WelcomeScreen({ navigation }: Props) {
               style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
             >
               <LinearGradient
-                colors={[ACCENT, '#FF5021']}
+                colors={colors.gradientPrimary}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.primaryBtnInner}
               >
                 <Text style={styles.primaryBtnText}>Começar agora</Text>
-                <Ionicons name="arrow-forward" size={18} color="#fff" />
+                <Ionicons name="arrow-forward" size={18} color={colors.primaryText} />
               </LinearGradient>
             </Pressable>
 
@@ -217,7 +217,7 @@ export default function WelcomeScreen({ navigation }: Props) {
               title="Já tenho conta"
               variant="outline"
               onPress={() => navigation.navigate('Login')}
-              style={{ marginTop: spacing.md, borderColor: 'rgba(255,255,255,0.18)' }}
+              style={{ marginTop: spacing.md }}
             />
 
             <Text style={styles.terms}>
@@ -266,7 +266,7 @@ const { height: screenH } = Dimensions.get('window');
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: colors.background,
   },
   heroSection: {
     minHeight: Platform.OS === 'web' ? 820 : screenH,
@@ -308,43 +308,44 @@ const styles = StyleSheet.create({
     shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 12,
   },
-  logo: { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: 4 },
+  logo: { fontSize: 32, fontWeight: '700', color: colors.textPrimary, letterSpacing: 0, fontFamily: typography.fontFamily },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
     marginBottom: spacing.md,
   },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)' },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.surfaceSecondary },
   dotActive: { width: 22, backgroundColor: ACCENT },
   title: {
-    fontSize: 34, fontWeight: '800', color: '#fff', lineHeight: 40,
-    textAlign: 'center', letterSpacing: -0.5,
+    ...typography.h1,
+    color: colors.textPrimary,
+    textAlign: 'center', letterSpacing: 0,
   },
   titleAccent: { color: ACCENT },
   subtitle: {
-    fontSize: fontSize.md, color: 'rgba(240,240,255,0.75)',
+    fontSize: fontSize.md, color: colors.textSecondary, fontFamily: typography.fontFamily,
     marginTop: spacing.md, lineHeight: 22, textAlign: 'center',
   },
   features: {
     marginTop: spacing.xl,
     gap: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
   },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   featureIcon: {
     width: 30, height: 30, borderRadius: 9,
-    backgroundColor: 'rgba(255,107,53,0.15)',
-    borderWidth: 1, borderColor: 'rgba(255,107,53,0.3)',
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1, borderColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
   },
-  featureText: { fontSize: fontSize.sm, color: '#F0F0FF', fontWeight: '500', flex: 1 },
+  featureText: { fontSize: fontSize.sm, color: colors.textPrimary, fontFamily: typography.fontFamily, fontWeight: '500', flex: 1 },
   buttons: { marginTop: spacing.xl },
   primaryBtn: {
-    borderRadius: 14, overflow: 'hidden',
+    borderRadius: borderRadius.md, overflow: 'hidden',
     shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 12,
   },
@@ -352,9 +353,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, paddingVertical: 16,
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  primaryBtnText: { color: colors.primaryText, fontSize: 16, fontFamily: typography.fontFamily, fontWeight: '600', letterSpacing: 0 },
   terms: {
-    fontSize: fontSize.xs, color: 'rgba(255,255,255,0.68)',
+    fontSize: fontSize.xs, color: colors.textSecondary, fontFamily: typography.fontFamily,
     textAlign: 'center', marginTop: spacing.lg, lineHeight: 18,
   },
   termsLink: { color: ACCENT, fontWeight: '600' },

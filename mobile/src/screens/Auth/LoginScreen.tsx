@@ -17,7 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
 import { authService } from '../../services/auth.service';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
 import { heroImages } from '../../theme/images';
 import Input from '../../components/ui/Input';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,7 +28,7 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 };
 
-const ACCENT = '#FF6B35';
+const ACCENT = colors.primary;
 
 export default function LoginScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -101,7 +101,7 @@ export default function LoginScreen({ navigation }: Props) {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(10,10,15,0.3)', 'rgba(10,10,15,0.7)', '#0A0A0F']}
+          colors={colors.gradientHero}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -127,11 +127,11 @@ export default function LoginScreen({ navigation }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel="Voltar"
               >
-                <Ionicons name="arrow-back" size={22} color="#fff" />
+                <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
               </TouchableOpacity>
 
               <View style={styles.titleBlock}>
-                <Text style={styles.title}>Bem-vindo{'\n'}<Text style={{ color: ACCENT }}>de volta.</Text></Text>
+                <Text style={styles.title}>Bem-vindo{'\n'}<Text style={styles.titleAccent}>de volta.</Text></Text>
                 <Text style={styles.subtitle}>
                   Entre pra continuar sua jornada.
                 </Text>
@@ -172,7 +172,7 @@ export default function LoginScreen({ navigation }: Props) {
                 ]}
               >
                 <LinearGradient
-                  colors={[ACCENT, '#FF4500']}
+                  colors={colors.gradientPrimary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.primaryBtnInner}
@@ -182,7 +182,7 @@ export default function LoginScreen({ navigation }: Props) {
                   ) : (
                     <>
                       <Text style={styles.primaryBtnText}>Entrar</Text>
-                      <Ionicons name="arrow-forward" size={18} color="#fff" />
+                      <Ionicons name="arrow-forward" size={18} color={colors.primaryText} />
                     </>
                   )}
                 </LinearGradient>
@@ -206,7 +206,7 @@ export default function LoginScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A0A0F' },
+  root: { flex: 1, backgroundColor: colors.background },
   hero: {
     position: 'absolute',
     top: 0,
@@ -230,10 +230,10 @@ const styles = StyleSheet.create({
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -243,23 +243,25 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#fff',
-    lineHeight: 42,
-    letterSpacing: -0.5,
+    ...typography.display,
+    color: colors.textPrimary,
+    letterSpacing: 0,
+  },
+  titleAccent: {
+    color: ACCENT,
   },
   subtitle: {
     fontSize: fontSize.md,
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.textSecondary,
+    fontFamily: typography.fontFamily,
     marginTop: spacing.sm,
   },
   form: {
     marginBottom: spacing.xs,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.border,
     padding: spacing.md,
   },
   forgotPassword: {
@@ -274,16 +276,17 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontSize: fontSize.sm,
     color: ACCENT,
+    fontFamily: typography.fontFamily,
     fontWeight: '600',
   },
   primaryBtn: {
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
     overflow: 'hidden',
     shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 8,
   },
   primaryBtnInner: {
     flexDirection: 'row',
@@ -293,10 +296,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   primaryBtnText: {
-    color: '#fff',
+    color: colors.primaryText,
     fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontFamily: typography.fontFamily,
+    fontWeight: '600',
+    letterSpacing: 0,
   },
   registerLink: {
     alignItems: 'center',
@@ -305,7 +309,8 @@ const styles = StyleSheet.create({
   },
   registerText: {
     fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
+    fontFamily: typography.fontFamily,
   },
   registerTextBold: {
     color: ACCENT,

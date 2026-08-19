@@ -3,9 +3,9 @@ import React from 'react';
 import { View, Text, StyleSheet, ImageBackground, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
 
-const ACCENT = '#FF6B35';
+const ACCENT = colors.primary;
 
 export default function EmptyState({
   icon = 'search-outline',
@@ -27,7 +27,7 @@ export default function EmptyState({
       {image ? (
         <ImageBackground source={{ uri: image }} style={styles.image} resizeMode="cover">
           <LinearGradient
-            colors={['rgba(10,10,15,0.3)', 'rgba(10,10,15,0.95)']}
+            colors={['rgba(18,18,22,0.25)', colors.background]}
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.iconBubble}>
@@ -49,13 +49,13 @@ export default function EmptyState({
           style={({ pressed }) => [styles.cta, pressed && { opacity: 0.85 }]}
         >
           <LinearGradient
-            colors={[ACCENT, '#FF4500']}
+            colors={colors.gradientPrimary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.ctaInner}
           >
             <Text style={styles.ctaText}>{ctaLabel}</Text>
-            <Ionicons name="arrow-forward" size={16} color="#fff" />
+            <Ionicons name="arrow-forward" size={16} color={colors.primaryText} />
           </LinearGradient>
         </Pressable>
       )}
@@ -81,15 +81,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
     borderWidth: 2,
-    borderColor: 'rgba(255,107,53,0.3)',
+    borderColor: colors.primarySoft,
   },
   iconBubble: {
     width: 64,
     height: 64,
     borderRadius: 20,
-    backgroundColor: 'rgba(10,10,15,0.85)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.4)',
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -97,22 +97,23 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255,107,53,0.1)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.3)',
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
   title: {
     fontSize: fontSize.lg,
-    fontWeight: '800',
-    color: colors.text,
+    fontFamily: typography.fontFamily,
+    fontWeight: '600',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.sm,
-    color: colors.secondaryText,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
     lineHeight: 20,
@@ -120,11 +121,11 @@ const styles = StyleSheet.create({
   },
   cta: {
     marginTop: spacing.lg,
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
     overflow: 'hidden',
     shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.24,
     shadowRadius: 12,
     elevation: 8,
   },
@@ -136,8 +137,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   ctaText: {
-    color: '#fff',
+    color: colors.primaryText,
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: typography.fontFamily,
+    fontWeight: '600',
   },
 });

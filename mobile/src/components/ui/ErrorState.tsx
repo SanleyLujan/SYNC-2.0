@@ -3,9 +3,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, spacing } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
 
-const ACCENT = '#FF6B35';
+const ACCENT = colors.danger;
 
 export default function ErrorState({
   title = 'Algo deu errado',
@@ -36,7 +36,7 @@ export default function ErrorState({
           accessibilityRole="button"
           accessibilityLabel="Tentar de novo"
         >
-          <Ionicons name="refresh" size={16} color="#fff" />
+          <Ionicons name="refresh" size={16} color={colors.primaryText} />
           <Text style={styles.btnText}>{retrying ? 'Tentando…' : 'Tentar de novo'}</Text>
         </Pressable>
       )}
@@ -61,22 +61,23 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: 'rgba(255,107,53,0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.3)',
+    borderColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
   title: {
     fontSize: fontSize.lg,
-    fontWeight: '800',
-    color: colors.text,
+    fontFamily: typography.fontFamily,
+    fontWeight: '600',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.sm,
-    color: colors.secondaryText,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
     lineHeight: 20,
@@ -87,14 +88,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: spacing.lg,
-    backgroundColor: ACCENT,
+    backgroundColor: colors.primary,
     paddingHorizontal: spacing.xl,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
   },
   btnText: {
-    color: '#fff',
+    color: colors.primaryText,
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: typography.fontFamily,
+    fontWeight: '600',
   },
 });

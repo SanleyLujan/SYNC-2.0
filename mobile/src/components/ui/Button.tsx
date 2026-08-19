@@ -11,10 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, fontSize, spacing } from '../../theme';
-
-const ACCENT = '#FF6B35';
-const ACCENT_DARK = '#FF4500';
+import { colors, borderRadius, fontSize, spacing, typography } from '../../theme';
 
 interface ButtonProps {
   title: string;
@@ -62,10 +59,10 @@ export default function Button({
       size={size === 'sm' ? 16 : 18}
       color={
         variant === 'outline'
-          ? ACCENT
+          ? colors.primary
           : variant === 'ghost'
-          ? ACCENT
-          : '#fff'
+          ? colors.primary
+          : colors.primaryText
       }
     />
   ) : null;
@@ -75,7 +72,7 @@ export default function Button({
       {iconPosition === 'left' && Icon}
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? ACCENT : '#fff'}
+          color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.primaryText}
           size="small"
         />
       ) : (
@@ -83,8 +80,8 @@ export default function Button({
           style={[
             styles.text,
             { fontSize: textSize },
-            variant === 'outline' && { color: ACCENT },
-            variant === 'ghost' && { color: ACCENT },
+            variant === 'outline' && { color: colors.primary },
+            variant === 'ghost' && { color: colors.primary },
           ]}
         >
           {title}
@@ -108,7 +105,7 @@ export default function Button({
           ]}
         >
           <LinearGradient
-            colors={isDisabled ? ['#3A3A50', '#2A2A3A'] : [ACCENT, ACCENT_DARK]}
+            colors={isDisabled ? [colors.surfaceSecondary, colors.surface] : colors.gradientPrimary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.button, { height }]}
@@ -144,7 +141,7 @@ export default function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
@@ -156,22 +153,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   shadow: {
-    borderRadius: 14,
-    shadowColor: ACCENT,
+    borderRadius: borderRadius.md,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 10,
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    elevation: 8,
   },
   secondary: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.border,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: ACCENT,
+    borderColor: colors.primary,
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -180,8 +177,9 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   text: {
-    color: '#fff',
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: colors.primaryText,
+    fontFamily: typography.fontFamily,
+    fontWeight: '600',
+    letterSpacing: 0,
   },
 });

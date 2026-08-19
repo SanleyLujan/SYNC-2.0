@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Animated, StyleSheet, Text, View, Platform, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { colors, borderRadius, spacing, typography } from '../../theme';
 
 type ToastKind = 'success' | 'error' | 'info';
 type ToastItem = { id: number; message: string; kind: ToastKind };
@@ -15,9 +16,9 @@ export function showToast(message: string, kind: ToastKind = 'info') {
 }
 
 const COLORS = {
-  success: { bg: ['#0F3D2E', '#0A2A20'], accent: '#4ADE80', icon: 'checkmark-circle' as const },
-  error: { bg: ['#3D1010', '#2A0808'], accent: '#F87171', icon: 'alert-circle' as const },
-  info: { bg: ['#1A1A2E', '#0F0F1E'], accent: '#FF6B35', icon: 'information-circle' as const },
+  success: { bg: ['#12352C', '#172821'], accent: colors.success, icon: 'checkmark-circle' as const },
+  error: { bg: ['#3A1518', '#251216'], accent: colors.danger, icon: 'alert-circle' as const },
+  info: { bg: ['#17233A', '#161B29'], accent: colors.info, icon: 'information-circle' as const },
 };
 
 function ToastBubble({ item, onDone }: { item: ToastItem; onDone: () => void }) {
@@ -98,31 +99,32 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     zIndex: 9999,
-    gap: 8,
+    gap: spacing.sm,
   },
   bubble: {
     width: '92%',
     maxWidth: 440,
-    borderRadius: 14,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.28,
     shadowRadius: 12,
     elevation: 10,
   },
   bubbleBg: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
     paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.md,
   },
   bubbleText: {
     flex: 1,
-    color: '#F0F0FF',
+    color: colors.textPrimary,
     fontSize: 14,
+    fontFamily: typography.fontFamily,
     fontWeight: '500',
     lineHeight: 19,
   },

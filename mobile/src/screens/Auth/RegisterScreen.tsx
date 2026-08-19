@@ -15,7 +15,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
 import { heroImages } from '../../theme/images';
 import Input from '../../components/ui/Input';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +27,7 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
 
-const ACCENT = '#FF6B35';
+const ACCENT = colors.primary;
 
 // Formata os dígitos do CPF como 000.000.000-00 para exibição.
 function formatCPF(digits: string): string {
@@ -162,7 +162,7 @@ export default function RegisterScreen({ navigation }: Props) {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(10,10,15,0.3)', 'rgba(10,10,15,0.7)', '#0A0A0F']}
+          colors={colors.gradientHero}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -187,11 +187,11 @@ export default function RegisterScreen({ navigation }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel="Voltar"
               >
-                <Ionicons name="arrow-back" size={22} color="#fff" />
+                <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
               </TouchableOpacity>
 
               <View style={styles.titleBlock}>
-                <Text style={styles.title}>Criar{'\n'}<Text style={{ color: ACCENT }}>sua conta.</Text></Text>
+                <Text style={styles.title}>Criar{'\n'}<Text style={styles.titleAccent}>sua conta.</Text></Text>
                 <Text style={styles.subtitle}>
                   Encontre parceiros de treino na sua região.
                 </Text>
@@ -232,7 +232,7 @@ export default function RegisterScreen({ navigation }: Props) {
                           key={i}
                           style={[
                             styles.strengthSegment,
-                            { backgroundColor: i <= strength.level ? strength.color : 'rgba(255,255,255,0.1)' },
+                            { backgroundColor: i <= strength.level ? strength.color : colors.surfaceSecondary },
                           ]}
                         />
                       ))}
@@ -304,10 +304,10 @@ export default function RegisterScreen({ navigation }: Props) {
                       onPress={() => setGender(gender === g ? '' : g)}
                       style={[
                         styles.genderPill,
-                        gender === g && { backgroundColor: ACCENT, borderColor: ACCENT },
+                        gender === g && { backgroundColor: colors.primary, borderColor: colors.primary },
                       ]}
                     >
-                      <Text style={[styles.genderPillText, gender === g && { color: '#fff', fontWeight: '700' }]}>
+                      <Text style={[styles.genderPillText, gender === g && { color: colors.primaryText, fontWeight: '600' }]}>
                         {g === 'male' ? 'Masculino' : g === 'female' ? 'Feminino' : 'Outro'}
                       </Text>
                     </TouchableOpacity>
@@ -324,7 +324,7 @@ export default function RegisterScreen({ navigation }: Props) {
                   <Ionicons
                     name={acceptedTerms ? 'checkbox' : 'square-outline'}
                     size={22}
-                    color={acceptedTerms ? ACCENT : 'rgba(255,255,255,0.5)'}
+                    color={acceptedTerms ? ACCENT : colors.textMuted}
                   />
                 </TouchableOpacity>
                 <Text style={styles.termsText}>
@@ -355,7 +355,7 @@ export default function RegisterScreen({ navigation }: Props) {
                 ]}
               >
                 <LinearGradient
-                  colors={[ACCENT, '#FF4500']}
+                  colors={colors.gradientPrimary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.primaryBtnInner}
@@ -365,7 +365,7 @@ export default function RegisterScreen({ navigation }: Props) {
                   ) : (
                     <>
                       <Text style={styles.primaryBtnText}>Criar conta</Text>
-                      <Ionicons name="arrow-forward" size={18} color="#fff" />
+                      <Ionicons name="arrow-forward" size={18} color={colors.primaryText} />
                     </>
                   )}
                 </LinearGradient>
@@ -389,7 +389,7 @@ export default function RegisterScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A0A0F' },
+  root: { flex: 1, backgroundColor: colors.background },
   hero: {
     position: 'absolute',
     top: 0,
@@ -406,26 +406,31 @@ const styles = StyleSheet.create({
   },
   content: { width: '100%', maxWidth: 440 },
   backButton: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    width: 44, height: 44, borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: spacing.md,
   },
   titleBlock: { marginTop: spacing.lg, marginBottom: spacing.lg },
   title: {
-    fontSize: 32, fontWeight: '800', color: '#fff',
-    lineHeight: 38, letterSpacing: -0.5,
+    ...typography.h1,
+    color: colors.textPrimary,
+    letterSpacing: 0,
+  },
+  titleAccent: {
+    color: ACCENT,
   },
   subtitle: {
     fontSize: fontSize.md,
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.textSecondary,
+    fontFamily: typography.fontFamily,
     marginTop: spacing.sm,
   },
   form: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
@@ -444,41 +449,42 @@ const styles = StyleSheet.create({
   rowInputs: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
   genderLabel: {
     fontSize: fontSize.sm, fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)', marginTop: spacing.sm, marginBottom: spacing.xs,
+    color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.xs,
+    fontFamily: typography.fontFamily,
   },
   genderRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xs },
   genderPill: {
-    flex: 1, paddingVertical: 12, borderRadius: 10,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)',
+    flex: 1, paddingVertical: 12, borderRadius: borderRadius.md,
+    borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', backgroundColor: colors.surfaceSecondary,
     minHeight: 44,
   },
-  genderPillText: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.6)' },
+  genderPillText: { fontSize: fontSize.sm, color: colors.textSecondary, fontFamily: typography.fontFamily },
   termsRow: {
     flexDirection: 'row', alignItems: 'center',
     gap: spacing.sm, marginBottom: spacing.lg,
   },
   termsText: {
     flex: 1, fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.7)', lineHeight: 20,
+    color: colors.textSecondary, lineHeight: 20, fontFamily: typography.fontFamily,
   },
   termsLink: { color: ACCENT, fontWeight: '600' },
   primaryBtn: {
-    borderRadius: 14, overflow: 'hidden',
+    borderRadius: borderRadius.md, overflow: 'hidden',
     shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45, shadowRadius: 18, elevation: 12,
+    shadowOpacity: 0.28, shadowRadius: 16, elevation: 8,
   },
   primaryBtnInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, paddingVertical: 16,
   },
   primaryBtnText: {
-    color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3,
+    color: colors.primaryText, fontSize: 16, fontFamily: typography.fontFamily, fontWeight: '600', letterSpacing: 0,
   },
   loginLink: {
     alignItems: 'center', marginTop: spacing.xl, paddingBottom: spacing.lg,
   },
-  loginText: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.6)' },
+  loginText: { fontSize: fontSize.sm, color: colors.textSecondary, fontFamily: typography.fontFamily },
   loginTextBold: { color: ACCENT, fontWeight: '700' },
 });
