@@ -4,7 +4,8 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fontSize, spacing, borderRadius } from '../theme';
+import { spacing, borderRadius } from '../theme';
+import { useThemeStore } from '../store/themeStore';
 
 type Tier = { color1: string; color2: string; label: string };
 
@@ -25,8 +26,12 @@ export default function StreakBadge({
   bestDays?: number;
   compact?: boolean;
 }) {
+  const theme = useThemeStore((s) => s.theme);
   const tier = tierFor(days);
   const pulse = useRef(new Animated.Value(1)).current;
+  const isActive = days > 0;
+  const iconColor = isActive ? theme.warning : theme.primary;
+  const statusColor = isActive ? theme.warning : theme.textSecondary;
 
   useEffect(() => {
     if (days >= 1) {
@@ -51,34 +56,39 @@ export default function StreakBadge({
 
   if (compact) {
     return (
-      <View style={styles.compact}>
+      <View style={[styles.compact, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '30' }]}>
         <Animated.View style={{ transform: [{ scale: pulse }] }}>
-          <Ionicons name="flame" size={14} color={tier.color1} />
+          <Ionicons name="flame" size={14} color={iconColor} />
         </Animated.View>
-        <Text style={[styles.compactText, { color: tier.color1 }]}>{days}</Text>
+        <Text style={[styles.compactText, { color: iconColor }]}>{days}</Text>
       </View>
     );
   }
 
   return (
     <LinearGradient
-      colors={[tier.color1, tier.color2]}
+      colors={theme.mode === 'dark'
+        ? [theme.surfaceElevated, theme.surface]
+        : [theme.surface, theme.surfaceSecondary]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.card}
+      style={[styles.card, { borderColor: theme.border, shadowColor: theme.primary }]}
     >
-      <Animated.View style={[styles.iconWrap, { transform: [{ scale: pulse }] }]}>
-        <Ionicons name="flame" size={32} color="#fff" />
+      <View style={[styles.accentRail, { backgroundColor: isActive ? theme.warning : theme.primary }]} />
+      <Animated.View style={[styles.iconWrap, { backgroundColor: isActive ? theme.warningSoft : theme.primarySoft, transform: [{ scale: pulse }] }]}>
+        <Ionicons name="flame" size={32} color={iconColor} />
       </Animated.View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.daysNumber}>{days}</Text>
-        <Text style={styles.daysLabel}>
+        <Text style={[styles.daysNumber, { color: theme.textPrimary }]}>{days}</Text>
+        <Text style={[styles.daysLabel, { color: theme.textPrimary }]}>
           {days === 1 ? 'dia' : 'dias'} consecutivos
         </Text>
         <View style={styles.tierRow}>
-          <Text style={styles.tierLabel}>{tier.label}</Text>
+          <Text style={[styles.tierLabel, { color: statusColor, backgroundColor: isActive ? theme.warningSoft : theme.surfaceSecondary }]}>
+            {tier.label}
+          </Text>
           {bestDays != null && bestDays > days && (
-            <Text style={styles.best}>Recorde: {bestDays}</Text>
+            <Text style={[styles.best, { color: theme.textSecondary }]}>Recorde: {bestDays}</Text>
           )}
         </View>
       </View>
@@ -94,30 +104,35 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
-    shadowColor: '#FF1744',
+    borderWidth: 1,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.14,
     shadowRadius: 14,
-    elevation: 10,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  accentRail: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
   iconWrap: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   daysNumber: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#fff',
     lineHeight: 36,
     letterSpacing: -0.5,
   },
   daysLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.85)',
     fontWeight: '600',
     marginTop: -2,
   },
@@ -130,16 +145,13 @@ const styles = StyleSheet.create({
   tierLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#fff',
     letterSpacing: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   best: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
     fontWeight: '600',
   },
   compact: {
@@ -149,9 +161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,107,53,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.3)',
   },
   compactText: {
     fontWeight: '800',

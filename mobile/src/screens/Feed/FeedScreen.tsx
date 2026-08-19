@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ImageBackground,
   TouchableOpacity,
   Pressable,
   RefreshControl,
@@ -22,7 +21,6 @@ import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 import { confirmAsync } from '../../utils/confirm';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
-import { heroImages } from '../../theme/images';
 import { showToast } from '../../components/ui/Toast';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
@@ -405,19 +403,20 @@ export default function FeedScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Hero header — mesmo padrão das telas de auth */}
-      <ImageBackground
-        source={{ uri: heroImages.cityGroup }}
+      <LinearGradient
+        colors={theme.mode === 'dark'
+          ? ['#071427', '#04111F', theme.background]
+          : ['#FFFFFF', '#F7F8FB', theme.background]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
-        resizeMode="cover"
-        fadeDuration={300}
       >
-        <LinearGradient
-          colors={theme.mode === 'dark'
-            ? ['rgba(3,9,20,0.30)', 'rgba(3,9,20,0.98)']
-            : ['rgba(255,255,255,0.10)', 'rgba(247,248,251,0.98)']}
-          style={StyleSheet.absoluteFill}
-        />
+        <View style={[styles.headerGrid, { borderColor: theme.divider }]} />
+        <View style={[styles.headerShard, styles.headerShardOne, { backgroundColor: theme.primarySoft }]} />
+        <View style={[styles.headerShard, styles.headerShardTwo, { backgroundColor: theme.cyan + '22' }]} />
+        <View style={[styles.headerWatermark, { borderColor: theme.primary + '22' }]}>
+          <Logo size={92} />
+        </View>
         <View style={styles.headerInner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Logo size={32} variant="filled" />
@@ -438,7 +437,7 @@ export default function FeedScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </ImageBackground>
+      </LinearGradient>
 
       {loading && !refreshing ? (
         <View style={[styles.center, { backgroundColor: theme.background }]}>
@@ -510,14 +509,54 @@ const styles = StyleSheet.create({
 
   // ── Hero header ──────────────────────────────────────────────────────────
   header: {
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
     overflow: 'hidden',
+    position: 'relative',
   },
   headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
+    zIndex: 2,
+  },
+  headerGrid: {
+    position: 'absolute',
+    left: -40,
+    right: -40,
+    bottom: -24,
+    height: 92,
+    borderTopWidth: 1,
+    opacity: 0.65,
+  },
+  headerShard: {
+    position: 'absolute',
+    height: 42,
+    borderRadius: 12,
+    transform: [{ rotate: '-18deg' }],
+  },
+  headerShardOne: {
+    width: 190,
+    right: -28,
+    top: 22,
+  },
+  headerShardTwo: {
+    width: 145,
+    right: 78,
+    bottom: 12,
+  },
+  headerWatermark: {
+    position: 'absolute',
+    right: 22,
+    top: 24,
+    width: 116,
+    height: 116,
+    borderRadius: 24,
+    borderWidth: 1,
+    opacity: 0.16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-8deg' }],
   },
   headerRight: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
   title: {
