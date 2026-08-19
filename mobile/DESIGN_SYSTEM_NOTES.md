@@ -35,13 +35,15 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
 - Feed
   - Arquivo: `src/screens/Feed/FeedScreen.tsx`
   - O header deixou de usar foto de pessoas correndo.
-  - Agora usa gradiente, formas geométricas e marca d'água da logo.
-  - Para alterar o topo do Feed, procure por `header`, `headerShard`, `headerWatermark`.
+  - Agora usa um card compacto com botao de menu, logo, titulo, busca, notificacoes e linha de acento azul/ciano.
+  - Os posts usam chip pequeno de distancia (`distanceChip`) em vez do bloco grande antigo.
+  - Para alterar o topo do Feed, procure por `header`, `headerLeft`, `headerBrand`, `headerAccent` e `headerWatermark`.
 
 - Perfil / Dias consecutivos
-  - Arquivo: `src/components/StreakBadge.tsx`
-  - O card de streak agora usa `theme.surface`, `theme.border`, `theme.warning`, `theme.primarySoft`.
-  - Para mudar o visual do card "dias consecutivos", este é o componente certo.
+  - Arquivo principal: `src/screens/Profile/MyProfileScreen.tsx`
+  - O header do perfil usa foto de capa, logo central em aro azul, botao de voltar, botao de editar e camera para trocar capa.
+  - O card de sequencia/meta do perfil fica em `profileGoalCard` e usa `theme.surface`, `theme.border`, `theme.primary`, `theme.primarySoft`.
+  - `src/components/StreakBadge.tsx` ainda existe para outros pontos que precisem do badge reutilizavel.
 
 - Treino ativo e resumo
   - Arquivos:

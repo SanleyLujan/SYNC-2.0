@@ -4,14 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   ImageBackground,
   TouchableOpacity,
   Platform,
   RefreshControl,
   Share,
 } from 'react-native';
-import { Image as ExpoImage } from 'expo-image'; // recorta no círculo (contentFit) em web e nativo
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
@@ -21,7 +19,7 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { heroImages, getSportImage } from '../../theme/images';
-import StreakBadge from '../../components/StreakBadge';
+import Logo from '../../components/Logo';
 import * as ImagePicker from 'expo-image-picker';
 import { fetchCurrentWeather, WeatherData, getExerciseRecommendation, getRandomQuote, MotivationalQuote } from '../../services/external-apis';
 import { getCurrentLocation } from '../../services/location.service';
@@ -301,6 +299,10 @@ export default function MyProfileScreen({ navigation }: Props) {
     return `${m}m`;
   };
 
+  const nextGoalTotal = 3;
+  const nextGoalProgress = Math.min(stats.totalActivities, nextGoalTotal);
+  const nextGoalPercent = nextGoalProgress / nextGoalTotal;
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -332,40 +334,42 @@ export default function MyProfileScreen({ navigation }: Props) {
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
-        {/* Banner edit button */}
         <TouchableOpacity
-          style={[styles.bannerEditBtn, { top: Math.max(insets.top + 12, 56) }]}
-          onPress={pickBanner}
+          style={[styles.headerActionBtn, styles.headerBackBtn, { top: Math.max(insets.top + 12, 56) }]}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.getParent()?.navigate('FeedTab' as never);
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+        >
+          <Ionicons name="arrow-back" size={20} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.headerActionBtn, styles.bannerEditBtn, { top: Math.max(insets.top + 12, 56) }]}
+          onPress={() => navigation.navigate('EditProfile')}
           disabled={uploadingBanner}
           accessibilityRole="button"
-          accessibilityLabel="Alterar foto de capa"
+          accessibilityLabel="Editar perfil"
         >
-          <Ionicons name={uploadingBanner ? 'hourglass-outline' : 'image-outline'} size={18} color="#fff" />
+          <Ionicons name="pencil-outline" size={18} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarRing}>
-              <ExpoImage
-                source={
-                  user.avatarUrl
-                    ? { uri: user.avatarUrl }
-                    : user.profilePhotos && user.profilePhotos.length > 0
-                    ? { uri: user.profilePhotos[0] }
-                    : require('../../assets/images/default-avatar.png')
-                }
-                style={styles.avatar}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                transition={150}
-              />
+              <Logo size={58} variant="filled" />
             </View>
             <TouchableOpacity
               style={styles.editAvatarBtn}
-              onPress={() => navigation.navigate('EditProfile')}
+              onPress={pickBanner}
+              disabled={uploadingBanner}
               accessibilityRole="button"
-              accessibilityLabel="Alterar foto de perfil"
+              accessibilityLabel="Alterar foto de capa"
             >
-              <Ionicons name="camera" size={16} color={colors.white} />
+              <Ionicons name={uploadingBanner ? 'hourglass-outline' : 'camera'} size={16} color={colors.white} />
             </TouchableOpacity>
           </View>
           <View style={styles.nameRow}>
@@ -405,9 +409,32 @@ export default function MyProfileScreen({ navigation }: Props) {
         </View>
       </ImageBackground>
 
-      {/* Streak badge (killer: dias consecutivos) */}
-      <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.md, marginBottom: spacing.md }}>
-        <StreakBadge days={stats.currentStreak} bestDays={stats.bestStreak} />
+      <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.md }}>
+        <View style={[styles.profileGoalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.profileGoalSide}>
+            <View style={[styles.profileGoalIcon, { backgroundColor: theme.primarySoft }]}>
+              <Ionicons name="water" size={24} color={theme.primary} />
+            </View>
+            <View>
+              <Text style={[styles.profileGoalValue, { color: theme.textPrimary }]}>{stats.currentStreak}</Text>
+              <Text style={[styles.profileGoalLabel, { color: theme.textPrimary }]}>dias consecutivos</Text>
+              <Text style={[styles.profileGoalHint, { color: theme.textSecondary }]}>
+                {stats.currentStreak > 0 ? `Melhor: ${stats.bestStreak} dias` : 'Sem sequencia ainda'}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.profileGoalDivider, { backgroundColor: theme.divider }]} />
+          <View style={styles.profileGoalMeta}>
+            <Text style={[styles.profileGoalHint, { color: theme.textSecondary }]}>Proxima meta</Text>
+            <Text style={[styles.profileGoalLabel, { color: theme.textPrimary }]}>Treine 3 vezes</Text>
+            <Text style={[styles.profileGoalHint, { color: theme.textSecondary }]}>
+              {nextGoalProgress}/{nextGoalTotal}
+            </Text>
+            <View style={[styles.profileProgressTrack, { backgroundColor: theme.divider }]}>
+              <View style={[styles.profileProgressFill, { width: `${nextGoalPercent * 100}%`, backgroundColor: theme.primary }]} />
+            </View>
+          </View>
+        </View>
       </View>
 
       {/* Território conquistado (jogo de conquista) */}
@@ -643,16 +670,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   headerGradient: {
-    paddingBottom: spacing.xl + 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    minHeight: 280,
+    paddingBottom: spacing.xl + 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
-  bannerEditBtn: {
+  headerActionBtn: {
     position: 'absolute',
     top: 56, // overridden dynamically with insets.top
-    right: spacing.md,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 10,
+    borderRadius: 18,
     width: 44,
     height: 44,
     justifyContent: 'center',
@@ -660,44 +688,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
   },
+  headerBackBtn: {
+    left: spacing.lg,
+  },
+  bannerEditBtn: {
+    right: spacing.lg,
+  },
   headerContent: {
     alignItems: 'center',
+    marginTop: spacing.md,
   },
   avatarContainer: {
     position: 'relative',
-    width: 96,
-    height: 96,
+    width: 112,
+    height: 112,
     // borderRadius no container faz a sombra (glow) ficar CIRCULAR no web —
     // sem isso o box-shadow vira um quadrado em volta da foto redonda.
-    borderRadius: 48,
+    borderRadius: 56,
     // Glow fica no container (overflow visível) — o recorte circular vai no ring
-    shadowColor: '#FF6B35',
+    shadowColor: colors.blue,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
+    shadowOpacity: 0.85,
+    shadowRadius: 16,
     elevation: 8,
   },
   avatarRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     borderWidth: 3,
-    borderColor: '#FF6B35',
+    borderColor: colors.blue,
     overflow: 'hidden', // recorta a foto dentro do círculo (corrige foto quadrada no web)
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
+    backgroundColor: 'rgba(3,9,20,0.82)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   editAvatarBtn: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
+    bottom: 0,
+    right: 0,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.blue,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -742,7 +775,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(58,134,255,0.28)',
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: borderRadius.full,
@@ -752,6 +785,63 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.white,
     fontWeight: '600',
+  },
+  profileGoalCard: {
+    minHeight: 102,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: colors.blue,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  profileGoalSide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  profileGoalIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileGoalValue: {
+    fontSize: 30,
+    fontWeight: '900',
+    lineHeight: 34,
+  },
+  profileGoalLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  profileGoalHint: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  profileGoalDivider: {
+    width: 1,
+    height: 62,
+    marginHorizontal: spacing.md,
+  },
+  profileGoalMeta: {
+    flex: 0.82,
+  },
+  profileProgressTrack: {
+    height: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: spacing.xs,
+  },
+  profileProgressFill: {
+    height: '100%',
+    borderRadius: 999,
   },
   profileFooterPanel: {
     marginHorizontal: spacing.lg,

@@ -134,7 +134,7 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
             />
           </View>
           <View style={{ flex: 1, marginLeft: spacing.sm }}>
-            <Text style={styles.userName}>{post.user?.name || 'Atleta'}</Text>
+            <Text style={[styles.userName, { color: theme.textPrimary }]}>{post.user?.name || 'Atleta'}</Text>
             <View style={styles.metaRow}>
               <Ionicons name={icon} size={12} color={theme.primary} />
               <Text style={[styles.metaText, { color: theme.textSecondary }]}>
@@ -154,18 +154,9 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
 
         {post.caption && <Text style={[styles.caption, { color: theme.textPrimary }]}>{post.caption}</Text>}
 
-        {/* Hero distance with subtle orange glow bg */}
-        <LinearGradient
-          colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroDistanceBg}
-        >
-          <View style={styles.heroDistance}>
-            <Text style={[styles.heroValue, { color: theme.textPrimary }]}>{distanceKm}</Text>
-            <Text style={[styles.heroLabel, { color: theme.primary }]}>km</Text>
-          </View>
-        </LinearGradient>
+        <View style={[styles.distanceChip, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '45' }]}>
+          <Text style={[styles.distanceChipText, { color: theme.primary }]}>{distanceKm}km</Text>
+        </View>
 
         {/* Stats row */}
         <View style={[styles.statsRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
@@ -405,11 +396,11 @@ export default function FeedScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
         colors={theme.mode === 'dark'
-          ? ['#071427', '#04111F', theme.background]
-          : ['#FFFFFF', '#F7F8FB', theme.background]}
+          ? ['rgba(7,20,39,0.98)', 'rgba(4,17,31,0.96)']
+          : ['#FFFFFF', '#F7F8FB']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
+        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56), borderColor: theme.border }]}
       >
         <View style={[styles.headerGrid, { borderColor: theme.divider }]} />
         <View style={[styles.headerShard, styles.headerShardOne, { backgroundColor: theme.primarySoft }]} />
@@ -418,9 +409,20 @@ export default function FeedScreen() {
           <Logo size={92} />
         </View>
         <View style={styles.headerInner}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Logo size={32} variant="filled" />
-            <Text style={[styles.title, { color: theme.textPrimary }]}>Feed</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={[styles.headerIconButton, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              onPress={() => showToast('Menu em breve')}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir menu"
+            >
+              <Ionicons name="menu-outline" size={22} color={theme.textPrimary} />
+            </TouchableOpacity>
+            <View style={styles.headerBrand}>
+              <Logo size={30} variant="filled" />
+              <Text style={[styles.title, { color: theme.textPrimary }]}>Feed</Text>
+            </View>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
@@ -436,6 +438,14 @@ export default function FeedScreen() {
               <Ionicons name="notifications-outline" size={22} color={theme.textPrimary} />
             </TouchableOpacity>
           </View>
+        </View>
+        <View style={styles.headerAccentWrap}>
+          <LinearGradient
+            colors={[theme.primary, theme.cyan]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerAccent}
+          />
         </View>
       </LinearGradient>
 
@@ -509,7 +519,12 @@ const styles = StyleSheet.create({
 
   // ── Hero header ──────────────────────────────────────────────────────────
   header: {
-    paddingBottom: spacing.xl,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+    paddingBottom: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -519,6 +534,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     zIndex: 2,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  headerIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerGrid: {
     position: 'absolute',
@@ -559,11 +593,21 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-8deg' }],
   },
   headerRight: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+  headerAccentWrap: {
+    paddingLeft: spacing.lg + 48,
+    paddingRight: spacing.lg,
+    marginTop: spacing.md,
+    zIndex: 2,
+  },
+  headerAccent: {
+    height: 3,
+    width: 118,
+    borderRadius: 999,
+  },
   title: {
-    fontSize: fontSize.xxl,
+    fontSize: fontSize.xl,
     fontWeight: '800',
     color: '#fff',
-    letterSpacing: -0.5,
   },
 
   // ── Card ─────────────────────────────────────────────────────────────────
@@ -609,26 +653,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
 
-  // ── Hero distance ─────────────────────────────────────────────────────────
-  heroDistanceBg: {
-    borderRadius: borderRadius.md,
-    marginVertical: spacing.sm,
-    paddingVertical: spacing.xs,
+  distanceChip: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    marginBottom: spacing.md,
   },
-  heroDistance: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: 6,
+  distanceChipText: {
+    fontSize: fontSize.xs,
+    fontWeight: '800',
   },
-  heroValue: {
-    fontSize: 56,
-    fontWeight: '900',
-    color: '#fff',
-    letterSpacing: -2,
-    lineHeight: 58,
-  },
-  heroLabel: { fontSize: 18, color: colors.primary, fontWeight: '700', marginBottom: 8 },
 
   // ── Stats row ─────────────────────────────────────────────────────────────
   statsRow: {
