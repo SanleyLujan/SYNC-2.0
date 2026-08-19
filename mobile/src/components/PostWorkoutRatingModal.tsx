@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fontSize, spacing, borderRadius } from '../theme';
+import { spacing, borderRadius } from '../theme';
 import api from '../services/api';
 import { showToast } from './ui/Toast';
+import { useThemeStore } from '../store/themeStore';
 
 interface Props {
   visible: boolean;
@@ -71,6 +72,7 @@ const WEATHER_FELT = [
 ];
 
 export default function PostWorkoutRatingModal({ visible, activityId, onClose, onSaved }: Props) {
+  const theme = useThemeStore((s) => s.theme);
   const [energy, setEnergy] = useState<number | null>(null);
   const [satisfaction, setSatisfaction] = useState<number | null>(null);
   const [rpe, setRpe] = useState<number | null>(null);
@@ -131,31 +133,42 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={skip}>
       {/* Tap no fundo também fecha */}
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={skip}>
+      <TouchableOpacity style={[styles.backdrop, { backgroundColor: theme.overlay }]} activeOpacity={1} onPress={skip}>
         <Animated.View
-          style={[styles.sheet, { transform: [{ translateY: dragY }] }]}
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: theme.background,
+              borderColor: theme.border,
+              transform: [{ translateY: dragY }],
+            },
+          ]}
           onStartShouldSetResponder={() => true}
           onTouchEnd={(e) => e.stopPropagation()}
         >
           {/* Área de arraste (handle) — arraste pra baixo pra fechar */}
           <View {...panResponder.panHandlers} style={styles.dragArea}>
-            <View style={styles.handle} />
+            <View style={[styles.handle, { backgroundColor: theme.divider }]} />
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.title}>Como foi seu treino?</Text>
-            <Text style={styles.subtitle}>Avalie pra acompanhar sua evolução</Text>
+            <Text style={[styles.title, { color: theme.textPrimary }]}>Como foi seu treino?</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Avalie pra acompanhar sua evolução</Text>
 
             {/* Energy */}
-            <Text style={styles.sectionLabel}>Como você se sentiu?</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Como você se sentiu?</Text>
             <View style={styles.emojiRow}>
               {EMOJI_SCALE.map((e) => (
                 <TouchableOpacity
                   key={e.value}
-                  style={[styles.emojiBtn, energy === e.value && styles.emojiBtnActive]}
+                  style={[
+                    styles.emojiBtn,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    energy === e.value && { backgroundColor: theme.primary, borderColor: theme.primary },
+                  ]}
                   onPress={() => setEnergy(e.value)}
                 >
                   <Text style={styles.emoji}>{e.emoji}</Text>
-                  <Text style={[styles.emojiLabel, energy === e.value && { color: '#fff' }]}>
+                  <Text style={[styles.emojiLabel, { color: theme.textSecondary }, energy === e.value && { color: theme.primaryText }]}>
                     {e.label}
                   </Text>
                 </TouchableOpacity>
@@ -163,32 +176,36 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
             </View>
 
             {/* Satisfaction */}
-            <Text style={styles.sectionLabel}>Gostou do treino?</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Gostou do treino?</Text>
             <View style={styles.starsRow}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <TouchableOpacity key={s} onPress={() => setSatisfaction(s)} hitSlop={6}>
                   <Ionicons
                     name={(satisfaction || 0) >= s ? 'star' : 'star-outline'}
                     size={36}
-                    color={(satisfaction || 0) >= s ? '#FCD34D' : '#3A3A3F'}
+                    color={(satisfaction || 0) >= s ? theme.warning : theme.textMuted}
                   />
                 </TouchableOpacity>
               ))}
             </View>
 
             {/* RPE */}
-            <Text style={styles.sectionLabel}>Esforço percebido (RPE)</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Esforço percebido (RPE)</Text>
             <View style={styles.scaleRow}>
               {RPE_SCALE.map((s) => (
                 <TouchableOpacity
                   key={s.value}
-                  style={[styles.scaleBtn, rpe === s.value && { backgroundColor: '#FF6B35' }]}
+                  style={[
+                    styles.scaleBtn,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    rpe === s.value && { backgroundColor: theme.primary, borderColor: theme.primary },
+                  ]}
                   onPress={() => setRpe(s.value)}
                 >
-                  <Text style={[styles.scaleValue, rpe === s.value && { color: '#fff' }]}>
+                  <Text style={[styles.scaleValue, { color: theme.textPrimary }, rpe === s.value && { color: theme.primaryText }]}>
                     {s.value}
                   </Text>
-                  <Text style={[styles.scaleLabel, rpe === s.value && { color: '#fff' }]}>
+                  <Text style={[styles.scaleLabel, { color: theme.textSecondary }, rpe === s.value && { color: theme.primaryText }]}>
                     {s.label}
                   </Text>
                 </TouchableOpacity>
@@ -196,13 +213,14 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
             </View>
 
             {/* Pain */}
-            <Text style={styles.sectionLabel}>Sentiu alguma dor?</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Sentiu alguma dor?</Text>
             <View style={styles.painRow}>
               {PAIN_SCALE.map((p) => (
                 <TouchableOpacity
                   key={p.value}
                   style={[
                     styles.painBtn,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
                     pain === p.value && { backgroundColor: p.color, borderColor: p.color },
                   ]}
                   onPress={() => setPain(p.value)}
@@ -210,6 +228,7 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
                   <Text
                     style={[
                       styles.painValue,
+                      { color: theme.textPrimary },
                       pain === p.value && { color: '#fff' },
                     ]}
                   >
@@ -218,6 +237,7 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
                   <Text
                     style={[
                       styles.painLabel,
+                      { color: theme.textSecondary },
                       pain === p.value && { color: '#fff' },
                     ]}
                   >
@@ -228,13 +248,14 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
             </View>
 
             {/* Workout Type */}
-            <Text style={styles.sectionLabel}>Tipo de treino</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Tipo de treino</Text>
             <View style={styles.typesGrid}>
               {WORKOUT_TYPES.map((t) => (
                 <TouchableOpacity
                   key={t.id}
                   style={[
                     styles.typeBtn,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
                     workoutType === t.id && { backgroundColor: t.color, borderColor: t.color },
                   ]}
                   onPress={() => setWorkoutType(t.id)}
@@ -247,6 +268,7 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
                   <Text
                     style={[
                       styles.typeLabel,
+                      { color: theme.textPrimary },
                       workoutType === t.id && { color: '#fff' },
                     ]}
                   >
@@ -257,26 +279,28 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
             </View>
 
             {/* Weather */}
-            <Text style={styles.sectionLabel}>Como estava o tempo?</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Como estava o tempo?</Text>
             <View style={styles.weatherRow}>
               {WEATHER_FELT.map((w) => (
                 <TouchableOpacity
                   key={w.id}
                   style={[
                     styles.weatherBtn,
-                    weatherFelt === w.id && { backgroundColor: '#FF6B35', borderColor: '#FF6B35' },
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    weatherFelt === w.id && { backgroundColor: theme.primary, borderColor: theme.primary },
                   ]}
                   onPress={() => setWeatherFelt(w.id)}
                 >
                   <Ionicons
                     name={w.icon as any}
                     size={20}
-                    color={weatherFelt === w.id ? '#fff' : colors.dark.text}
+                    color={weatherFelt === w.id ? theme.primaryText : theme.textPrimary}
                   />
                   <Text
                     style={[
                       styles.weatherLabel,
-                      weatherFelt === w.id && { color: '#fff' },
+                      { color: theme.textPrimary },
+                      weatherFelt === w.id && { color: theme.primaryText },
                     ]}
                   >
                     {w.label}
@@ -286,21 +310,28 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
             </View>
 
             {/* Notes */}
-            <Text style={styles.sectionLabel}>Notas (opcional)</Text>
+            <Text style={[styles.sectionLabel, { color: theme.textPrimary }]}>Notas (opcional)</Text>
             <TextInput
-              style={styles.notesInput}
+              style={[
+                styles.notesInput,
+                {
+                  backgroundColor: theme.input,
+                  borderColor: theme.border,
+                  color: theme.textPrimary,
+                },
+              ]}
               value={notes}
               onChangeText={setNotes}
               placeholder="Como foi o treino? Algum detalhe importante?"
-              placeholderTextColor={colors.dark.secondaryText}
+              placeholderTextColor={theme.placeholder}
               multiline
               maxLength={500}
             />
 
             {/* Actions */}
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.skipBtn} onPress={skip}>
-                <Text style={styles.skipBtnText}>Pular</Text>
+              <TouchableOpacity style={[styles.skipBtn, { borderColor: theme.border }]} onPress={skip}>
+                <Text style={[styles.skipBtnText, { color: theme.textSecondary }]}>Pular</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveBtn}
@@ -309,7 +340,7 @@ export default function PostWorkoutRatingModal({ visible, activityId, onClose, o
                 activeOpacity={0.85}
               >
                 <LinearGradient
-                  colors={['#FF6B35', '#FF4500']}
+                  colors={theme.gradientPrimary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.saveBtnInner}
@@ -333,6 +364,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A0F',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderWidth: 1,
     padding: spacing.lg,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     maxHeight: '92%',
@@ -347,7 +379,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: { color: '#fff', fontSize: 24, fontWeight: '900', textAlign: 'center' },
-  subtitle: { color: colors.dark.secondaryText, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: spacing.lg },
+  subtitle: { fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: spacing.lg },
   sectionLabel: {
     color: '#fff',
     fontSize: 14,
@@ -370,11 +402,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  emojiBtnActive: { backgroundColor: '#FF6B35', borderColor: '#FF6B35' },
   emoji: { fontSize: 28 },
   emojiLabel: {
     fontSize: 10,
-    color: colors.dark.secondaryText,
     marginTop: 4,
     fontWeight: '600',
   },
@@ -396,9 +426,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 1,
   },
   scaleValue: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  scaleLabel: { fontSize: 10, color: colors.dark.secondaryText, marginTop: 2 },
+  scaleLabel: { fontSize: 10, marginTop: 2 },
   painRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -414,7 +445,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
   },
   painValue: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  painLabel: { fontSize: 10, color: colors.dark.secondaryText, marginTop: 2 },
+  painLabel: { fontSize: 10, marginTop: 2 },
   typesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -457,6 +488,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     fontSize: 14,
     textAlignVertical: 'top',
+    borderWidth: 1,
   },
   actions: {
     flexDirection: 'row',
@@ -471,7 +503,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
-  skipBtnText: { color: colors.dark.secondaryText, fontWeight: '700' },
+  skipBtnText: { fontWeight: '700' },
   saveBtn: { flex: 2, borderRadius: 12, overflow: 'hidden' },
   saveBtnInner: { paddingVertical: 14, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
