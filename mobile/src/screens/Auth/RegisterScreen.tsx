@@ -117,14 +117,18 @@ export default function RegisterScreen({ navigation }: Props) {
     }
     setLoading(true);
     try {
-      await register(name.trim(), email.trim().toLowerCase(), password, confirmPassword, {
+      const result = await register(name.trim(), email.trim().toLowerCase(), password, confirmPassword, {
         weightKg: weightKg ? parseFloat(weightKg) : undefined,
         heightCm: heightCm ? parseFloat(heightCm) : undefined,
         gender: gender || undefined,
         cpf: cpf.replace(/\D/g, '') || undefined,
       });
-      // Popup de sucesso antes de cair na seleção de perguntas (onboarding)
-      showToast('Conta criada! Enviamos um link para confirmar seu email.', 'success');
+      // Popup de sucesso antes de cair na selecao de perguntas (onboarding)
+      if (result.emailVerificationSent === false) {
+        showToast('Conta criada, mas o email de confirmação não saiu. Confira o Resend/SMTP no Render.', 'info');
+      } else {
+        showToast('Conta criada! Enviamos um link para confirmar seu email.', 'success');
+      }
     } catch (error: any) {
       const status = error.response?.status;
       const msg = error.response?.data?.message;

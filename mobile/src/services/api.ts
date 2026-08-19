@@ -3,15 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { secureStorage } from './secure-storage';
 
-// URL do backend de produção (Railway). É o DEFAULT quando não há env var,
+// URL do backend de produção (Render). É o DEFAULT quando não há env var,
 // pra garantir que o app funcione em qualquer lugar (deploy, celular, preview)
 // sem depender de configuração extra.
-const PROD_API = 'https://sync-production-4830.up.railway.app';
+const PROD_API = 'https://sync-backend-o2zc.onrender.com';
 
 // Ordem de resolução da base da API:
 // 1. EXPO_PUBLIC_API_URL (injetada no build) — sobrepõe tudo.
 // 2. Dev local explícito: web em localhost:8081 OU nativo em dev → localhost:3000.
-// 3. Qualquer outro caso (deploy web, celular, preview) → produção (Railway).
+// 3. Qualquer outro caso (deploy web, celular, preview) → produção (Render).
 const getApiBase = () => {
   const env = (process.env.EXPO_PUBLIC_API_URL || '').trim();
   if (env) {
@@ -22,14 +22,14 @@ const getApiBase = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
     // Só usa backend local quando explicitamente rodando backend em localhost.
-    // (o preview Expo Web roda em localhost mas NÃO tem backend local, então
+    // (o preview Expo Web roda em localhost mas NAO tem backend local, entao
     //  apontamos pra produção pra funcionar de imediato.)
     if (host === '127.0.0.1') {
       return `${window.location.protocol}//${host}:3000/api`;
     }
     return PROD_API + '/api';
   }
-  // Nativo sem env var → produção (antes caía em localhost:3000 e falhava no
+  // Nativo sem env var -> producao (antes caia em localhost:3000 e falhava no
   // celular, pois localhost no device é o próprio aparelho).
   return PROD_API + '/api';
 };

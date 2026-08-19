@@ -16,8 +16,12 @@ export default function EmailVerificationBanner() {
     if (sending) return;
     setSending(true);
     try {
-      await authService.resendVerification();
-      showToast('Email de confirmacao reenviado.', 'success');
+      const result = await authService.resendVerification();
+      if (result.emailVerificationSent === false) {
+        showToast('Nao conseguimos enviar o email. Confira o Resend/SMTP no Render.', 'info');
+      } else {
+        showToast('Email de confirmacao reenviado.', 'success');
+      }
     } catch {
       showToast('Nao foi possivel reenviar agora.', 'error');
     } finally {

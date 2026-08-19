@@ -117,13 +117,14 @@ export class AuthService {
 
     await this.userRepository.save(user);
     await this.audit.log({ userId: user.id, event: 'register_success', req });
-    await this.sendVerificationEmailSafe(user, verification.token);
+    const emailVerificationSent = await this.sendVerificationEmailSafe(user, verification.token);
 
     const token = this.generateToken(user);
 
     return {
       user: this.publicUser(user),
       accessToken: token,
+      emailVerificationSent,
     };
   }
 
@@ -306,7 +307,7 @@ export class AuthService {
     return { ok: true, message: 'Email confirmado com sucesso' };
   }
 
-  async resendVerification(userId: string, req?: Request): Promise<{ ok: true; message: string }> {
+  async resendVerification(userId: string, req?: Request): Promise<{ ok: true; message: string; emailVerificationSent?: boolean }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('Usuário não encontrado');
 
@@ -320,9 +321,15 @@ export class AuthService {
       emailVerificationExpires: verification.expires,
     });
     await this.audit.log({ userId: user.id, event: 'email_verification_resent', req });
-    await this.sendVerificationEmailSafe(user, verification.token);
+    const emailVerificationSent = await this.sendVerificationEmailSafe(user, verification.token);
 
-    return { ok: true, message: 'Email de confirmacao reenviado' };
+    return {
+      ok: true,
+      message: emailVerificationSent
+        ? 'Email de confirmacao reenviado'
+        : 'Nao foi possivel enviar o email de confirmacao agora',
+      emailVerificationSent,
+    };
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string, req?: Request): Promise<void> {
@@ -414,13 +421,15 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  private async sendVerificationEmailSafe(user: User, token: string): Promise<void> {
+  private async sendVerificationEmailSafe(user: User, token: string): Promise<boolean> {
     try {
       await this.emailService.sendVerificationEmail(user.email, user.name, token);
+      return true;
     } catch (error) {
       this.logger.error(
         `Falha ao enviar email de verificacao para user=${user.id}: ${error instanceof Error ? error.message : String(error)}`,
       );
+      return false;
     }
   }
 

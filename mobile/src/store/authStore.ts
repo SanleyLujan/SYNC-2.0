@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../types';
+import { AuthResponse, User } from '../types';
 import { authService } from '../services/auth.service';
 import { setSessionExpiredHandler } from '../services/api';
 
@@ -12,7 +12,7 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
-  register: (name: string, email: string, password: string, confirmPassword: string, extra?: { weightKg?: number; heightCm?: number; gender?: string; cpf?: string }) => Promise<void>;
+  register: (name: string, email: string, password: string, confirmPassword: string, extra?: { weightKg?: number; heightCm?: number; gender?: string; cpf?: string }) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
   setUser: (user: User) => void;
@@ -42,6 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Garante que o user tenha o flag onboardingCompleted (mesmo que false)
     const user = { ...data.user, onboardingCompleted: data.user?.onboardingCompleted ?? false };
     set({ user, token: data.accessToken, isAuthenticated: true, isLoading: false });
+    return data;
   },
 
   logout: async () => {

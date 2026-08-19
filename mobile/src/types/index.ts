@@ -125,6 +125,7 @@ export interface RankingItem {
 export interface AuthResponse {
   user: User;
   accessToken: string;
+  emailVerificationSent?: boolean;
 }
 
 // Dados de onboarding
