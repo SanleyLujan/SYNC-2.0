@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailService {
@@ -10,13 +11,32 @@ export class EmailService {
     const frontendUrl = (process.env.FRONTEND_URL || '').trim().replace(/\/$/, '');
     const baseUrl = frontendUrl || 'https://sync-2-0-blush.vercel.app';
     const verifyUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
+    const firstName = name.trim().split(/\s+/)[0] || 'atleta';
+    const subject = 'Confirme seu email no Sync';
+    const html = this.verificationHtml(firstName, verifyUrl);
+    const text = `Oi, ${firstName}! Confirme seu email no Sync: ${verifyUrl}`;
 
-    if (!apiKey) {
-      this.logger.warn(`RESEND_API_KEY ausente; link de verificacao para ${email}: ${verifyUrl}`);
+    if (apiKey) {
+      await this.sendWithResend(apiKey, from, email, subject, html, text);
       return;
     }
 
-    const firstName = name.trim().split(/\s+/)[0] || 'atleta';
+    if (this.hasSmtpConfig()) {
+      await this.sendWithSmtp(from, email, subject, html, text);
+      return;
+    }
+
+    this.logger.warn(`Email nao configurado; link de verificacao para ${email}: ${verifyUrl}`);
+  }
+
+  private async sendWithResend(
+    apiKey: string,
+    from: string,
+    to: string,
+    subject: string,
+    html: string,
+    text: string,
+  ): Promise<void> {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -25,10 +45,10 @@ export class EmailService {
       },
       body: JSON.stringify({
         from,
-        to: email,
-        subject: 'Confirme seu email no Sync',
-        html: this.verificationHtml(firstName, verifyUrl),
-        text: `Oi, ${firstName}! Confirme seu email no Sync: ${verifyUrl}`,
+        to,
+        subject,
+        html,
+        text,
       }),
     });
 
@@ -36,6 +56,36 @@ export class EmailService {
       const detail = await response.text().catch(() => '');
       throw new Error(`Resend falhou (${response.status}): ${detail.slice(0, 300)}`);
     }
+  }
+
+  private async sendWithSmtp(
+    from: string,
+    to: string,
+    subject: string,
+    html: string,
+    text: string,
+  ): Promise<void> {
+    const port = parseInt(process.env.SMTP_PORT || '465', 10);
+    const secure = (process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port,
+      secure,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({ from, to, subject, html, text });
+  }
+
+  private hasSmtpConfig(): boolean {
+    return Boolean(
+      (process.env.SMTP_HOST || '').trim() &&
+      (process.env.SMTP_USER || '').trim() &&
+      (process.env.SMTP_PASS || '').trim(),
+    );
   }
 
   private verificationHtml(firstName: string, verifyUrl: string): string {
