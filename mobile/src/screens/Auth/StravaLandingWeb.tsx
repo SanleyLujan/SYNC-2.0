@@ -134,7 +134,6 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
   const { width } = useWindowDimensions();
   const fade = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
-  const sectionY = useRef<Record<string, number>>({});
 
   useEffect(() => {
     Animated.timing(fade, {
@@ -146,16 +145,10 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
   }, [fade]);
 
   const isWide = width >= 1100;
-  const compactNav = width < 1180;
   const stackedNav = width < 820;
   const narrowLayout = width < 820;
   const veryNarrowLayout = width < 520;
   const cardWidth = isWide ? 350 : Math.max(280, Math.min(width - 48, 340));
-
-  const scrollToSection = (key: string) => {
-    const y = sectionY.current[key];
-    if (y != null) scrollRef.current?.scrollTo({ y: Math.max(y - 76, 0), animated: true });
-  };
 
   return (
     <ScrollView ref={scrollRef} style={styles.root} contentContainerStyle={styles.content}>
@@ -177,20 +170,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
           <Text style={styles.navBrandText}>SYNC</Text>
         </TouchableOpacity>
 
-        <View style={[styles.navLinks, compactNav && styles.navLinksCompact, stackedNav && styles.navLinksStacked]}>
-          {!compactNav && (
-            <>
-              {[
-                { label: 'Recursos', key: 'features' },
-                { label: 'Planos', key: 'plans' },
-                { label: 'Comunidade', key: 'community' },
-              ].map((item) => (
-                <TouchableOpacity key={item.key} onPress={() => scrollToSection(item.key)} style={styles.navLinkTouch}>
-                  <Text style={styles.navLink}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </>
-          )}
+        <View style={[styles.navLinks, stackedNav && styles.navLinksStacked]}>
           <TouchableOpacity onPress={onLogin}>
             <Text style={styles.navLogin}>Entrar</Text>
           </TouchableOpacity>
@@ -280,10 +260,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
         </View>
       </Animated.View>
 
-      <View
-        style={styles.section}
-        onLayout={(e) => { sectionY.current.features = e.nativeEvent.layout.y; }}
-      >
+      <View style={styles.section}>
         <Text style={styles.sectionEyebrow}>RECURSOS</Text>
         <Text style={styles.sectionTitle}>Tudo para treinar melhor, em um so lugar.</Text>
         <View style={styles.featureGrid}>
@@ -317,10 +294,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
         </View>
       </View>
 
-      <View
-        style={styles.section}
-        onLayout={(e) => { sectionY.current.plans = e.nativeEvent.layout.y; }}
-      >
+      <View style={styles.section}>
         <Text style={styles.sectionEyebrow}>PLANOS</Text>
         <Text style={styles.sectionTitle}>Comece gratis. Evolua quando fizer sentido.</Text>
         <View style={styles.planGrid}>
@@ -351,10 +325,7 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
         </View>
       </View>
 
-      <View
-        style={styles.section}
-        onLayout={(e) => { sectionY.current.community = e.nativeEvent.layout.y; }}
-      >
+      <View style={styles.section}>
         <Text style={styles.sectionEyebrow}>COMUNIDADE</Text>
         <Text style={styles.sectionTitle}>Treinar fica mais facil quando alguem vai junto.</Text>
         <View style={styles.testGrid}>
@@ -736,6 +707,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    maxWidth: 210,
   },
   floatStatsNarrow: {
     left: spacing.md,
@@ -744,14 +716,15 @@ const styles = StyleSheet.create({
   },
   floatMap: {
     right: spacing.lg,
-    top: spacing.xl + 28,
+    top: 112,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    maxWidth: 210,
   },
   floatMapNarrow: {
     right: spacing.md,
-    top: 96,
+    top: 112,
     maxWidth: 190,
   },
   floatTitle: {
