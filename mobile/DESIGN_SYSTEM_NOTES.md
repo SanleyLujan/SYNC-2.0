@@ -65,6 +65,13 @@ Este arquivo existe para facilitar futuras mudanças visuais no app: cores, logo
   - `web.favicon` aponta para `./src/assets/images/sync-logo-light.png`.
   - Navegadores cacheiam favicon agressivamente; testar com Ctrl+F5 ou aba anonima.
 
+- Landing web inicial
+  - Arquivo: `src/screens/Auth/StravaLandingWeb.tsx`
+  - Tela inicial desktop/web antes do login.
+  - Usa visual proprio em modo escuro, com logo grande, mock cards, recursos, passos, planos e comunidade.
+  - Para mudar textos ou blocos da landing, procure por `INSIGHTS`, `FEATURES`, `STEPS`, `PLANS` e `TESTIMONIALS`.
+  - Para mudar a paleta da landing, ajuste as constantes `BG`, `SURFACE`, `BORDER`, `BLUE`, `CYAN` e `GREEN` no topo do arquivo.
+
 ## Regras Para Futuras Mudanças
 
 - Evite usar cores fixas como `#FF6B35`, `#0A0A0F`, `#fff` em telas comuns.

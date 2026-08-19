@@ -1,137 +1,126 @@
-// Landing page web estilo Strava — desktop only.
-// Renderizada quando windowWidth >= 900 dentro do WelcomeScreen.
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
   ScrollView,
   TouchableOpacity,
   Animated,
   Image,
   Easing,
-  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '../../components/Logo';
+import { borderRadius, fontSize, spacing } from '../../theme';
 
-const BRAND = '#4A0E2C';
-const ACCENT = '#FF6B35';
+const BG = '#030914';
+const SURFACE = '#081321';
+const SURFACE_2 = '#101B2B';
+const BORDER = 'rgba(58,134,255,0.18)';
+const TEXT = '#FFFFFF';
+const MUTED = '#A7ABB3';
+const BLUE = '#3A86FF';
+const CYAN = '#00B4D8';
+const GREEN = '#22D3A6';
 
-const HERO_IMAGE =
-  'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=2000&q=80';
+const INSIGHTS = [
+  { value: 'GPS', label: 'ao vivo', icon: 'navigate-outline' as const },
+  { value: 'Match', label: 'por esporte', icon: 'people-outline' as const },
+  { value: 'XP', label: 'por consistencia', icon: 'sparkles-outline' as const },
+];
 
 const FEATURES = [
   {
-    icon: 'navigate-circle' as const,
-    title: 'Acompanhe seus treinos',
-    desc: 'GPS de alta precisão, ritmo, distância, calorias e elevação em tempo real.',
-    img: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?auto=format&fit=crop&w=900&q=80',
+    icon: 'map-outline' as const,
+    title: 'Mapa inteligente',
+    desc: 'Veja rotas, eventos, pontos de treino e treinos ao vivo em uma experiencia visual limpa.',
+    tone: BLUE,
   },
   {
-    icon: 'people' as const,
-    title: 'Encontre sua tribo',
-    desc: 'Conecte com atletas perto de você. Match por pace, esporte e horário.',
-    img: 'https://images.unsplash.com/photo-1486218119243-13883505764c?auto=format&fit=crop&w=900&q=80',
+    icon: 'radio-outline' as const,
+    title: 'Live tracking',
+    desc: 'Compartilhe seu treino em tempo real com quem precisa acompanhar sua rota.',
+    tone: CYAN,
   },
   {
-    icon: 'trophy' as const,
-    title: 'Compete & evolua',
-    desc: 'Ranking mensal, segments, 50+ conquistas e XP por cada km.',
-    img: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=900&q=80',
+    icon: 'people-outline' as const,
+    title: 'Descobrir pessoas',
+    desc: 'Encontre atletas proximos por modalidade, ritmo, objetivo e disponibilidade.',
+    tone: GREEN,
   },
   {
-    icon: 'flame' as const,
-    title: 'Heatmap de rotas',
-    desc: 'Descubra as ruas e trilhas mais usadas pelos atletas da sua cidade.',
-    img: 'https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?auto=format&fit=crop&w=900&q=80',
+    icon: 'trophy-outline' as const,
+    title: 'Metas e ranking',
+    desc: 'Transforme consistencia em streaks, conquistas, progresso e disputas saudaveis.',
+    tone: '#8338EC',
   },
   {
-    icon: 'flash' as const,
-    title: 'Audio coach + Auto-pause',
-    desc: 'Voz anuncia cada km, ritmo médio e pausa automática quando você para.',
-    img: 'https://images.unsplash.com/photo-1502904550040-7534597429ae?auto=format&fit=crop&w=900&q=80',
+    icon: 'chatbubble-ellipses-outline' as const,
+    title: 'Comunidade',
+    desc: 'Combine treinos, participe de grupos e acompanhe o feed de quem treina com voce.',
+    tone: '#FF9F43',
   },
   {
-    icon: 'newspaper' as const,
-    title: 'Feed da comunidade',
-    desc: 'Compartilhe sua atividade com fotos, rota e stats. Receba kudos.',
-    img: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=80',
+    icon: 'analytics-outline' as const,
+    title: 'Evolucao clara',
+    desc: 'Acompanhe distancia, tempo, ritmo, calorias, sequencia e historico de treinos.',
+    tone: '#FF6868',
   },
+];
+
+const STEPS = [
+  { title: 'Conecte', desc: 'Monte seu perfil, escolha esportes e encontre pessoas compativeis.' },
+  { title: 'Treine', desc: 'Use GPS, mapa, metas e check-ins para registrar sua jornada.' },
+  { title: 'Supere', desc: 'Compartilhe no feed, ganhe XP, mantenha sequencia e suba no ranking.' },
 ];
 
 const PLANS = [
   {
     name: 'Free',
-    price: 'Grátis',
-    desc: 'Para sempre',
-    features: [
-      'Tracking GPS ilimitado',
-      'Match e chat 1:1',
-      'Stories de treino',
-      'Grupos públicos',
-      'Daily quests + XP',
-      'Audio coach básico',
-    ],
-    highlight: false,
-    cta: 'Começar grátis',
+    price: 'Gratis',
+    desc: 'Para comecar hoje',
+    perks: ['Feed e perfil esportivo', 'Tracking GPS', 'Descobrir atletas', 'Grupos e chat'],
+    cta: 'Comecar gratis',
+    active: true,
   },
   {
     name: 'Premium',
-    price: 'R$ 19',
-    desc: 'por mês',
-    features: [
-      'Tudo do Free',
-      'Pace zones detalhadas',
-      'Estatísticas avançadas',
-      'Treinos programados (5K/10K/21K)',
-      'Heatmap personalizado',
-      'Comparação com pessoas',
-      'Sem anúncios',
-      'Suporte prioritário',
-    ],
-    highlight: true,
+    price: 'Em breve',
+    desc: 'Para evoluir com mais dados',
+    perks: ['Metas avancadas', 'Heatmaps pessoais', 'Relatorios melhores', 'Coach inteligente'],
     cta: 'Em breve',
+    active: false,
   },
   {
-    name: 'Atleta Pro',
-    price: 'R$ 39',
-    desc: 'por mês',
-    features: [
-      'Tudo do Premium',
-      'IA Coach personalizado',
-      'Análise de overtraining',
-      'Segments KOM/QOM',
-      'Integração Strava/Garmin',
-      'Live streaming de treino',
-      'Estatísticas anuais',
-    ],
-    highlight: false,
+    name: 'Pro',
+    price: 'Em breve',
+    desc: 'Para atletas e treinadores',
+    perks: ['Painel de performance', 'Turmas e desafios', 'Analises anuais', 'Recursos de equipe'],
     cta: 'Em breve',
+    active: false,
   },
 ];
 
 const TESTIMONIALS = [
   {
-    name: 'Ana Silva',
-    role: 'Maratonista',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80',
-    text: 'Saí dos 5K aos 21K em 3 meses usando os planos de treino. App incrível, comunidade engajada.',
+    name: 'Ana Ferreira',
+    role: 'Corrida de rua',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
+    text: 'O Sync deixou meu treino mais social. Consigo combinar corrida e ainda acompanhar minha evolucao.',
   },
   {
-    name: 'Carlos Mendes',
-    role: 'Ciclista urbano',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&q=80',
-    text: 'O heatmap mudou minha vida — descobri rotas seguras que nem sabia que existiam.',
+    name: 'Marina Lopes',
+    role: 'Ciclismo',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80',
+    text: 'A parte de mapa e grupos e exatamente o que faltava para eu descobrir rotas melhores.',
   },
   {
-    name: 'Juliana Costa',
-    role: 'Triatleta',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&q=80',
-    text: 'Match por pace é genial. Treinei com pessoas no meu ritmo e finalmente curti o esporte de verdade.',
+    name: 'Rafael Souza',
+    role: 'Academia e corrida',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+    text: 'Gosto da mistura de treino, ranking e comunidade. Parece app de esporte de verdade.',
   },
 ];
 
@@ -150,211 +139,203 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
   useEffect(() => {
     Animated.timing(fade, {
       toValue: 1,
-      duration: 800,
+      duration: 720,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [fade]);
+
+  const isWide = width >= 1100;
+  const cardWidth = isWide ? 350 : Math.min(width - 48, 340);
 
   const scrollToSection = (key: string) => {
     const y = sectionY.current[key];
-    if (y != null) scrollRef.current?.scrollTo({ y: Math.max(y - 70, 0), animated: true });
+    if (y != null) scrollRef.current?.scrollTo({ y: Math.max(y - 76, 0), animated: true });
   };
 
-  const isWide = width >= 1100;
-  const cardWidth = isWide ? 380 : Math.min(width - 80, 360);
-
   return (
-    <ScrollView ref={scrollRef} style={styles.root} contentContainerStyle={{ paddingBottom: 0 }}>
-      {/* ============ NAV BAR ============ */}
+    <ScrollView ref={scrollRef} style={styles.root} contentContainerStyle={styles.content}>
+      <LinearGradient
+        colors={[BG, '#04111F', BG]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
       <View style={styles.nav}>
         <TouchableOpacity
-          style={styles.navLogo}
+          style={styles.navBrand}
           onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar ao inicio"
         >
-          <Logo size={36} variant="filled" />
-          <Text style={styles.navBrand}>SYNC</Text>
+          <Logo size={34} variant="filled" />
+          <Text style={styles.navBrandText}>SYNC</Text>
         </TouchableOpacity>
+
         <View style={styles.navLinks}>
           {[
-            { label: 'Features', key: 'Features' },
-            { label: 'Planos', key: 'Planos' },
-            { label: 'Comunidade', key: 'Comunidade' },
-          ].map((l) => (
-            <TouchableOpacity key={l.key} onPress={() => scrollToSection(l.key)}>
-              <Text style={styles.navLink}>{l.label}</Text>
+            { label: 'Recursos', key: 'features' },
+            { label: 'Planos', key: 'plans' },
+            { label: 'Comunidade', key: 'community' },
+          ].map((item) => (
+            <TouchableOpacity key={item.key} onPress={() => scrollToSection(item.key)}>
+              <Text style={styles.navLink}>{item.label}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity onPress={onLogin}>
-            <Text style={[styles.navLink, { color: '#fff' }]}>Entrar</Text>
+            <Text style={styles.navLogin}>Entrar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navCta} onPress={onStart}>
-            <Text style={styles.navCtaText}>Começar grátis</Text>
+            <Text style={styles.navCtaText}>Criar conta</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ============ HERO ============ */}
-      <ImageBackground source={{ uri: HERO_IMAGE }} style={styles.hero} resizeMode="cover">
-        <LinearGradient
-          colors={['rgba(10,5,15,0.4)', 'rgba(10,5,15,0.7)', '#0A050F']}
-          locations={[0, 0.6, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-        <Animated.View style={[styles.heroContent, { opacity: fade }]}>
-          <Text style={styles.heroEyebrow}>O APP DE ESPORTE PARA QUEM TREINA DE VERDADE</Text>
+      <Animated.View style={[styles.hero, { opacity: fade }]}>
+        <View style={styles.heroCopy}>
+          <View style={styles.eyebrowPill}>
+            <Ionicons name="sparkles-outline" size={15} color={CYAN} />
+            <Text style={styles.eyebrowText}>Conecte. Treine. Supere.</Text>
+          </View>
+
           <Text style={styles.heroTitle}>
-            Mais do que{'\n'}
-            <Text style={{ color: ACCENT }}>tracking.</Text>
+            O app social para quem leva esporte a serio.
           </Text>
           <Text style={styles.heroSubtitle}>
-            Conecte. Treine. Evolua. Junto com uma comunidade que respira esporte.
+            Encontre parceiros, registre treinos, acompanhe sua evolucao e participe de uma comunidade feita para sair do plano.
           </Text>
-          <View style={styles.heroCtas}>
-            <TouchableOpacity style={styles.primaryCta} onPress={onStart}>
+
+          <View style={styles.heroActions}>
+            <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
               <LinearGradient
-                colors={[ACCENT, '#FF4500']}
+                colors={[BLUE, CYAN]}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryCtaInner}
+                end={{ x: 1, y: 0 }}
+                style={styles.primaryButtonInner}
               >
-                <Text style={styles.primaryCtaText}>Começar grátis →</Text>
+                <Text style={styles.primaryButtonText}>Comecar gratis</Text>
+                <Ionicons name="arrow-forward" size={18} color={TEXT} />
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryCta} onPress={onLogin}>
-              <Text style={styles.secondaryCtaText}>Já tem conta? Entrar</Text>
+            <TouchableOpacity style={styles.secondaryButton} onPress={onLogin}>
+              <Text style={styles.secondaryButtonText}>Ja tenho conta</Text>
             </TouchableOpacity>
             {onDemo && (
-              <TouchableOpacity style={styles.secondaryCta} onPress={onDemo}>
-                <Text style={[styles.secondaryCtaText, { color: ACCENT }]}>👤 Testar como demo →</Text>
+              <TouchableOpacity style={styles.demoButton} onPress={onDemo}>
+                <Ionicons name="person-circle-outline" size={18} color={CYAN} />
+                <Text style={styles.demoButtonText}>Testar demo</Text>
               </TouchableOpacity>
             )}
           </View>
-          <View style={styles.heroBadges}>
-            <View style={styles.heroBadge}>
-              <Ionicons name="logo-apple" size={18} color="#fff" />
-              <Text style={styles.heroBadgeText}>iOS</Text>
-            </View>
-            <View style={styles.heroBadge}>
-              <Ionicons name="logo-android" size={18} color="#fff" />
-              <Text style={styles.heroBadgeText}>Android</Text>
-            </View>
-            <View style={styles.heroBadge}>
-              <Ionicons name="globe" size={18} color="#fff" />
-              <Text style={styles.heroBadgeText}>Web PWA</Text>
-            </View>
-          </View>
-        </Animated.View>
-      </ImageBackground>
 
-      {/* ============ STATS BAR ============ */}
-      <View style={styles.statsBar}>
-        {[
-          { v: '100%', l: 'Gratuito' },
-          { v: '120+', l: 'Features' },
-          { v: '50+', l: 'Conquistas' },
-          { v: '∞', l: 'Possibilidades' },
-        ].map((s, i) => (
-          <View key={i} style={styles.statsItem}>
-            <Text style={styles.statsValue}>{s.v}</Text>
-            <Text style={styles.statsLabel}>{s.l}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* ============ FEATURES GRID ============ */}
-      <View
-        style={styles.featuresSection}
-        onLayout={(e) => { sectionY.current.Features = e.nativeEvent.layout.y; }}
-      >
-        <Text style={styles.sectionEyebrow}>POR QUE SYNC</Text>
-        <Text style={styles.sectionTitle}>
-          Tudo o que você precisa para{'\n'}
-          <Text style={{ color: ACCENT }}>treinar de verdade.</Text>
-        </Text>
-
-        <View style={styles.featuresGrid}>
-          {FEATURES.map((f, i) => (
-            <View key={i} style={[styles.featureCard, { width: cardWidth }]}>
-              <ImageBackground source={{ uri: f.img }} style={styles.featureImg} resizeMode="cover">
-                <LinearGradient
-                  colors={['transparent', 'rgba(10,5,15,0.95)']}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.featureIconWrap}>
-                  <Ionicons name={f.icon} size={26} color={ACCENT} />
-                </View>
-              </ImageBackground>
-              <View style={styles.featureBody}>
-                <Text style={styles.featureTitle}>{f.title}</Text>
-                <Text style={styles.featureDesc}>{f.desc}</Text>
+          <View style={styles.insightsRow}>
+            {INSIGHTS.map((item) => (
+              <View key={item.label} style={styles.insightCard}>
+                <Ionicons name={item.icon} size={18} color={CYAN} />
+                <Text style={styles.insightValue}>{item.value}</Text>
+                <Text style={styles.insightLabel}>{item.label}</Text>
               </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.heroVisual}>
+          <View style={styles.logoOrb}>
+            <Logo size={110} variant="filled" />
+          </View>
+          <View style={[styles.floatCard, styles.floatFeed]}>
+            <View style={styles.feedHeader}>
+              <View style={styles.feedAvatar} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.floatTitle}>Ana Ferreira</Text>
+                <Text style={styles.floatMuted}>Corrida leve hoje</Text>
+              </View>
+              <Ionicons name="heart" size={20} color="#FF6868" />
+            </View>
+            <Text style={styles.feedText}>Mantendo constancia, um dia de cada vez.</Text>
+            <View style={styles.feedChip}>
+              <Text style={styles.feedChipText}>5km</Text>
+            </View>
+          </View>
+          <View style={[styles.floatCard, styles.floatStats]}>
+            <Ionicons name="water" size={26} color={BLUE} />
+            <View>
+              <Text style={styles.floatNumber}>7</Text>
+              <Text style={styles.floatMuted}>dias consecutivos</Text>
+            </View>
+          </View>
+          <View style={[styles.floatCard, styles.floatMap]}>
+            <Ionicons name="location-outline" size={18} color={GREEN} />
+            <Text style={styles.floatMuted}>3 atletas por perto</Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      <View
+        style={styles.section}
+        onLayout={(e) => { sectionY.current.features = e.nativeEvent.layout.y; }}
+      >
+        <Text style={styles.sectionEyebrow}>RECURSOS</Text>
+        <Text style={styles.sectionTitle}>Tudo para treinar melhor, em um so lugar.</Text>
+        <View style={styles.featureGrid}>
+          {FEATURES.map((item) => (
+            <View key={item.title} style={[styles.featureCard, { width: cardWidth }]}>
+              <View style={[styles.featureIcon, { backgroundColor: item.tone + '1F', borderColor: item.tone + '55' }]}>
+                <Ionicons name={item.icon} size={24} color={item.tone} />
+              </View>
+              <Text style={styles.featureTitle}>{item.title}</Text>
+              <Text style={styles.featureDesc}>{item.desc}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* ============ APP PREVIEW (mock screenshots) ============ */}
-      <View style={styles.appPreview}>
-        <Text style={styles.sectionEyebrow}>FEITO PARA O CELULAR</Text>
-        <Text style={styles.sectionTitle}>
-          Bonito. Rápido. Direto.{'\n'}
-          <Text style={{ color: ACCENT }}>Em qualquer device.</Text>
-        </Text>
-        <Text style={styles.previewSub}>
-          Treine pelo Android, iOS ou Web. Seus dados sincronizam em tempo real.
-        </Text>
+      <View style={styles.band}>
+        <View style={styles.bandCopy}>
+          <Text style={styles.sectionEyebrow}>COMO FUNCIONA</Text>
+          <Text style={styles.sectionTitle}>Do primeiro treino ao primeiro ranking.</Text>
+        </View>
+        <View style={styles.stepsRow}>
+          {STEPS.map((step, index) => (
+            <View key={step.title} style={styles.stepCard}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.stepTitle}>{step.title}</Text>
+              <Text style={styles.stepDesc}>{step.desc}</Text>
+            </View>
+          ))}
+        </View>
       </View>
 
-      {/* ============ PLANOS (Strava-inspired) ============ */}
       <View
-        style={styles.plansSection}
-        onLayout={(e) => { sectionY.current.Planos = e.nativeEvent.layout.y; }}
+        style={styles.section}
+        onLayout={(e) => { sectionY.current.plans = e.nativeEvent.layout.y; }}
       >
         <Text style={styles.sectionEyebrow}>PLANOS</Text>
-        <Text style={styles.sectionTitle}>
-          Comece grátis.{'\n'}
-          <Text style={{ color: ACCENT }}>Evolua quando quiser.</Text>
-        </Text>
-        <Text style={styles.previewSub}>
-          Todos os recursos essenciais são grátis. Premium para quem quer ir além.
-        </Text>
-
-        <View style={styles.plansGrid}>
-          {PLANS.map((p, i) => (
-            <View
-              key={i}
-              style={[
-                styles.planCard,
-                { width: cardWidth },
-                p.highlight && styles.planCardHighlight,
-              ]}
-            >
-              {p.highlight && (
-                <View style={styles.planBadge}>
-                  <Text style={styles.planBadgeText}>MAIS POPULAR</Text>
-                </View>
-              )}
-              <Text style={styles.planName}>{p.name}</Text>
-              <View style={styles.planPriceRow}>
-                <Text style={styles.planPrice}>{p.price}</Text>
-                <Text style={styles.planPriceDesc}>{p.desc}</Text>
-              </View>
-              <View style={styles.planFeatures}>
-                {p.features.map((feat, j) => (
-                  <View key={j} style={styles.planFeatureRow}>
-                    <Ionicons name="checkmark" size={16} color={ACCENT} />
-                    <Text style={styles.planFeatureText}>{feat}</Text>
+        <Text style={styles.sectionTitle}>Comece gratis. Evolua quando fizer sentido.</Text>
+        <View style={styles.planGrid}>
+          {PLANS.map((plan) => (
+            <View key={plan.name} style={[styles.planCard, plan.active && styles.planCardActive, { width: cardWidth }]}>
+              <Text style={styles.planName}>{plan.name}</Text>
+              <Text style={styles.planPrice}>{plan.price}</Text>
+              <Text style={styles.planDesc}>{plan.desc}</Text>
+              <View style={styles.perks}>
+                {plan.perks.map((perk) => (
+                  <View key={perk} style={styles.perkRow}>
+                    <Ionicons name="checkmark-circle" size={17} color={plan.active ? CYAN : MUTED} />
+                    <Text style={styles.perkText}>{perk}</Text>
                   </View>
                 ))}
               </View>
               <TouchableOpacity
-                style={[styles.planCta, p.highlight && styles.planCtaHighlight]}
+                style={[styles.planButton, plan.active && styles.planButtonActive]}
                 onPress={onStart}
-                disabled={p.cta === 'Em breve'}
+                disabled={!plan.active}
               >
-                <Text style={[styles.planCtaText, p.highlight && { color: '#fff' }]}>
-                  {p.cta}
+                <Text style={[styles.planButtonText, plan.active && styles.planButtonActiveText]}>
+                  {plan.cta}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -362,360 +343,599 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
         </View>
       </View>
 
-      {/* ============ TESTIMONIALS ============ */}
       <View
-        style={styles.testSection}
-        onLayout={(e) => { sectionY.current.Comunidade = e.nativeEvent.layout.y; }}
+        style={styles.section}
+        onLayout={(e) => { sectionY.current.community = e.nativeEvent.layout.y; }}
       >
         <Text style={styles.sectionEyebrow}>COMUNIDADE</Text>
-        <Text style={styles.sectionTitle}>
-          Atletas de verdade,{'\n'}
-          <Text style={{ color: ACCENT }}>resultados de verdade.</Text>
-        </Text>
-
+        <Text style={styles.sectionTitle}>Treinar fica mais facil quando alguem vai junto.</Text>
         <View style={styles.testGrid}>
-          {TESTIMONIALS.map((t, i) => (
-            <View key={i} style={[styles.testCard, { width: cardWidth }]}>
-              <View style={styles.testStars}>
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Ionicons key={s} name="star" size={14} color="#FCD34D" />
-                ))}
-              </View>
-              <Text style={styles.testText}>"{t.text}"</Text>
+          {TESTIMONIALS.map((item) => (
+            <View key={item.name} style={[styles.testCard, { width: cardWidth }]}>
               <View style={styles.testUser}>
-                <Image source={{ uri: t.avatar }} style={styles.testAvatar} />
+                <Image source={{ uri: item.avatar }} style={styles.testAvatar} />
                 <View>
-                  <Text style={styles.testName}>{t.name}</Text>
-                  <Text style={styles.testRole}>{t.role}</Text>
+                  <Text style={styles.testName}>{item.name}</Text>
+                  <Text style={styles.testRole}>{item.role}</Text>
                 </View>
               </View>
+              <Text style={styles.testText}>"{item.text}"</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* ============ FINAL CTA ============ */}
       <LinearGradient
-        colors={[BRAND, '#2A0518']}
+        colors={['rgba(58,134,255,0.16)', 'rgba(0,180,216,0.08)', 'rgba(3,9,20,0)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.finalCta}
       >
-        <Logo size={72} variant="filled" />
-        <Text style={styles.finalCtaTitle}>Pronto pra correr com a Sync?</Text>
-        <Text style={styles.finalCtaDesc}>
-          Junte-se a milhares de atletas que já treinam de verdade.
-        </Text>
-        <TouchableOpacity style={[styles.primaryCta, { marginTop: 24 }]} onPress={onStart}>
+        <Logo size={74} variant="filled" />
+        <Text style={styles.finalTitle}>Pronto para sincronizar seu proximo treino?</Text>
+        <Text style={styles.finalDesc}>Crie sua conta e comece com feed, perfil, tracking, mapa e comunidade.</Text>
+        <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
           <LinearGradient
-            colors={[ACCENT, '#FF4500']}
+            colors={[BLUE, CYAN]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.primaryCtaInner}
+            end={{ x: 1, y: 0 }}
+            style={styles.primaryButtonInner}
           >
-            <Text style={styles.primaryCtaText}>Criar conta gratuita →</Text>
+            <Text style={styles.primaryButtonText}>Criar conta gratuita</Text>
+            <Ionicons name="arrow-forward" size={18} color={TEXT} />
           </LinearGradient>
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* ============ FOOTER ============ */}
       <View style={styles.footer}>
-        <View style={styles.footerCols}>
-          <View style={styles.footerCol}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <Logo size={32} variant="filled" />
-              <Text style={styles.navBrand}>SYNC</Text>
-            </View>
-            <Text style={styles.footerText}>
-              O app social esportivo geolocalizado feito no Brasil 🇧🇷
-            </Text>
-          </View>
-          {[
-            { title: 'Produto', items: ['Features', 'Planos', 'Mobile App', 'PWA'] },
-            { title: 'Comunidade', items: ['Grupos', 'Eventos', 'Ranking', 'Stories'] },
-            { title: 'Empresa', items: ['Sobre', 'Blog', 'Carreiras', 'Imprensa'] },
-            { title: 'Legal', items: ['Privacidade', 'Termos', 'Cookies', 'LGPD'] },
-          ].map((col, i) => (
-            <View key={i} style={styles.footerCol}>
-              <Text style={styles.footerTitle}>{col.title}</Text>
-              {col.items.map((it, j) => (
-                <TouchableOpacity key={j}>
-                  <Text style={styles.footerLink}>{it}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ))}
+        <View style={styles.footerBrand}>
+          <Logo size={30} variant="filled" />
+          <Text style={styles.navBrandText}>SYNC</Text>
         </View>
-        <View style={styles.footerBottom}>
-          <Text style={styles.footerCopyright}>
-            © 2026 Sync. Feito com 🧡 no Brasil.
-          </Text>
-        </View>
+        <Text style={styles.footerText}>Tinder de esportes. Feito para conectar quem se move.</Text>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A050F' },
-
-  // NAV
+  root: {
+    flex: 1,
+    backgroundColor: BG,
+  },
+  content: {
+    paddingBottom: 0,
+  },
   nav: {
+    minHeight: 74,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 48,
-    paddingVertical: 20,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(3,9,20,0.78)',
   },
-  navLogo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  navBrand: { fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: 2 },
-  navLinks: { flexDirection: 'row', alignItems: 'center', gap: 32 },
-  navLink: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
-  navCta: {
-    backgroundColor: ACCENT,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 999,
+  navBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  navCtaText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-
-  // HERO
-  hero: { minHeight: 720, justifyContent: 'center', paddingHorizontal: 48, paddingTop: 100 },
-  heroContent: { maxWidth: 720 },
-  heroEyebrow: {
-    color: ACCENT,
-    fontSize: 13,
+  navBrandText: {
+    color: TEXT,
+    fontSize: fontSize.lg,
+    fontWeight: '900',
+  },
+  navLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  navLink: {
+    color: MUTED,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  navLogin: {
+    color: TEXT,
+    fontSize: fontSize.sm,
     fontWeight: '800',
-    letterSpacing: 2.5,
-    marginBottom: 16,
+  },
+  navCta: {
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: BLUE,
+  },
+  navCtaText: {
+    color: TEXT,
+    fontSize: fontSize.sm,
+    fontWeight: '900',
+  },
+  hero: {
+    maxWidth: 1180,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingTop: 72,
+    paddingBottom: 84,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 56,
+    flexWrap: 'wrap',
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 320,
+  },
+  eyebrowPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: 'rgba(58,134,255,0.10)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  eyebrowText: {
+    color: CYAN,
+    fontWeight: '800',
+    fontSize: fontSize.sm,
   },
   heroTitle: {
-    fontSize: 80,
+    color: TEXT,
+    fontSize: 64,
+    lineHeight: 68,
     fontWeight: '900',
-    color: '#fff',
-    lineHeight: 84,
-    letterSpacing: -2,
+    maxWidth: 720,
   },
   heroSubtitle: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 22,
-    lineHeight: 32,
-    marginTop: 24,
-    maxWidth: 540,
+    color: MUTED,
+    fontSize: fontSize.lg,
+    lineHeight: 30,
+    marginTop: spacing.lg,
+    maxWidth: 620,
   },
-  heroCtas: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 40 },
-  primaryCta: {
-    borderRadius: 999,
-    overflow: 'hidden',
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-  },
-  primaryCtaInner: { paddingHorizontal: 32, paddingVertical: 18 },
-  primaryCtaText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  secondaryCta: { paddingHorizontal: 24, paddingVertical: 18 },
-  secondaryCtaText: { color: 'rgba(255,255,255,0.9)', fontSize: 15, fontWeight: '600' },
-  heroBadges: { flexDirection: 'row', gap: 16, marginTop: 32 },
-  heroBadge: {
+  heroActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    gap: spacing.md,
+    marginTop: spacing.xl,
+    flexWrap: 'wrap',
   },
-  heroBadgeText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-
-  // STATS
-  statsBar: {
+  primaryButton: {
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+    shadowColor: BLUE,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    elevation: 6,
+  },
+  primaryButtonInner: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+  },
+  primaryButtonText: {
+    color: TEXT,
+    fontSize: fontSize.md,
+    fontWeight: '900',
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  secondaryButtonText: {
+    color: TEXT,
+    fontSize: fontSize.md,
+    fontWeight: '800',
+  },
+  demoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  demoButtonText: {
+    color: CYAN,
+    fontWeight: '800',
+  },
+  insightsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.xl,
+    flexWrap: 'wrap',
+  },
+  insightCard: {
+    minWidth: 132,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: 'rgba(8,19,33,0.80)',
+    padding: spacing.md,
+  },
+  insightValue: {
+    color: TEXT,
+    fontSize: fontSize.lg,
+    fontWeight: '900',
+    marginTop: spacing.sm,
+  },
+  insightLabel: {
+    color: MUTED,
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  heroVisual: {
+    flex: 0.85,
+    minWidth: 320,
+    minHeight: 470,
+    borderRadius: 34,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: 'rgba(8,19,33,0.72)',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 80,
-    paddingVertical: 60,
-    paddingHorizontal: 48,
-    backgroundColor: '#0A050F',
+    overflow: 'hidden',
+  },
+  logoOrb: {
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    borderWidth: 1,
+    borderColor: 'rgba(0,180,216,0.44)',
+    backgroundColor: 'rgba(3,9,20,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: CYAN,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.38,
+    shadowRadius: 30,
+  },
+  floatCard: {
+    position: 'absolute',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: 'rgba(16,27,43,0.92)',
+    padding: spacing.md,
+  },
+  floatFeed: {
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.lg,
+  },
+  feedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  feedAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: GREEN,
+  },
+  feedText: {
+    color: TEXT,
+    fontSize: fontSize.sm,
+    marginTop: spacing.sm,
+    lineHeight: 20,
+  },
+  feedChip: {
+    alignSelf: 'flex-start',
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(58,134,255,0.16)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    marginTop: spacing.sm,
+  },
+  feedChipText: {
+    color: BLUE,
+    fontSize: fontSize.xs,
+    fontWeight: '900',
+  },
+  floatStats: {
+    left: spacing.lg,
+    top: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  floatMap: {
+    right: spacing.lg,
+    top: spacing.xl + 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  floatTitle: {
+    color: TEXT,
+    fontWeight: '900',
+  },
+  floatNumber: {
+    color: TEXT,
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 28,
+  },
+  floatMuted: {
+    color: MUTED,
+    fontSize: fontSize.xs,
+  },
+  section: {
+    maxWidth: 1180,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 76,
+  },
+  sectionEyebrow: {
+    color: CYAN,
+    fontSize: fontSize.xs,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    color: TEXT,
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: '900',
+    textAlign: 'center',
+    alignSelf: 'center',
+    maxWidth: 760,
+    marginBottom: spacing.xl,
+  },
+  featureGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.lg,
+  },
+  featureCard: {
+    minHeight: 232,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE,
+    padding: spacing.lg,
+  },
+  featureIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  featureTitle: {
+    color: TEXT,
+    fontSize: fontSize.lg,
+    fontWeight: '900',
+    marginBottom: spacing.sm,
+  },
+  featureDesc: {
+    color: MUTED,
+    fontSize: fontSize.sm,
+    lineHeight: 22,
+  },
+  band: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 76,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-    flexWrap: 'wrap',
+    backgroundColor: 'rgba(8,19,33,0.54)',
   },
-  statsItem: { alignItems: 'center' },
-  statsValue: { color: ACCENT, fontSize: 56, fontWeight: '900', letterSpacing: -2 },
-  statsLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 },
-
-  // SECTIONS
-  sectionEyebrow: {
-    color: ACCENT,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 2.5,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  sectionTitle: {
-    fontSize: 54,
-    fontWeight: '900',
-    color: '#fff',
-    lineHeight: 60,
-    letterSpacing: -1.5,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  previewSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 18,
-    textAlign: 'center',
-    maxWidth: 600,
+  bandCopy: {
+    maxWidth: 900,
     alignSelf: 'center',
-    marginBottom: 40,
   },
-
-  // FEATURES
-  featuresSection: { paddingHorizontal: 48, paddingVertical: 100, backgroundColor: '#0A050F' },
-  featuresGrid: {
+  stepsRow: {
+    maxWidth: 1050,
+    alignSelf: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 24,
-    marginTop: 24,
+    gap: spacing.lg,
   },
-  featureCard: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 20,
-    overflow: 'hidden',
+  stepCard: {
+    width: 310,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: BORDER,
+    backgroundColor: SURFACE_2,
+    padding: spacing.lg,
   },
-  featureImg: { height: 200, justifyContent: 'flex-end', padding: 16 },
-  featureIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,107,53,0.15)',
+  stepNumber: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.4)',
+    marginBottom: spacing.md,
   },
-  featureBody: { padding: 20 },
-  featureTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginBottom: 8 },
-  featureDesc: { color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 22 },
-
-  // PREVIEW
-  appPreview: {
-    paddingVertical: 80,
-    paddingHorizontal: 48,
-    backgroundColor: '#0A050F',
-    alignItems: 'center',
-  },
-
-  // PLANS
-  plansSection: { paddingHorizontal: 48, paddingVertical: 100, backgroundColor: '#0A050F' },
-  plansGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 24 },
-  planCard: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 24,
-    padding: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  planCardHighlight: {
-    backgroundColor: 'rgba(255,107,53,0.05)',
-    borderColor: 'rgba(255,107,53,0.4)',
-    transform: [{ scale: 1.05 }],
-  },
-  planBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: ACCENT,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
-    marginBottom: 16,
-  },
-  planBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  planName: { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 8 },
-  planPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 24 },
-  planPrice: { color: '#fff', fontSize: 48, fontWeight: '900' },
-  planPriceDesc: { color: 'rgba(255,255,255,0.6)', fontSize: 14 },
-  planFeatures: { gap: 12, marginBottom: 32 },
-  planFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  planFeatureText: { color: 'rgba(255,255,255,0.85)', fontSize: 14, flex: 1 },
-  planCta: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  planCtaHighlight: { backgroundColor: ACCENT, borderColor: ACCENT },
-  planCtaText: { color: '#fff', fontWeight: '700' },
-
-  // TESTIMONIALS
-  testSection: { paddingHorizontal: 48, paddingVertical: 100, backgroundColor: '#0A050F' },
-  testGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 24 },
-  testCard: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 20,
-    padding: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  testStars: { flexDirection: 'row', gap: 4, marginBottom: 16 },
-  testText: { color: '#fff', fontSize: 15, lineHeight: 24, marginBottom: 24, fontStyle: 'italic' },
-  testUser: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  testAvatar: { width: 48, height: 48, borderRadius: 24 },
-  testName: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  testRole: { color: ACCENT, fontSize: 12, fontWeight: '600' },
-
-  // FINAL CTA
-  finalCta: { paddingVertical: 100, paddingHorizontal: 48, alignItems: 'center' },
-  finalCtaTitle: {
-    color: '#fff',
-    fontSize: 48,
+  stepNumberText: {
+    color: TEXT,
     fontWeight: '900',
-    marginTop: 24,
-    textAlign: 'center',
-    letterSpacing: -1,
   },
-  finalCtaDesc: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 18,
-    marginTop: 16,
-    textAlign: 'center',
+  stepTitle: {
+    color: TEXT,
+    fontSize: fontSize.lg,
+    fontWeight: '900',
+    marginBottom: spacing.sm,
   },
-
-  // FOOTER
-  footer: { backgroundColor: '#050308', paddingHorizontal: 48, paddingVertical: 60 },
-  footerCols: { flexDirection: 'row', flexWrap: 'wrap', gap: 60, justifyContent: 'space-between' },
-  footerCol: { minWidth: 180, maxWidth: 280 },
-  footerTitle: {
-    color: '#fff',
+  stepDesc: {
+    color: MUTED,
+    fontSize: fontSize.sm,
+    lineHeight: 22,
+  },
+  planGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.lg,
+  },
+  planCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE,
+    padding: spacing.lg,
+  },
+  planCardActive: {
+    borderColor: 'rgba(0,180,216,0.52)',
+    backgroundColor: 'rgba(58,134,255,0.10)',
+  },
+  planName: {
+    color: TEXT,
+    fontSize: fontSize.xl,
+    fontWeight: '900',
+  },
+  planPrice: {
+    color: CYAN,
+    fontSize: 34,
+    fontWeight: '900',
+    marginTop: spacing.sm,
+  },
+  planDesc: {
+    color: MUTED,
+    fontSize: fontSize.sm,
+    marginTop: 2,
+    marginBottom: spacing.lg,
+  },
+  perks: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  perkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  perkText: {
+    color: MUTED,
+    fontSize: fontSize.sm,
+    flex: 1,
+  },
+  planButton: {
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: BORDER,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  planButtonActive: {
+    backgroundColor: BLUE,
+    borderColor: BLUE,
+  },
+  planButtonText: {
+    color: MUTED,
+    fontWeight: '900',
+  },
+  planButtonActiveText: {
+    color: TEXT,
+  },
+  testGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.lg,
+  },
+  testCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE,
+    padding: spacing.lg,
+  },
+  testUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  testAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  testName: {
+    color: TEXT,
+    fontWeight: '900',
+  },
+  testRole: {
+    color: CYAN,
+    fontSize: fontSize.xs,
     fontWeight: '800',
-    fontSize: 14,
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
-  footerText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 20 },
-  footerLink: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 13,
-    marginBottom: 10,
+  testText: {
+    color: MUTED,
+    fontSize: fontSize.sm,
+    lineHeight: 22,
   },
-  footerBottom: {
-    marginTop: 48,
-    paddingTop: 24,
+  finalCta: {
+    marginHorizontal: spacing.xl,
+    marginVertical: 68,
+    borderRadius: 34,
+    borderWidth: 1,
+    borderColor: BORDER,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 72,
+    alignItems: 'center',
+  },
+  finalTitle: {
+    color: TEXT,
+    fontSize: 40,
+    lineHeight: 46,
+    fontWeight: '900',
+    textAlign: 'center',
+    maxWidth: 760,
+    marginTop: spacing.lg,
+  },
+  finalDesc: {
+    color: MUTED,
+    fontSize: fontSize.md,
+    textAlign: 'center',
+    maxWidth: 620,
+    lineHeight: 25,
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  footer: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
   },
-  footerCopyright: { color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center' },
+  footerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  footerText: {
+    color: MUTED,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+  },
 });
