@@ -75,18 +75,20 @@ export class EmailService {
     const timeoutMs = parseInt(process.env.SMTP_TIMEOUT_MS || '8000', 10);
     const user = (process.env.SMTP_USER || '').trim();
     const pass = (process.env.SMTP_PASS || '').replace(/\s/g, '');
-    const transporter = nodemailer.createTransport({
+    const smtpOptions = {
       host: (process.env.SMTP_HOST || 'smtp.gmail.com').trim(),
       port,
       secure,
       connectionTimeout: timeoutMs,
       greetingTimeout: timeoutMs,
       socketTimeout: timeoutMs,
+      family: 4,
       auth: {
         user,
         pass,
       },
-    });
+    };
+    const transporter = nodemailer.createTransport(smtpOptions as nodemailer.TransportOptions);
 
     await transporter.verify();
     await transporter.sendMail({ from, to, subject, html, text });
