@@ -51,12 +51,9 @@ export default function SplashScreen({ navigation }: Props) {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      {/* Ambient glow */}
-      <View style={styles.glow} />
-
       <Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
         <View style={styles.logoBadge}>
-          <Logo size={72} variant="filled" />
+          <Logo size={70} variant="filled" />
           <Text style={styles.logo}>Sync</Text>
         </View>
       </Animated.View>
@@ -79,15 +76,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  glow: {
-    position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: colors.primary,
-    opacity: 0.08,
-    top: '30%',
-  },
   content: {
     alignItems: 'center',
   },
@@ -102,8 +90,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(58,134,255,0.26)',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.34,
-    shadowRadius: 24,
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
     elevation: 10,
   },
   logo: {
@@ -113,7 +101,7 @@ const styles = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
     letterSpacing: 0,
-    marginTop: spacing.xs,
+    marginTop: -2,
   },
   taglineWrap: {
     position: 'absolute',
