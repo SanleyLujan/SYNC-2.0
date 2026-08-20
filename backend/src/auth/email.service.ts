@@ -72,7 +72,7 @@ export class EmailService {
   ): Promise<void> {
     const port = parseInt(process.env.SMTP_PORT || '465', 10);
     const secure = (process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
-    const timeoutMs = parseInt(process.env.SMTP_TIMEOUT_MS || '15000', 10);
+    const timeoutMs = parseInt(process.env.SMTP_TIMEOUT_MS || '8000', 10);
     const user = (process.env.SMTP_USER || '').trim();
     const pass = (process.env.SMTP_PASS || '').replace(/\s/g, '');
     const transporter = nodemailer.createTransport({
