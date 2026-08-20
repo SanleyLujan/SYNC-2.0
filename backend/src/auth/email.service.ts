@@ -7,7 +7,6 @@ export class EmailService {
 
   async sendVerificationEmail(email: string, name: string, token: string): Promise<void> {
     const apiKey = (process.env.RESEND_API_KEY || '').trim();
-    const from = (process.env.EMAIL_FROM || 'Sync <noreply@sync.app>').trim();
     const frontendUrl = (process.env.FRONTEND_URL || '').trim().replace(/\/$/, '');
     const baseUrl = frontendUrl || 'https://sync-2-0-blush.vercel.app';
     const verifyUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
@@ -17,6 +16,7 @@ export class EmailService {
     const text = `Oi, ${firstName}! Confirme seu email no Sync: ${verifyUrl}`;
 
     if (apiKey) {
+      const from = (process.env.EMAIL_FROM || 'Sync <noreply@sync.app>').trim();
       this.logger.log(`Enviando email de verificacao via Resend para ${email}`);
       await this.sendWithResend(apiKey, from, email, subject, html, text);
       this.logger.log(`Email de verificacao enviado via Resend para ${email}`);
@@ -24,6 +24,7 @@ export class EmailService {
     }
 
     if (this.hasSmtpConfig()) {
+      const from = this.getSmtpFrom();
       this.logger.log(`Enviando email de verificacao via SMTP para ${email}`);
       await this.sendWithSmtp(from, email, subject, html, text);
       this.logger.log(`Email de verificacao enviado via SMTP para ${email}`);
@@ -72,28 +73,40 @@ export class EmailService {
     const port = parseInt(process.env.SMTP_PORT || '465', 10);
     const secure = (process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
     const timeoutMs = parseInt(process.env.SMTP_TIMEOUT_MS || '15000', 10);
+    const user = (process.env.SMTP_USER || '').trim();
+    const pass = (process.env.SMTP_PASS || '').replace(/\s/g, '');
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      host: (process.env.SMTP_HOST || 'smtp.gmail.com').trim(),
       port,
       secure,
       connectionTimeout: timeoutMs,
       greetingTimeout: timeoutMs,
       socketTimeout: timeoutMs,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user,
+        pass,
       },
     });
 
+    await transporter.verify();
     await transporter.sendMail({ from, to, subject, html, text });
   }
 
   private hasSmtpConfig(): boolean {
     return Boolean(
-      (process.env.SMTP_HOST || '').trim() &&
       (process.env.SMTP_USER || '').trim() &&
       (process.env.SMTP_PASS || '').trim(),
     );
+  }
+
+  private getSmtpFrom(): string {
+    const configuredFrom = (process.env.EMAIL_FROM || '').trim();
+    if (configuredFrom && configuredFrom !== 'Sync <noreply@sync.app>') {
+      return configuredFrom;
+    }
+
+    const smtpUser = (process.env.SMTP_USER || '').trim();
+    return `Sync <${smtpUser}>`;
   }
 
   private verificationHtml(firstName: string, verifyUrl: string): string {

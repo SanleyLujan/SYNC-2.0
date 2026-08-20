@@ -117,13 +117,14 @@ export class AuthService {
 
     await this.userRepository.save(user);
     await this.audit.log({ userId: user.id, event: 'register_success', req });
-    void this.sendVerificationEmailSafe(user, verification.token);
+    const emailVerificationSent = await this.sendVerificationEmailSafe(user, verification.token);
 
     const token = this.generateToken(user);
 
     return {
       user: this.publicUser(user),
       accessToken: token,
+      emailVerificationSent,
     };
   }
 
