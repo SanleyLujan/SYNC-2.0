@@ -110,6 +110,9 @@ export class User {
   @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', nullable: true, select: false })
   emailVerificationExpires: Date | null;
 
+  @Column({ default: 0, select: false })
+  emailVerificationAttempts: number;
+
   @Column({ nullable: true, select: false, type: 'varchar' })
   resetPasswordToken: string | null;
 

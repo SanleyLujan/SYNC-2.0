@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Delete, Body, Req, Param, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
+import { IsEmail, IsString, Matches, MinLength, MaxLength } from 'class-validator';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RefreshTokenService } from './refresh-token.service';
@@ -49,9 +49,24 @@ class RefreshDto {
 
 class VerifyEmailDto {
   @IsString()
-  @MinLength(32)
-  @MaxLength(128)
+  @Matches(/^[a-f0-9]{64}$/i)
   token: string;
+}
+
+class VerifyEmailCodeDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  @Matches(/^\d{6}$/)
+  code: string;
+}
+
+class RequestVerificationDto {
+  @IsEmail()
+  email: string;
 }
 
 @ApiTags('Auth')
@@ -96,6 +111,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Confirmar email com token' })
   verifyEmail(@Body() dto: VerifyEmailDto, @Req() req: Request) {
     return this.authService.verifyEmail(dto.token, req);
+  }
+
+  @Post('verify-email-code')
+  @Throttle({ default: { ttl: 300_000, limit: 10 } })
+  @ApiOperation({ summary: 'Confirmar email com código de seis dígitos' })
+  verifyEmailCode(@Body() dto: VerifyEmailCodeDto, @Req() req: Request) {
+    return this.authService.verifyEmailCode(dto.email, dto.code, req);
+  }
+
+  @Post('request-verification')
+  @Throttle({ default: { ttl: 300_000, limit: 3 } })
+  @ApiOperation({ summary: 'Solicitar novo código de confirmação' })
+  requestVerification(@Body() dto: RequestVerificationDto, @Req() req: Request) {
+    return this.authService.requestVerification(dto.email, req);
   }
 
   @Post('resend-verification')

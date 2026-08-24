@@ -68,6 +68,12 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (error: any) {
+      if (error.response?.status === 403 && error.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        navigation.navigate('VerifyEmailCode', {
+          email: error.response.data.email || email.trim().toLowerCase(),
+        });
+        return;
+      }
       const msg = error.response?.data?.message;
       const detail = Array.isArray(msg) ? msg.join(' • ') : msg;
       showToast(detail || 'Email ou senha incorretos.', 'error');

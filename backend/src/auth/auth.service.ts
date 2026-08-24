@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -117,13 +118,12 @@ export class AuthService {
 
     await this.userRepository.save(user);
     await this.audit.log({ userId: user.id, event: 'register_success', req });
-    void this.sendVerificationEmailSafe(user, verification.token);
-
-    const token = this.generateToken(user);
+    const emailVerificationSent = await this.sendVerificationEmailSafe(user, verification.token);
 
     return {
-      user: this.publicUser(user),
-      accessToken: token,
+      email,
+      emailVerificationRequired: true,
+      emailVerificationSent,
     };
   }
 
@@ -230,6 +230,16 @@ export class AuthService {
       throw new UnauthorizedException(GENERIC_INVALID);
     }
 
+    if (!user.emailVerified) {
+      await this.audit.log({ userId: user.id, event: 'login_failure', req, detail: 'email_not_verified' });
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Confirme seu email para entrar',
+        email: user.email,
+      });
+    }
+
     // Sucesso: reseta contadores
     await this.userRepository.update(user.id, {
       failedLoginAttempts: 0,
@@ -306,6 +316,69 @@ export class AuthService {
     return { ok: true, message: 'Email confirmado com sucesso' };
   }
 
+  async verifyEmailCode(email: string, code: string, req?: Request) {
+    const normalized = email.toLowerCase().trim();
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.emailVerificationToken')
+      .addSelect('user.emailVerificationExpires')
+      .addSelect('user.emailVerificationAttempts')
+      .where('user.email = :email', { email: normalized })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
+
+    if (!user || user.emailVerified) {
+      throw new BadRequestException('Código inválido ou expirado');
+    }
+    if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
+      throw new BadRequestException('Código inválido ou expirado');
+    }
+    if ((user.emailVerificationAttempts || 0) >= 5) {
+      throw new BadRequestException('Muitas tentativas. Solicite um novo código.');
+    }
+
+    const candidateHash = this.hashToken(code);
+    const storedHash = user.emailVerificationToken || '';
+    const valid = storedHash.length === candidateHash.length && crypto.timingSafeEqual(
+      Buffer.from(storedHash, 'utf8'),
+      Buffer.from(candidateHash, 'utf8'),
+    );
+    if (!valid) {
+      await this.userRepository.update(user.id, {
+        emailVerificationAttempts: (user.emailVerificationAttempts || 0) + 1,
+      });
+      await this.audit.log({ userId: user.id, event: 'email_verification_failure', req });
+      throw new BadRequestException('Código inválido ou expirado');
+    }
+
+    await this.userRepository.update(user.id, {
+      emailVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpires: null,
+      emailVerificationAttempts: 0,
+    });
+    user.emailVerified = true;
+    await this.audit.log({ userId: user.id, event: 'email_verified', req });
+    return { user: this.publicUser(user), accessToken: this.generateToken(user) };
+  }
+
+  async requestVerification(email: string, req?: Request): Promise<{ ok: true; message: string; emailVerificationSent?: boolean }> {
+    const normalized = email.toLowerCase().trim();
+    const user = await this.userRepository.findOne({ where: { email: normalized } });
+    const generic = 'Se a conta estiver pendente, um novo código será enviado.';
+    if (!user || user.emailVerified) return { ok: true, message: generic };
+
+    const verification = this.createEmailVerificationToken();
+    await this.userRepository.update(user.id, {
+      emailVerificationToken: verification.hashedToken,
+      emailVerificationExpires: verification.expires,
+      emailVerificationAttempts: 0,
+    });
+    const emailVerificationSent = await this.sendVerificationEmailSafe(user, verification.token);
+    await this.audit.log({ userId: user.id, event: 'email_verification_resent', req });
+    return { ok: true, message: generic, emailVerificationSent };
+  }
+
   async resendVerification(userId: string, req?: Request): Promise<{ ok: true; message: string; emailVerificationSent?: boolean }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('Usuário não encontrado');
@@ -318,6 +391,7 @@ export class AuthService {
     await this.userRepository.update(user.id, {
       emailVerificationToken: verification.hashedToken,
       emailVerificationExpires: verification.expires,
+      emailVerificationAttempts: 0,
     });
     await this.audit.log({ userId: user.id, event: 'email_verification_resent', req });
     const emailVerificationSent = await this.sendVerificationEmailSafe(user, verification.token);
@@ -408,11 +482,11 @@ export class AuthService {
   }
 
   private createEmailVerificationToken(): { token: string; hashedToken: string; expires: Date } {
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
     return {
       token,
       hashedToken: this.hashToken(token),
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      expires: new Date(Date.now() + 10 * 60 * 1000),
     };
   }
 

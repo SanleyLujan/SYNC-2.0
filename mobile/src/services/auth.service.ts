@@ -1,7 +1,7 @@
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { secureStorage } from './secure-storage';
-import { AuthResponse, User, SportLevel } from '../types';
+import { AuthResponse, RegistrationResponse, User, SportLevel } from '../types';
 
 function generateSecureId(): string {
   const bytes = new Uint8Array(16);
@@ -35,9 +35,8 @@ export const authService = {
   async register(
     name: string, email: string, password: string, confirmPassword: string,
     extra?: { weightKg?: number; heightCm?: number; gender?: string; cpf?: string },
-  ): Promise<AuthResponse> {
+  ): Promise<RegistrationResponse> {
     const { data } = await api.post('/auth/register', { name, email, password, confirmPassword, ...extra });
-    await this.saveAuth(data);
     return data;
   },
 
@@ -74,6 +73,17 @@ export const authService = {
 
   async verifyEmail(token: string): Promise<void> {
     await api.post('/auth/verify-email', { token });
+  },
+
+  async verifyEmailCode(email: string, code: string): Promise<AuthResponse> {
+    const { data } = await api.post('/auth/verify-email-code', { email, code });
+    await this.saveAuth(data);
+    return data;
+  },
+
+  async requestVerification(email: string): Promise<{ ok: true; message: string; emailVerificationSent?: boolean }> {
+    const { data } = await api.post('/auth/request-verification', { email });
+    return data;
   },
 
   async resendVerification(): Promise<{ ok: true; message: string; emailVerificationSent?: boolean }> {

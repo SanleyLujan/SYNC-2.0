@@ -3,11 +3,11 @@
 Tudo do app **Sync** está neste repositório do GitHub. Se você formatou o
 computador, **nada foi perdido** — é só clonar de novo e seguir os passos abaixo.
 
-> **Repositório:** https://github.com/ArthurSilvaNarciso/sync
-> **App no ar (frontend):** https://tutu-sync.vercel.app
-> **Backend no ar (API):** https://sync-production-4830.up.railway.app
+> **Repositório:** https://github.com/SanleyLujan/SYNC-2.0
+> **App no ar (frontend):** https://sync-2-0-blush.vercel.app
+> **Backend no ar (API):** https://sync-backend-o2zc.onrender.com
 
-O app **continua funcionando no ar mesmo com o PC formatado** — Vercel e Railway
+O app **continua funcionando no ar mesmo com o PC formatado** — Vercel e Render
 hospedam frontend e backend, e fazem *deploy automático* a cada push na `main`.
 Você só precisa do código local para **continuar programando**.
 
@@ -25,8 +25,8 @@ Você só precisa do código local para **continuar programando**.
 ## 2. Clonar o repositório
 
 ```bash
-git clone https://github.com/ArthurSilvaNarciso/sync.git
-cd sync
+git clone https://github.com/SanleyLujan/SYNC-2.0.git
+cd SYNC-2.0
 ```
 
 ---
@@ -39,7 +39,7 @@ npm install
 npx expo start        # abre o Expo; tecle "w" para abrir no navegador
 ```
 
-Por padrão o app **já aponta para o backend de produção (Railway)** — então
+Por padrão o app **já aponta para o backend de produção (Render)** — então
 funciona sem subir backend local. Para apontar para um backend local, crie
 `mobile/.env` com:
 
@@ -61,7 +61,7 @@ npm run start:dev         # sobe em http://localhost:3000
 ```
 
 Variáveis do backend (`backend/.env.example`): `DB_*`, `JWT_SECRET`,
-`JWT_EXPIRATION`, `PORT`, `NODE_ENV`. Em produção o Railway já tem tudo
+`JWT_EXPIRATION`, `PORT`, `NODE_ENV`. Em produção o Render já tem tudo
 configurado (Postgres + segredos).
 
 ---
@@ -69,7 +69,7 @@ configurado (Postgres + segredos).
 ## 5. Deploy (já é automático)
 
 - **Frontend (Vercel):** faz deploy sozinho a cada push na `main`.
-- **Backend (Railway):** faz deploy sozinho a cada push na `main`, roda as
+- **Backend (Render):** faz deploy sozinho a cada push na `main`, roda as
   **migrations idempotentes** automaticamente (`migrationsRun`).
 
 Ou seja: **basta `git push origin main`** que tudo sobe pro ar. Não precisa
@@ -86,7 +86,8 @@ git push origin main
 ## 6. Detalhes e histórico
 
 - **`README.md`** — visão geral, lista completa de features, stack e endpoints.
-- **`DEPLOY.md`** — detalhes de deploy (Vercel/Railway/env).
+- **`DEPLOY_RENDER.md`** — detalhes de deploy (Vercel/Render/env).
+- **`AUTENTICACAO_EMAIL_OTP.md`** — confirmação obrigatória de email, Resend e reenvio do código.
 - **`DOCUMENTACAO.md`** — documentação mais funda do projeto.
 
 ### Últimas grandes entregas (todas testadas e no ar)

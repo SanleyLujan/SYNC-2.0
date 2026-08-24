@@ -6,6 +6,7 @@ export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  VerifyEmailCode: { email: string; sent?: boolean };
   Terms: undefined;
   Privacy: undefined;
 };

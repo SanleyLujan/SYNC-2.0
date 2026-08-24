@@ -2,12 +2,12 @@
 
 **App social esportivo geolocalizado** — Encontre parceiros de treino, organize eventos, acompanhe seu progresso em tempo real.
 
-- **Frontend:** https://tutu-sync.vercel.app
-- **Backend:** https://sync-production-4830.up.railway.app
-- **Repositório:** https://github.com/ArthurSilvaNarciso/sync
-- **Autor:** Arthur Silva Narciso (Tutu)
+- **Frontend:** https://sync-2-0-blush.vercel.app
+- **Backend:** https://sync-backend-o2zc.onrender.com
+- **Repositório:** https://github.com/SanleyLujan/SYNC-2.0
+- **Autor:** Sanley Lujan
 - **Versão:** 1.0.0
-- **Última atualização:** 2026-05-22
+- **Última atualização:** 2026-08-24
 
 ---
 
@@ -73,14 +73,14 @@ Plataforma única para iOS, Android e Web (PWA instalável).
 ┌─────────────────────────────────────────────────────────────┐
 │                    FRONTEND (Vercel CDN)                    │
 │  React Native + Expo 52  ─  React Native Web                │
-│  https://tutu-sync.vercel.app                               │
+│  https://sync-2-0-blush.vercel.app                          │
 └─────────────────────────────────────────────────────────────┘
                           │ HTTPS / WSS
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  BACKEND (Railway)                          │
+│                  BACKEND (Render)                           │
 │  NestJS 10 + TypeORM + Socket.io                            │
-│  https://sync-production-4830.up.railway.app                │
+│  https://sync-backend-o2zc.onrender.com                     │
 │  ┌─────────────┬──────────────┬───────────────┐             │
 │  │  REST API   │  WebSocket   │  Static files │             │
 │  └─────────────┴──────────────┴───────────────┘             │
@@ -88,7 +88,7 @@ Plataforma única para iOS, Android e Web (PWA instalável).
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  POSTGRES (Railway)                         │
+│                  POSTGRES (Supabase)                        │
 │  15+ tables, synchronize=true (ou migrations futuro)        │
 └─────────────────────────────────────────────────────────────┘
 
@@ -129,7 +129,7 @@ APIs EXTERNAS GRATUITAS (todas chamadas direto do cliente):
 ### Banco e ORM
 | Tech | Versão | Uso |
 |------|--------|-----|
-| **PostgreSQL** | 15+ | Produção (Railway) |
+| **PostgreSQL** | 15+ | Produção (Supabase) |
 | **better-sqlite3** | 12 | Dev local (opcional) |
 | **TypeORM** | 0.3 | ORM |
 | **pg** | 8.11 | Driver Postgres |
@@ -230,7 +230,9 @@ APIs EXTERNAS GRATUITAS (todas chamadas direto do cliente):
 | Serviço | Uso |
 |---------|-----|
 | **Vercel** | Frontend hosting + CDN global + HTTPS |
-| **Railway** | Backend container + Postgres + Volume |
+| **Render** | Backend NestJS em container |
+| **Supabase** | Banco PostgreSQL gerenciado (sem Supabase Auth) |
+| **Resend** | Envio transacional do código de confirmação por HTTPS |
 | **GitHub** | Versionamento + CI/CD via webhook |
 | **jsdelivr.net** | CDN para Leaflet CSS/icons |
 
@@ -585,23 +587,25 @@ Moderação.
 
 ## 5.2 Configuração
 
-- **Produção:** PostgreSQL via `DATABASE_URL` (Railway)
+- **Produção:** PostgreSQL via `DATABASE_URL` (Supabase)
 - **Dev:** SQLite via `better-sqlite3`
 - **SSL:** auto (production)
-- **Synchronize:** `true` (auto-create tables) — TODO: migrar pra migrations
+- **Synchronize:** `true` no deploy atual; depois da criação da nova coluna, recomenda-se `false` para usar somente migrations
 
 ---
 
 # 6. API REST — Endpoints
 
-Base URL: `https://sync-production-4830.up.railway.app/api`
+Base URL: `https://sync-backend-o2zc.onrender.com/api`
 
 ## 6.1 Auth (`/auth`)
 
 | Método | Rota | Auth | Descrição |
 |--------|------|------|-----------|
-| POST | `/register` | — | Cadastro (rate 3/min) |
-| POST | `/login` | — | Login (rate 5/5min) |
+| POST | `/register` | — | Cria conta pendente e envia código (rate 3/min) |
+| POST | `/verify-email-code` | — | Confirma o código e só então retorna JWT |
+| POST | `/request-verification` | — | Reenvia um código novo (rate 3/5min) |
+| POST | `/login` | — | Login; bloqueia email ainda não confirmado (rate 5/5min) |
 | POST | `/forgot-password` | — | Solicita token de reset |
 | POST | `/reset-password` | — | Redefine senha com token |
 | POST | `/refresh` | — | Rotaciona refresh + emite novo access |
@@ -747,7 +751,7 @@ Base URL: `https://sync-production-4830.up.railway.app/api`
 
 ## 7.1 Namespace `/tracking`
 
-URL: `wss://sync-production-4830.up.railway.app/tracking`
+URL: `wss://sync-backend-o2zc.onrender.com/tracking`
 
 **Autenticação:** JWT no handshake (`auth.token` ou `?token=`).
 
@@ -784,7 +788,8 @@ Mensagens em tempo real entre matches.
 ## 8.1 Auth
 - **WelcomeScreen** — Landing page mobile + landing rica desktop (carousel hero, stats bar, 6 features cards, CTA final, footer)
 - **LoginScreen** — Hero image + glass card + CTA gradient
-- **RegisterScreen** — Senha forte com medidor visual
+- **RegisterScreen** — Senha forte com medidor visual; cadastro não cria sessão antes da confirmação
+- **VerifyEmailCodeScreen** — Entrada do código de 6 dígitos e reenvio com contagem regressiva
 - **SplashScreen** — Logo laranja
 
 ## 8.2 Onboarding (5 telas)
@@ -893,15 +898,17 @@ Mensagens em tempo real entre matches.
 
 ## RF1 — Autenticação
 - **RF1.1** Cadastro com email + senha forte
-- **RF1.2** Login email/senha
-- **RF1.3** Recuperação por token (`/forgot-password`)
-- **RF1.4** Refresh token rotation (access 15min + refresh 7d)
-- **RF1.5** Logout (revoga família)
-- **RF1.6** Listar sessões ativas
-- **RF1.7** Revogar sessão específica
-- **RF1.8** Exportar dados (LGPD)
-- **RF1.9** Anonimizar conta (LGPD)
-- **RF1.10** 2FA TOTP (estrutura pronta)
+- **RF1.2** Confirmação obrigatória do email por código de 6 dígitos antes do primeiro JWT
+- **RF1.3** Reenvio do código com invalidação do código anterior
+- **RF1.4** Login email/senha com bloqueio de conta não confirmada
+- **RF1.5** Recuperação por token (`/forgot-password`)
+- **RF1.6** Refresh token rotation (access 15min + refresh 7d)
+- **RF1.7** Logout (revoga família)
+- **RF1.8** Listar sessões ativas
+- **RF1.9** Revogar sessão específica
+- **RF1.10** Exportar dados (LGPD)
+- **RF1.11** Anonimizar conta (LGPD)
+- **RF1.12** 2FA TOTP (estrutura pronta)
 
 ## RF2 — Perfil & Onboarding
 - **RF2.1** Escolha de esportes (12 opções)
@@ -1046,7 +1053,7 @@ Mensagens em tempo real entre matches.
 - Healthcheck dedicado sem auth
 
 ## RNF3 — Disponibilidade
-- Auto-restart Railway
+- Auto-restart e healthcheck no Render
 - Healthcheck 120s
 - CDN global (Vercel)
 - GPS resiliente (3 fallbacks)
@@ -1094,7 +1101,8 @@ Mensagens em tempo real entre matches.
 ## RNF8 — Custo
 - 100% APIs free
 - Vercel free tier
-- Railway free tier (~$5/mês créditos)
+- Render e Vercel nos planos configurados para o projeto
+- Resend no plano de envio transacional configurado para o domínio
 - Push Expo grátis
 - OSM/Nominatim grátis
 
@@ -1119,7 +1127,7 @@ Mensagens em tempo real entre matches.
 ┌─────────────────────────────────────────────────────┐
 │  1. CDN (Vercel) — DDoS protection, TLS 1.3, HSTS   │
 ├─────────────────────────────────────────────────────┤
-│  2. CORS exact-match — Railway só aceita FRONTEND   │
+│  2. CORS exact-match — Render só aceita FRONTEND    │
 ├─────────────────────────────────────────────────────┤
 │  3. Helmet — CSP, HSTS, Permissions-Policy, X-* hdrs│
 ├─────────────────────────────────────────────────────┤
@@ -1148,17 +1156,26 @@ Mensagens em tempo real entre matches.
 - **Família**: agrupa rotações; reuse detection revoga toda família
 - **Live tracking**: 24h, crypto.randomBytes(24)
 
-## 13.4 Account lockout
+## 13.4 Confirmação de email
+- Cadastro por email não retorna JWT antes da confirmação
+- Código de 6 dígitos gerado com `crypto.randomInt`
+- Somente o hash SHA-256 do código é persistido
+- Expiração em 10 minutos e máximo de 5 tentativas
+- Reenvio invalida o código anterior e possui rate limit
+- API HTTPS do Resend evita a restrição de SMTP do Render Free
+- Detalhes operacionais em [`AUTENTICACAO_EMAIL_OTP.md`](./AUTENTICACAO_EMAIL_OTP.md)
+
+## 13.5 Account lockout
 - 5 tentativas erradas em janela
 - 30min bloqueado
 - Audit log registra `account_locked`
 
-## 13.5 Sanitização UGC
+## 13.6 Sanitização UGC
 Aplicada em: feed caption/photo, comentários, grupo name/desc/sport/city, story caption.
 
 Remove: `<script>`, `<style>`, event handlers, `javascript:` URLs, `data:` não-imagem.
 
-## 13.6 LGPD/GDPR
+## 13.7 LGPD/GDPR
 - `GET /users/me/export` — JSON com todos os dados
 - `DELETE /users/me` — anonimização (não delete, pra integridade referencial)
 - IP mascarado nos logs (último octeto IPv4 zerado, IPv6 /64)
@@ -1215,41 +1232,43 @@ Versão `sync-v3` com invalidação automática.
   - Manifest: `Content-Type: application/manifest+json`
   - Global: `X-Content-Type-Options`, `X-Frame-Options: DENY`
 
-## 15.2 Backend (Railway)
-- Builder: Nixpacks
+## 15.2 Backend (Render)
+- Configuração declarada em `render.yaml`
 - Build: `npm install && npm run build`
 - Start: `node dist/main.js`
-- Healthcheck: `/health` (timeout 120s)
-- Restart: `ON_FAILURE` (10 retries)
-- Region: US East (IAD)
+- Healthcheck: `/health`
+- Envio de email pela API HTTPS do Resend
 
-## 15.3 Postgres (Railway)
-- Volume persistente (`postgres-volume`)
-- SSL automático em prod
-- `synchronize: true` (TODO: migrar pra migrations)
+## 15.3 Postgres (Supabase)
+- Conexão pelo `DATABASE_URL`
+- SSL habilitado em produção
+- Supabase usado somente como PostgreSQL; autenticação permanece no NestJS
+- O `render.yaml` usa `DB_SYNCHRONIZE=true`; depois do primeiro deploy da coluna nova, pode ser alterado para `false` para executar migrations automaticamente
 
 ## 15.4 CI/CD
 - Push em `main` no GitHub
 - Vercel webhook → build frontend
-- Railway webhook → build backend
+- Render webhook → build backend
 - Sem testes automatizados (TODO: Jest + supertest)
 
 ---
 
 # 16. Variáveis de Ambiente
 
-## 16.1 Backend (Railway)
+## 16.1 Backend (Render)
 
 | Var | Obrigatória | Descrição |
 |-----|-------------|-----------|
-| `DATABASE_URL` | sim | Postgres connection string (auto via `${{Postgres.DATABASE_URL}}`) |
+| `DATABASE_URL` | sim | Connection string do PostgreSQL no Supabase |
 | `JWT_SECRET` | **sim em prod** | Segredo JWT (64 chars random) |
 | `JWT_EXPIRATION` | não | Default `7d` |
 | `NODE_ENV` | sim | `production` |
 | `PORT` | não | Default `3000` |
 | `FRONTEND_URL` | sim | CSV de URLs permitidas no CORS |
-| `DB_SYNCHRONIZE` | não | Default `true` |
+| `DB_SYNCHRONIZE` | não | `true` no primeiro deploy do schema; depois, usar `false` para migrations |
 | `DB_SSL` | não | Default `true` em prod |
+| `RESEND_API_KEY` | sim | Chave privada da API HTTPS do Resend |
+| `EMAIL_FROM` | sim | Remetente verificado, ex.: `Sync <noreply@syncapp.site>` |
 | `SWAGGER_USER` | não | Username pra basic-auth do `/api/docs` |
 | `SWAGGER_PASS` | não | Senha pra basic-auth |
 | `REMINDERS_DISABLED` | não | `true` desabilita cron de lembretes |
@@ -1258,7 +1277,7 @@ Versão `sync-v3` com invalidação automática.
 
 | Var | Descrição |
 |-----|-----------|
-| `EXPO_PUBLIC_API_URL` | URL base do backend (ex: `https://sync-production-4830.up.railway.app`) |
+| `EXPO_PUBLIC_API_URL` | URL base do backend: `https://sync-backend-o2zc.onrender.com` |
 
 ---
 
@@ -1430,9 +1449,9 @@ EXPO_PUBLIC_API_URL=http://localhost:3000
 
 # 📝 Contato e Suporte
 
-- **GitHub:** https://github.com/ArthurSilvaNarciso/sync
-- **Issues:** https://github.com/ArthurSilvaNarciso/sync/issues
-- **Live:** https://tutu-sync.vercel.app
+- **GitHub:** https://github.com/SanleyLujan/SYNC-2.0
+- **Issues:** https://github.com/SanleyLujan/SYNC-2.0/issues
+- **Live:** https://sync-2-0-blush.vercel.app
 
 ---
 

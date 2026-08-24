@@ -7,6 +7,7 @@ import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import TermsScreen from '../screens/Legal/TermsScreen';
 import PrivacyScreen from '../screens/Legal/PrivacyScreen';
+import VerifyEmailCodeScreen from '../screens/Auth/VerifyEmailCodeScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -22,6 +23,7 @@ export default function AuthNavigator() {
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ animation: 'fade' }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="VerifyEmailCode" component={VerifyEmailCodeScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Terms" component={TermsScreen} />
       <Stack.Screen name="Privacy" component={PrivacyScreen} />
     </Stack.Navigator>

@@ -123,12 +123,10 @@ export default function RegisterScreen({ navigation }: Props) {
         gender: gender || undefined,
         cpf: cpf.replace(/\D/g, '') || undefined,
       });
-      // Popup de sucesso antes de cair na selecao de perguntas (onboarding)
-      if (result.emailVerificationSent === false) {
-        showToast('Conta criada, mas o email de confirmação não saiu. Confira o Resend/SMTP no Render.', 'info');
-      } else {
-        showToast('Conta criada! O link de confirmação será enviado em instantes.', 'success');
-      }
+      navigation.replace('VerifyEmailCode', {
+        email: result.email,
+        sent: result.emailVerificationSent,
+      });
     } catch (error: any) {
       const status = error.response?.status;
       const msg = error.response?.data?.message;

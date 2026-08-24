@@ -17,6 +17,7 @@ export type SecurityEvent =
   | 'register_success'
   | 'register_failure'
   | 'email_verified'
+  | 'email_verification_failure'
   | 'email_verification_resent'
   | 'token_refresh'
   | 'permission_denied'
