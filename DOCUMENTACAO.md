@@ -1208,13 +1208,14 @@ X-Frame-Options: DENY
 - Cache de membership em socket (evita query por ponto)
 
 ## 14.3 PWA / Service Worker
-4 estratégias de cache:
-1. **Cache-first** — app shell (HTML/JS/CSS)
-2. **Stale-while-revalidate** — imagens
-3. **Network-first** — APIs (5min TTL)
-4. **Cache-first long** — OSM tiles
+5 estratégias de cache:
+1. **Network-first** — navegação e HTML, evitando tela branca após deploy
+2. **Cache-first** — assets versionados (JS/CSS/fontes)
+3. **Stale-while-revalidate** — imagens
+4. **Network-first** — APIs (5min TTL)
+5. **Cache-first long** — OSM tiles
 
-Versão `sync-v3` com invalidação automática.
+Versão `sync-v4` com invalidação automática dos caches anteriores.
 
 ---
 
@@ -1386,8 +1387,9 @@ EXPO_PUBLIC_API_URL=http://localhost:3000
 ```
 
 ## 19.2 Service Worker (`mobile/public/service-worker.js`)
-- Versão: `sync-v3`
-- 4 estratégias de cache (ver §14.3)
+- Versão: `sync-v4`
+- Navegação em `network-first` para nunca prender o navegador em um HTML de deploy antigo
+- 5 estratégias de cache (ver §14.3)
 - Push notifications handler
 - Notificationclick → abre app
 

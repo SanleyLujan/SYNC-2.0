@@ -1,11 +1,12 @@
 // Service Worker do Sync PWA
 // Estratégias:
-//   - shell (HTML, JS, CSS, fontes): cache-first com fallback network
+//   - navegação/HTML: network-first com fallback offline
+//   - assets versionados (JS, CSS, fontes): cache-first
 //   - imagens (Unsplash, avatares): stale-while-revalidate
 //   - tiles (OSM): cache-first até 7 dias
 //   - API (/api/*): network-first com cache de 5min
 
-const VERSION = 'sync-v3';
+const VERSION = 'sync-v4';
 const SHELL = `sync-shell-${VERSION}`;
 const IMAGES = `sync-images-${VERSION}`;
 const TILES = `sync-tiles-${VERSION}`;
@@ -43,6 +44,13 @@ self.addEventListener('fetch', (event) => {
   // Apenas GET é cacheado
   if (req.method !== 'GET') return;
 
+  // O HTML precisa vir da rede primeiro. Usar cache-first aqui pode manter um
+  // index.html antigo apontando para bundles removidos em um novo deploy.
+  if (url.origin === self.location.origin && req.mode === 'navigate') {
+    event.respondWith(networkFirstNavigation(req));
+    return;
+  }
+
   // OpenStreetMap tiles → cache-first (longa duração)
   if (url.hostname.includes('tile.openstreetmap.org')) {
     event.respondWith(cacheFirst(req, TILES));
@@ -65,12 +73,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Shell e assets do app → cache-first
+  // Assets versionados do app → cache-first
   if (url.origin === self.location.origin) {
     event.respondWith(cacheFirst(req, SHELL));
     return;
   }
 });
+
+async function networkFirstNavigation(req) {
+  const cache = await caches.open(SHELL);
+  try {
+    const res = await fetch(req, { cache: 'no-store' });
+    if (res.ok) cache.put(req, res.clone());
+    return res;
+  } catch {
+    return (
+      (await cache.match(req)) ||
+      (await cache.match('/index.html')) ||
+      (await cache.match('/')) ||
+      new Response('Offline', { status: 503 })
+    );
+  }
+}
 
 async function cacheFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
