@@ -114,7 +114,7 @@ export default function App() {
               : { flex: 1 }
           }
         >
-          <NavigationContainer>
+          <NavigationContainer documentTitle={{ formatter: () => 'Sync' }}>
             <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
             <AccessibilityEffects />
             <ConnectionBanner />

@@ -1393,7 +1393,12 @@ EXPO_PUBLIC_API_URL=http://localhost:3000
 - Push notifications handler
 - Notificationclick → abre app
 
-## 19.3 Instalação
+## 19.3 Título da aba no navegador
+- O `NavigationContainer` usa um formatador fixo para manter o título `Sync`.
+- A configuração impede que nomes internos de rotas, como `FeedMain`, ou o valor `undefined` apareçam na aba durante transições de navegação.
+- O `<title>Sync</title>` gerado no build continua sendo o título inicial antes do React carregar.
+
+## 19.4 Instalação
 - Chrome/Edge: ícone "+" na barra de endereço
 - iOS Safari: Compartilhar → "Adicionar à tela inicial"
 - Android Chrome: prompt automático após uso
