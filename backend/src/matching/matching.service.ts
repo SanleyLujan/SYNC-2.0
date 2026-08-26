@@ -22,10 +22,11 @@ function safeDiscoverUser(u: any) {
     profilePhotos: u.profilePhotos,
     bio: u.bio,
     prompts: u.prompts,   // frases estilo Tinder
-    city: u.city,     // cidade sem coordenadas precisas
+    city: u.showLocation ? u.city : null,     // cidade sem coordenadas precisas
     sports: u.sports,
     level: u.level,
     objectives: u.objectives,
+    hobbies: u.hobbies,
     availability: u.availability,
     subscriptionTier: u.subscriptionTier,
     totalXP: u.totalXP,
@@ -110,6 +111,7 @@ export class MatchingService {
       .createQueryBuilder('user')
       .where('user.isActive = :active', { active: true })
       .andWhere('user.onboardingCompleted = :completed', { completed: true })
+      .andWhere('user.isProfileVisible = :visible', { visible: true })
       .andWhere('user.latitude IS NOT NULL');
 
     if (query.sport) {

@@ -45,7 +45,7 @@ export default function LevelScreen({ navigation }: Props) {
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <ProgressBar current={2} total={6} />
+          <ProgressBar current={2} total={7} />
         </View>
       </View>
 

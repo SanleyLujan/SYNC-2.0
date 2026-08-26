@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Pressable,
   Modal,
+  Linking,
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,6 +35,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { uploadMedia } from '../../services/media.service';
 import { useHaptic } from '../../hooks/useHaptic';
+import * as ImagePicker from 'expo-image-picker';
+import * as ExpoLocation from 'expo-location';
 
 type Props = {
   navigation: NativeStackNavigationProp<ChatStackParamList, 'ChatRoom'>;
@@ -330,6 +333,79 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
     }
   };
 
+  const deliverTyped = async (content: string, type: 'image' | 'location') => {
+    if (!user) return;
+    const clientId = `c_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    const optimistic: Message = {
+      id: clientId,
+      clientId,
+      match_id: matchId,
+      sender_id: user.id,
+      content,
+      type,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    } as any;
+    setMessages((prev) => [...prev, optimistic]);
+    if (socketService.getStatus() === 'connected') {
+      socketService.sendTypedMessage(matchId, content, type);
+      return;
+    }
+    try {
+      const { data } = await api.post('/chat/messages', { matchId, content, type });
+      setMessages((prev) =>
+        prev.map((m) => (m.clientId === clientId ? { ...(data || m), clientId, pending: false, failed: false } : m)),
+      );
+    } catch {
+      setMessages((prev) => prev.map((m) => (m.clientId === clientId ? { ...m, pending: false, failed: true } : m)));
+      showToast('Não foi possível enviar agora.', 'error');
+    }
+  };
+
+  const sendImage = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          showToast('Permita acesso à galeria para enviar imagem.', 'error');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const { url } = await uploadMedia(asset.uri, {
+        name: `chat-image-${Date.now()}.jpg`,
+        mimeType: asset.mimeType || 'image/jpeg',
+      });
+      await deliverTyped(url, 'image');
+    } catch {
+      showToast('Erro ao enviar imagem', 'error');
+    }
+  };
+
+  const sendLocation = async () => {
+    try {
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('Permissão de localização necessária.', 'error');
+        return;
+      }
+      const pos = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
+      await deliverTyped(JSON.stringify({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        label: 'Minha localização agora',
+      }), 'location');
+    } catch {
+      showToast('Não foi possível obter sua localização.', 'error');
+    }
+  };
+
   // Reenvia tudo que ficou pendente na fila (chamado quando a conexão volta)
   const flushOutbox = async () => {
     if (!user) return;
@@ -556,7 +632,14 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
     const prevMessage = messages[index - 1];
     const showTime = !prevMessage ||
       new Date(item.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 300000;
-    const isAudio = (item as any).type === 'audio';
+    const type = (item as any).type || 'text';
+    const isAudio = type === 'audio';
+    const isImage = type === 'image';
+    const isLocation = type === 'location';
+    let locationPayload: any = null;
+    if (isLocation) {
+      try { locationPayload = JSON.parse(item.content); } catch { locationPayload = null; }
+    }
 
     return (
       <View>
@@ -598,6 +681,30 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
               <Text style={[styles.audioDurText, isMe && { color: 'rgba(255,255,255,0.8)' }]}>
                 {playingId === item.id ? 'Tocando…' : 'Áudio'}
               </Text>
+            </TouchableOpacity>
+          ) : isImage ? (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(item.content).catch(() => {})}
+              activeOpacity={0.85}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="Abrir imagem enviada"
+            >
+              <Image source={{ uri: item.content }} style={styles.chatImage} resizeMode="cover" />
+            </TouchableOpacity>
+          ) : isLocation && locationPayload ? (
+            <TouchableOpacity
+              style={styles.locationBubble}
+              onPress={() => Linking.openURL(`https://www.openstreetmap.org/?mlat=${locationPayload.latitude}&mlon=${locationPayload.longitude}#map=16/${locationPayload.latitude}/${locationPayload.longitude}`).catch(() => {})}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir localização compartilhada"
+            >
+              <Ionicons name="location" size={24} color={isMe ? '#fff' : '#FF6B35'} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.locationTitle, isMe && { color: '#fff' }]}>{locationPayload.label || 'Localização'}</Text>
+                <Text style={[styles.locationCoords, isMe && { color: 'rgba(255,255,255,0.75)' }]}>
+                  {Number(locationPayload.latitude).toFixed(5)}, {Number(locationPayload.longitude).toFixed(5)}
+                </Text>
+              </View>
             </TouchableOpacity>
           ) : (
             <Text style={[styles.messageText, isMe && styles.myMessageText]}>
@@ -794,6 +901,16 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
                 maxLength={1000}
               />
             </View>
+            {!text.trim() && (
+              <>
+                <TouchableOpacity style={styles.attachBtn} onPress={sendImage} accessibilityLabel="Enviar imagem">
+                  <Ionicons name="image-outline" size={21} color="#FF6B35" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.attachBtn} onPress={sendLocation} accessibilityLabel="Enviar localização">
+                  <Ionicons name="location-outline" size={21} color="#FF6B35" />
+                </TouchableOpacity>
+              </>
+            )}
             {text.trim() ? (
               <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} accessibilityLabel="Enviar mensagem">
                 <Ionicons name="send" size={18} color="#fff" />
@@ -1015,6 +1132,25 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18,
     justifyContent: 'center', alignItems: 'center', marginBottom: 2,
   },
+  attachBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 2,
+    backgroundColor: 'rgba(255,107,53,0.08)',
+  },
+  chatImage: {
+    width: 210,
+    height: 150,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  locationBubble: {
+    minWidth: 210,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  locationTitle: { color: colors.dark.text, fontSize: 14, fontWeight: '800' },
+  locationCoords: { color: colors.secondaryText, fontSize: 11, marginTop: 2 },
   stopRecordBtn: { flex: 1, borderRadius: borderRadius.md, overflow: 'hidden' },
   stopRecordGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

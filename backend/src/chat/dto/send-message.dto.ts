@@ -6,16 +6,16 @@ export class SendMessageDto {
   @IsUUID()
   matchId: string;
 
-  // Texto: até 1000 chars. Áudio: agora é uma URL (/uploads/media/...),
+  // Texto: até 1000 chars. Mídia: URL (/uploads/media/...) ou JSON de localização,
   // não mais base64 — por isso 4000 cobre URLs com folga (antes era 2MB!).
-  @ApiProperty({ description: 'Texto da mensagem ou URL do áudio' })
+  @ApiProperty({ description: 'Texto da mensagem, URL da mídia ou JSON de localização' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(4_000)
   content: string;
 
-  @ApiPropertyOptional({ enum: ['text', 'audio'], default: 'text' })
+  @ApiPropertyOptional({ enum: ['text', 'audio', 'image', 'location'], default: 'text' })
   @IsOptional()
-  @IsIn(['text', 'audio'])
+  @IsIn(['text', 'audio', 'image', 'location'])
   type?: string;
 }

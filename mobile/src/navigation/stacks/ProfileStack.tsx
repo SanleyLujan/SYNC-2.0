@@ -23,6 +23,8 @@ import BlockedUsersScreen from '../../screens/Profile/BlockedUsersScreen';
 import ChallengesScreen from '../../screens/Challenges/ChallengesScreen';
 import AccessibilityScreen from '../../screens/Settings/AccessibilityScreen';
 import SafetyCenterScreen from '../../screens/Settings/SafetyCenterScreen';
+import AdminPanelScreen from '../../screens/Settings/AdminPanelScreen';
+import SupportTicketsScreen from '../../screens/Settings/SupportTicketsScreen';
 import SegmentsListScreen from '../../screens/Segments/SegmentsListScreen';
 import SegmentDetailScreen from '../../screens/Segments/SegmentDetailScreen';
 
@@ -53,6 +55,8 @@ export default function ProfileStack() {
       <Stack.Screen name="Challenges" component={ChallengesScreen as any} />
       <Stack.Screen name="Accessibility" component={AccessibilityScreen as any} />
       <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen as any} />
+      <Stack.Screen name="AdminPanel" component={AdminPanelScreen as any} />
+      <Stack.Screen name="SupportTickets" component={SupportTicketsScreen as any} />
       <Stack.Screen name="SegmentsList" component={SegmentsListScreen as any} />
       <Stack.Screen name="SegmentDetail" component={SegmentDetailScreen as any} />
     </Stack.Navigator>

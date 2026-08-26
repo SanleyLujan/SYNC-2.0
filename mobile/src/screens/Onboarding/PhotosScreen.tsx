@@ -162,7 +162,7 @@ export default function PhotosScreen({ navigation }: Props) {
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <ProgressBar current={6} total={6} />
+          <ProgressBar current={7} total={7} />
         </View>
       </View>
 

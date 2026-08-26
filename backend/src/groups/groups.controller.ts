@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { GroupsService } from './groups.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -55,7 +55,10 @@ export class GroupsController {
   @ApiOperation({ summary: 'Ranking de membros (km contribuído)' })
   async members(@CurrentUser() user: User, @Param('id') id: string) {
     // Verifica acesso (grupos privados exigem membership)
-    await this.service.getById(id, user.id);
+    const group = await this.service.getById(id, user.id);
+    if (group.isPrivate && !group.isMember) {
+      throw new ForbiddenException('Entre no grupo para ver os participantes');
+    }
     return this.service.listMembers(id);
   }
 
@@ -65,6 +68,46 @@ export class GroupsController {
   @ApiOperation({ summary: 'Entrar no grupo (com código se privado)' })
   join(@CurrentUser() user: User, @Param('id') id: string, @Body() body: { inviteCode?: string }) {
     return this.service.join(user.id, id, body.inviteCode);
+  }
+
+  @Post(':id/requests')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Solicitar entrada em grupo privado' })
+  requestJoin(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.service.requestJoin(user.id, id);
+  }
+
+  @Get(':id/requests')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Listar solicitações pendentes do grupo (admin)' })
+  requests(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.service.listJoinRequests(user.id, id);
+  }
+
+  @Post(':id/requests/:requestId/approve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Aprovar entrada no grupo (admin)' })
+  approveRequest(@CurrentUser() user: User, @Param('id') id: string, @Param('requestId') requestId: string) {
+    return this.service.decideJoinRequest(user.id, id, requestId, true);
+  }
+
+  @Post(':id/requests/:requestId/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Recusar entrada no grupo (admin)' })
+  rejectRequest(@CurrentUser() user: User, @Param('id') id: string, @Param('requestId') requestId: string) {
+    return this.service.decideJoinRequest(user.id, id, requestId, false);
+  }
+
+  @Delete(':id/members/:memberId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remover participante do grupo (admin)' })
+  removeMember(@CurrentUser() user: User, @Param('id') id: string, @Param('memberId') memberId: string) {
+    return this.service.removeMember(user.id, id, memberId);
   }
 
   @Post(':id/leave')

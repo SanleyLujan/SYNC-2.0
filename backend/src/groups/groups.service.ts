@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Group } from './entities/group.entity';
 import { GroupMember } from './entities/group-member.entity';
+import { GroupJoinRequest } from './entities/group-join-request.entity';
 import { randomBytes } from 'crypto';
 import { sanitizeText } from '../common/security/sanitize.util';
 
@@ -11,6 +12,7 @@ export class GroupsService {
   constructor(
     @InjectRepository(Group) private readonly groupRepo: Repository<Group>,
     @InjectRepository(GroupMember) private readonly memberRepo: Repository<GroupMember>,
+    @InjectRepository(GroupJoinRequest) private readonly requestRepo: Repository<GroupJoinRequest>,
   ) {}
 
   async create(adminId: string, dto: { name: string; description?: string; sport?: string; city?: string; isPrivate?: boolean }) {
@@ -52,10 +54,13 @@ export class GroupsService {
       relations: ['admin'],
     });
     if (!group) throw new NotFoundException('Grupo não encontrado');
-    if (group.isPrivate && requesterId) {
-      const isMember = await this.memberRepo.findOne({ where: { group_id: groupId, user_id: requesterId } });
-      if (!isMember) throw new ForbiddenException('Grupo privado — entre pelo código de convite');
-    }
+    const membership = requesterId
+      ? await this.memberRepo.findOne({ where: { group_id: groupId, user_id: requesterId } })
+      : null;
+    const isMember = !!membership;
+    const joinRequest = requesterId && group.isPrivate && !isMember
+      ? await this.requestRepo.findOne({ where: { group_id: groupId, user_id: requesterId } })
+      : null;
     // Projeta apenas campos públicos do admin (sem email, lat, long)
     const safeAdmin = group.admin
       ? {
@@ -66,7 +71,26 @@ export class GroupsService {
           level: (group.admin as any).level,
         }
       : null;
-    return { ...group, admin: safeAdmin };
+    return {
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      sport: group.sport,
+      city: group.city,
+      isPrivate: group.isPrivate,
+      inviteCode: requesterId === group.admin_id ? group.inviteCode : null,
+      avatarUrl: group.avatarUrl,
+      coverUrl: group.coverUrl,
+      admin_id: group.admin_id,
+      memberCount: group.memberCount,
+      totalDistanceKm: group.totalDistanceKm,
+      totalActivities: group.totalActivities,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+      admin: safeAdmin,
+      isMember,
+      joinRequestStatus: joinRequest?.status || null,
+    };
   }
 
   async myGroups(userId: string) {
@@ -81,7 +105,7 @@ export class GroupsService {
     const group = await this.groupRepo.findOne({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Grupo não encontrado');
     if (group.isPrivate && group.inviteCode !== inviteCode) {
-      throw new ForbiddenException('Código de convite inválido');
+      return this.requestJoin(userId, groupId);
     }
     const existing = await this.memberRepo.findOne({ where: { group_id: groupId, user_id: userId } });
     if (existing) return existing;
@@ -90,6 +114,77 @@ export class GroupsService {
     );
     await this.groupRepo.increment({ id: groupId }, 'memberCount', 1);
     return member;
+  }
+
+  async requestJoin(userId: string, groupId: string) {
+    const group = await this.groupRepo.findOne({ where: { id: groupId } });
+    if (!group) throw new NotFoundException('Grupo não encontrado');
+    if (!group.isPrivate) throw new BadRequestException('Solicitações só existem para grupos privados');
+    const existingMember = await this.memberRepo.findOne({ where: { group_id: groupId, user_id: userId } });
+    if (existingMember) return { ok: true, status: 'already_member' };
+    const existing = await this.requestRepo.findOne({ where: { group_id: groupId, user_id: userId } });
+    if (existing) {
+      if (existing.status !== 'pending') {
+        existing.status = 'pending';
+        await this.requestRepo.save(existing);
+      }
+      return { ok: true, status: 'pending', requestId: existing.id };
+    }
+    const req = await this.requestRepo.save(this.requestRepo.create({ group_id: groupId, user_id: userId }));
+    return { ok: true, status: 'pending', requestId: req.id };
+  }
+
+  async listJoinRequests(adminId: string, groupId: string) {
+    const group = await this.groupRepo.findOne({ where: { id: groupId } });
+    if (!group) throw new NotFoundException('Grupo não encontrado');
+    if (group.admin_id !== adminId) throw new ForbiddenException('Só o admin pode ver solicitações');
+    const requests = await this.requestRepo.find({
+      where: { group_id: groupId, status: 'pending' },
+      relations: ['user'],
+      order: { createdAt: 'ASC' },
+    });
+    return requests.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt,
+      user: r.user ? {
+        id: r.user.id,
+        name: r.user.name,
+        avatarUrl: r.user.avatarUrl,
+        city: r.user.city,
+        sports: r.user.sports,
+        level: r.user.level,
+      } : null,
+    }));
+  }
+
+  async decideJoinRequest(adminId: string, groupId: string, requestId: string, approve: boolean) {
+    const group = await this.groupRepo.findOne({ where: { id: groupId } });
+    if (!group) throw new NotFoundException('Grupo não encontrado');
+    if (group.admin_id !== adminId) throw new ForbiddenException('Só o admin pode aprovar solicitações');
+    const req = await this.requestRepo.findOne({ where: { id: requestId, group_id: groupId } });
+    if (!req) throw new NotFoundException('Solicitação não encontrada');
+    if (req.status !== 'pending') throw new BadRequestException('Solicitação já foi analisada');
+    req.status = approve ? 'approved' : 'rejected';
+    await this.requestRepo.save(req);
+    if (!approve) return { ok: true, status: 'rejected' };
+    const existing = await this.memberRepo.findOne({ where: { group_id: groupId, user_id: req.user_id } });
+    if (!existing) {
+      await this.memberRepo.save(this.memberRepo.create({ group_id: groupId, user_id: req.user_id, role: 'member' }));
+      await this.groupRepo.increment({ id: groupId }, 'memberCount', 1);
+    }
+    return { ok: true, status: 'approved' };
+  }
+
+  async removeMember(adminId: string, groupId: string, memberId: string) {
+    const group = await this.groupRepo.findOne({ where: { id: groupId } });
+    if (!group) throw new NotFoundException('Grupo não encontrado');
+    if (group.admin_id !== adminId) throw new ForbiddenException('Só o admin pode remover membros');
+    const member = await this.memberRepo.findOne({ where: { id: memberId, group_id: groupId } });
+    if (!member) throw new NotFoundException('Membro não encontrado');
+    if (member.role === 'admin') throw new BadRequestException('Admin não pode ser removido');
+    await this.memberRepo.remove(member);
+    await this.groupRepo.decrement({ id: groupId }, 'memberCount', 1);
+    return { ok: true };
   }
 
   async leave(userId: string, groupId: string) {

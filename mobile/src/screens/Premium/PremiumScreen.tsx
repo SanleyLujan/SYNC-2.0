@@ -53,6 +53,7 @@ export default function PremiumScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
 
@@ -63,12 +64,14 @@ export default function PremiumScreen({ navigation }: any) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [plansRes, meRes] = await Promise.all([
+      const [plansRes, meRes, historyRes] = await Promise.all([
         api.get('/subscriptions/plans'),
         api.get('/subscriptions/me'),
+        api.get('/subscriptions/history').catch(() => ({ data: [] })),
       ]);
       setPlans(plansRes.data || []);
       setSubscription(meRes.data);
+      setHistory(historyRes.data || []);
     } catch {
       showToast('Erro ao carregar planos', 'error');
     } finally {
@@ -99,8 +102,9 @@ export default function PremiumScreen({ navigation }: any) {
 
     setUpgrading(tierId);
     try {
-      const { data } = await api.post('/subscriptions/upgrade', { tier: tierId });
-      showToast(data.message || 'Upgrade realizado!', 'success');
+      const checkout = await api.post('/subscriptions/checkout', { tier: tierId });
+      const { data } = await api.post(`/subscriptions/checkout/${checkout.data.checkoutId}/confirm`, {});
+      showToast(data.message || 'Assinatura ativada!', 'success');
       await loadData();
     } catch {
       showToast('Erro no upgrade. Tente novamente.', 'error');
@@ -269,6 +273,20 @@ export default function PremiumScreen({ navigation }: any) {
           </View>
         );
       })}
+
+      {history.length > 0 && (
+        <View style={styles.historyCard}>
+          <Text style={styles.historyTitle}>Histórico</Text>
+          {history.slice(0, 3).map((item) => (
+            <View key={item.id} style={styles.historyRow}>
+              <Text style={styles.historyTier}>{item.tier}</Text>
+              <Text style={styles.historyMeta}>
+                R$ {(item.amountCents / 100).toFixed(2)} · {item.status}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Footer note */}
       <View style={styles.footer}>
@@ -445,6 +463,25 @@ const styles = StyleSheet.create({
     color: 'rgba(248,113,113,0.7)',
     fontWeight: '600',
   },
+
+  historyCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.055)',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    padding: spacing.lg,
+  },
+  historyTitle: { color: '#fff', fontSize: 15, fontWeight: '800', marginBottom: spacing.sm },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  historyTier: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  historyMeta: { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
 
   // ── Footer ─────────────────────────────────────────────────────────────────
   footer: {

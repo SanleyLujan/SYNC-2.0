@@ -34,7 +34,7 @@ export class Message {
   @Column({ type: 'text' })
   content: string;
 
-  // 'text' | 'audio' — for voice messages
+  // 'text' | 'audio' | 'image' | 'location'
   @Column({ type: 'varchar', length: 10, default: 'text' })
   type: string;
 

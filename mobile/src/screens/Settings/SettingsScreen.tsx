@@ -44,6 +44,8 @@ export default function SettingsScreen({ navigation }: any) {
   const [plan, setPlan] = useState<any>(null);
   const [pushOn, setPushOn] = useState(true);
   const [emailOn, setEmailOn] = useState(true);
+  const [profileVisible, setProfileVisible] = useState(user?.isProfileVisible ?? true);
+  const [locationVisible, setLocationVisible] = useState(user?.showLocation ?? true);
   const [showChangePwd, setShowChangePwd] = useState(false);
 
   // Load persisted notification preferences
@@ -129,6 +131,20 @@ export default function SettingsScreen({ navigation }: any) {
       setPlan(meData);
     } catch {
       showToast('Erro no upgrade', 'error');
+    }
+  };
+
+  const updateVisibility = async (patch: { isProfileVisible?: boolean; showLocation?: boolean }) => {
+    if (patch.isProfileVisible !== undefined) setProfileVisible(patch.isProfileVisible);
+    if (patch.showLocation !== undefined) setLocationVisible(patch.showLocation);
+    try {
+      const { data } = await api.put('/users/me', patch);
+      useAuthStore.getState().setUser(data);
+      showToast('Preferência de privacidade salva.', 'success');
+    } catch {
+      if (patch.isProfileVisible !== undefined) setProfileVisible(!patch.isProfileVisible);
+      if (patch.showLocation !== undefined) setLocationVisible(!patch.showLocation);
+      showToast('Não foi possível salvar a privacidade.', 'error');
     }
   };
 
@@ -333,10 +349,43 @@ export default function SettingsScreen({ navigation }: any) {
           color="#6B7280"
         />
         <Row
+          icon="eye-outline"
+          label="Perfil visível"
+          color="#3B82F6"
+          right={
+            <Switch
+              value={profileVisible}
+              onValueChange={(val) => updateVisibility({ isProfileVisible: val })}
+              trackColor={{ false: theme.surfaceSecondary, true: theme.blue }}
+              thumbColor="#fff"
+            />
+          }
+        />
+        <Row
+          icon="location-outline"
+          label="Mostrar cidade/localização"
+          color="#10B981"
+          right={
+            <Switch
+              value={locationVisible}
+              onValueChange={(val) => updateVisibility({ showLocation: val })}
+              trackColor={{ false: theme.surfaceSecondary, true: theme.success }}
+              thumbColor="#fff"
+            />
+          }
+        />
+        <Row
           icon="accessibility-outline"
           label="Acessibilidade"
           onPress={() => navigation?.navigate?.('Accessibility')}
           color="#10B981"
+        />
+        <Row
+          icon="analytics-outline"
+          label="Painel administrativo"
+          value="denúncias · relatórios"
+          onPress={() => navigation?.navigate?.('AdminPanel')}
+          color="#A78BFA"
         />
       </View>
 
@@ -414,6 +463,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Row icon="bug-outline" label="Reportar problema" onPress={() => setFeedbackType('bug')} color="#F87171" />
         <Row icon="bulb-outline" label="Enviar sugestão" onPress={() => setFeedbackType('suggestion')} color="#FCD34D" />
         <Row icon="chatbubble-outline" label="Falar com suporte" onPress={() => setFeedbackType('support')} color="#3B82F6" />
+        <Row icon="file-tray-full-outline" label="Meus chamados" onPress={() => navigation?.navigate?.('SupportTickets')} color="#3B82F6" />
         <Row icon="star-outline" label="Avaliar o app" onPress={() => setFeedbackType('rating')} color="#FF6B35" />
       </View>
 

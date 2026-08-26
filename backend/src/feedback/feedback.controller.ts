@@ -9,6 +9,7 @@ import { User } from '../users/entities/user.entity';
 import { Feedback, FeedbackType } from './feedback.entity';
 import { Request } from 'express';
 import { sanitizeText } from '../common/security/sanitize.util';
+import { randomBytes } from 'crypto';
 
 @ApiTags('Feedback')
 @Controller('api/feedback')
@@ -40,11 +41,12 @@ export class FeedbackController {
       type: body.type,
       message: cleanMessage,
       rating: body.rating != null ? Math.max(1, Math.min(5, body.rating)) : null,
+      protocol: body.type === 'support' ? `SYNC-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}` : null,
       userAgent: req.headers['user-agent']?.toString().slice(0, 200) || null,
       status: 'new',
     });
     await this.repo.save(fb);
-    return { ok: true, message: 'Feedback recebido! Obrigado. 🙏' };
+    return { ok: true, message: 'Feedback recebido! Obrigado.', protocol: fb.protocol };
   }
 
   @Get('mine')
@@ -54,6 +56,18 @@ export class FeedbackController {
   async mine(@CurrentUser() user: User) {
     return this.repo.find({
       where: { user_id: user.id },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+  }
+
+  @Get('support/tickets')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Meus chamados de suporte com protocolo e status' })
+  async supportTickets(@CurrentUser() user: User) {
+    return this.repo.find({
+      where: { user_id: user.id, type: 'support' },
       order: { createdAt: 'DESC' },
       take: 50,
     });

@@ -39,6 +39,21 @@ const PROMPT_QUESTIONS = [
   'Minha maior conquista',
 ];
 
+const HOBBIES = [
+  'Trilhas',
+  'Café',
+  'Música',
+  'Viagens',
+  'Fotografia',
+  'Praia',
+  'Games',
+  'Leitura',
+  'Culinária',
+  'Yoga',
+  'Voluntariado',
+  'Pets',
+];
+
 /** Web-only: usa canvas para redimensionar a imagem para quadrado de `size`px e retornar data URL */
 function resizeAvatarForWeb(uri: string, size: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -66,6 +81,7 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [sports, setSports] = useState<string[]>(user?.sports || []);
+  const [hobbies, setHobbies] = useState<string[]>(user?.hobbies || []);
   const [promptAnswers, setPromptAnswers] = useState<Record<string, string>>(() => {
     const m: Record<string, string> = {};
     ((user as any)?.prompts || []).forEach((p: { q: string; a: string }) => { if (p?.q) m[p.q] = p.a; });
@@ -81,6 +97,12 @@ export default function EditProfileScreen({ navigation }: Props) {
   const toggleSport = (id: string) => {
     setSports((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  };
+
+  const toggleHobby = (label: string) => {
+    setHobbies((prev) =>
+      prev.includes(label) ? prev.filter((h) => h !== label) : [...prev, label].slice(0, 12),
     );
   };
 
@@ -142,7 +164,7 @@ export default function EditProfileScreen({ navigation }: Props) {
       const prompts = PROMPT_QUESTIONS
         .filter((q) => (promptAnswers[q] || '').trim().length > 0)
         .map((q) => ({ q, a: promptAnswers[q].trim() }));
-      const { data } = await api.put('/users/me', { name: name.trim(), bio, sports, prompts });
+      const { data } = await api.put('/users/me', { name: name.trim(), bio, sports, hobbies, prompts });
       setUser(data);
       showToast('Perfil atualizado!', 'success');
       navigation.goBack();
@@ -226,6 +248,18 @@ export default function EditProfileScreen({ navigation }: Props) {
                 label={s.label}
                 selected={sports.includes(s.id)}
                 onPress={() => toggleSport(s.id)}
+              />
+            ))}
+          </View>
+
+          <Text style={[styles.label, { color: theme.textPrimary }]}>Hobbies</Text>
+          <View style={styles.chips}>
+            {HOBBIES.map((h) => (
+              <Chip
+                key={h}
+                label={h}
+                selected={hobbies.includes(h)}
+                onPress={() => toggleHobby(h)}
               />
             ))}
           </View>

@@ -183,6 +183,25 @@ export class UsersController {
     );
   }
 
+  @Get('nearby')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Listar usuários próximos que permitem aparecer no mapa' })
+  nearbyUsers(
+    @CurrentUser() user: User,
+    @Query('latitude') latitude: string,
+    @Query('longitude') longitude: string,
+    @Query('radiusKm') radiusKm?: string,
+  ) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    const radius = radiusKm === undefined ? 10 : Number(radiusKm);
+    if (!isFinite(lat) || !isFinite(lng) || !isFinite(radius)) {
+      throw new BadRequestException('Coordenadas GPS inválidas');
+    }
+    return this.usersService.nearbyVisibleUsers(user.id, lat, lng, radius);
+  }
+
   @Get('blocked')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

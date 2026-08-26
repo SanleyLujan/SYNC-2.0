@@ -15,6 +15,8 @@ export interface GroupSummary {
   coverUrl?: string | null;
   admin_id: string;
   createdAt: string;
+  isMember?: boolean;
+  joinRequestStatus?: 'pending' | 'approved' | 'rejected' | null;
 }
 
 export interface GroupMemberRanking {
@@ -23,6 +25,12 @@ export interface GroupMemberRanking {
   role: 'admin' | 'member';
   contributedKm: number;
   contributedActivities: number;
+}
+
+export interface GroupJoinRequest {
+  id: string;
+  createdAt: string;
+  user: { id: string; name: string; avatarUrl?: string; city?: string; sports?: string[] } | null;
 }
 
 export const groupsApi = {
@@ -37,6 +45,16 @@ export const groupsApi = {
     api.post<GroupSummary>('/groups', body).then((r) => r.data),
   join: (id: string, inviteCode?: string) =>
     api.post(`/groups/${id}/join`, { inviteCode }).then((r) => r.data),
+  requestJoin: (id: string) =>
+    api.post(`/groups/${id}/requests`).then((r) => r.data),
+  requests: (id: string) =>
+    api.get<GroupJoinRequest[]>(`/groups/${id}/requests`).then((r) => r.data),
+  approveRequest: (id: string, requestId: string) =>
+    api.post(`/groups/${id}/requests/${requestId}/approve`).then((r) => r.data),
+  rejectRequest: (id: string, requestId: string) =>
+    api.post(`/groups/${id}/requests/${requestId}/reject`).then((r) => r.data),
+  removeMember: (id: string, memberId: string) =>
+    api.delete(`/groups/${id}/members/${memberId}`).then((r) => r.data),
   leave: (id: string) => api.post(`/groups/${id}/leave`).then((r) => r.data),
   remove: (id: string) => api.delete(`/groups/${id}`).then((r) => r.data),
 };

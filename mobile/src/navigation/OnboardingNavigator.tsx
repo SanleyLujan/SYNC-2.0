@@ -4,6 +4,7 @@ import { OnboardingStackParamList } from './types';
 import SportsScreen from '../screens/Onboarding/SportsScreen';
 import LevelScreen from '../screens/Onboarding/LevelScreen';
 import ObjectivesScreen from '../screens/Onboarding/ObjectivesScreen';
+import HobbiesScreen from '../screens/Onboarding/HobbiesScreen';
 import AvailabilityScreen from '../screens/Onboarding/AvailabilityScreen';
 import LocationScreen from '../screens/Onboarding/LocationScreen';
 import PhotosScreen from '../screens/Onboarding/PhotosScreen';
@@ -21,6 +22,7 @@ export default function OnboardingNavigator() {
       <Stack.Screen name="Sports" component={SportsScreen} />
       <Stack.Screen name="Level" component={LevelScreen} />
       <Stack.Screen name="Objectives" component={ObjectivesScreen} />
+      <Stack.Screen name="Hobbies" component={HobbiesScreen} />
       <Stack.Screen name="Availability" component={AvailabilityScreen} />
       <Stack.Screen name="Location" component={LocationScreen} />
       <Stack.Screen name="Photos" component={PhotosScreen} />

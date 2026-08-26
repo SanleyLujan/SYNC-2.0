@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
-import { groupsApi, GroupSummary } from '../../services/groups.service';
+import { groupsApi, GroupSummary, GroupJoinRequest } from '../../services/groups.service';
 import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
@@ -38,6 +38,7 @@ export default function GroupDetailScreen({ navigation, route }: any) {
 
   const [group, setGroup] = useState<GroupSummary | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [requests, setRequests] = useState<GroupJoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,24 +52,62 @@ export default function GroupDetailScreen({ navigation, route }: any) {
       ]);
       if (g) setGroup(g);
       setMembers((m as Member[]) || []);
+      if (g?.admin_id === currentUser?.id) {
+        setRequests(await groupsApi.requests(groupId).catch(() => []));
+      } else {
+        setRequests([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [groupId]);
+  }, [groupId, currentUser?.id]);
 
   useEffect(() => { load(); }, [load]);
 
   const isMember = members.some((m) => m.user?.id === currentUser?.id);
+  const isAdmin = group?.admin_id === currentUser?.id;
+  const requestPending = group?.joinRequestStatus === 'pending';
 
   const handleJoin = async () => {
     setBusy(true);
     try {
-      await groupsApi.join(groupId);
-      showToast('Você entrou no grupo! 🎉', 'success');
+      const result = group?.isPrivate ? await groupsApi.requestJoin(groupId) : await groupsApi.join(groupId);
+      showToast(result?.status === 'pending' ? 'Solicitação enviada ao admin.' : 'Você entrou no grupo!', 'success');
       await load(true);
     } catch (e: any) {
       showToast(e?.response?.data?.message || 'Não foi possível entrar', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRequestDecision = async (requestId: string, approve: boolean) => {
+    setBusy(true);
+    try {
+      if (approve) await groupsApi.approveRequest(groupId, requestId);
+      else await groupsApi.rejectRequest(groupId, requestId);
+      showToast(approve ? 'Membro aprovado.' : 'Solicitação recusada.', 'success');
+      await load(true);
+    } catch {
+      showToast('Não foi possível atualizar a solicitação.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemoveMember = async (member: Member) => {
+    const ok = await confirmAsync('Remover membro?', `${member.user?.name || 'Este atleta'} sairá do grupo.`, {
+      confirmText: 'Remover', destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await groupsApi.removeMember(groupId, member.id);
+      showToast('Membro removido.', 'success');
+      await load(true);
+    } catch {
+      showToast('Erro ao remover membro.', 'error');
     } finally {
       setBusy(false);
     }
@@ -123,9 +162,34 @@ export default function GroupDetailScreen({ navigation, route }: any) {
           )}
         </View>
         <Text style={styles.memberKm}>{(item.contributedKm || 0).toFixed(1)} km</Text>
+        {isAdmin && item.role !== 'admin' && (
+          <TouchableOpacity
+            style={styles.removeMemberBtn}
+            onPress={() => handleRemoveMember(item)}
+            disabled={busy}
+            accessibilityLabel={`Remover ${item.user?.name || 'membro'}`}
+          >
+            <Ionicons name="close" size={16} color="#F87171" />
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
+
+  const renderRequest = (item: GroupJoinRequest) => (
+    <View key={item.id} style={styles.requestRow}>
+      <View style={styles.requestInfo}>
+        <Text style={styles.requestName}>{item.user?.name || 'Atleta'}</Text>
+        <Text style={styles.requestSub}>Solicitou entrada</Text>
+      </View>
+      <TouchableOpacity style={styles.approveBtn} onPress={() => handleRequestDecision(item.id, true)} disabled={busy}>
+        <Ionicons name="checkmark" size={16} color="#fff" />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRequestDecision(item.id, false)} disabled={busy}>
+        <Ionicons name="close" size={16} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -191,15 +255,22 @@ export default function GroupDetailScreen({ navigation, route }: any) {
                     )}
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity style={styles.actionBtn} onPress={handleJoin} disabled={busy} activeOpacity={0.85}>
+                  <TouchableOpacity style={styles.actionBtn} onPress={handleJoin} disabled={busy || requestPending} activeOpacity={0.85}>
                     <LinearGradient colors={['#FF6B35', '#FF4500']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.joinGradient}>
                       {busy ? <ActivityIndicator size="small" color="#fff" /> : (
-                        <><Ionicons name="add" size={18} color="#fff" /><Text style={styles.joinText}>Entrar no grupo</Text></>
+                        <><Ionicons name={requestPending ? 'time-outline' : group?.isPrivate ? 'mail-outline' : 'add'} size={18} color="#fff" /><Text style={styles.joinText}>{requestPending ? 'Solicitação pendente' : group?.isPrivate ? 'Solicitar entrada' : 'Entrar no grupo'}</Text></>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
                 )}
               </View>
+
+              {isAdmin && requests.length > 0 && (
+                <View style={styles.requestsBox}>
+                  <Text style={styles.requestsTitle}>Solicitações pendentes</Text>
+                  {requests.map(renderRequest)}
+                </View>
+              )}
 
               <View style={styles.membersHeader}>
                 <Ionicons name="trophy" size={16} color="#FCD34D" />
@@ -281,6 +352,23 @@ const styles = StyleSheet.create({
   memberKm: { color: '#FCD34D', fontSize: 15, fontWeight: '800' },
   adminBadge: { backgroundColor: 'rgba(255,107,53,0.18)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
   adminBadgeText: { color: '#FF6B35', fontSize: 9, fontWeight: '800' },
+  removeMemberBtn: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(248,113,113,0.12)',
+  },
+  requestsBox: {
+    marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: borderRadius.md,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: spacing.md,
+  },
+  requestsTitle: { color: '#fff', fontSize: 14, fontWeight: '800', marginBottom: spacing.sm },
+  requestRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
+  requestInfo: { flex: 1 },
+  requestName: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  requestSub: { color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 },
+  approveBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center' },
+  rejectBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F87171', alignItems: 'center', justifyContent: 'center' },
 
   emptyWrap: { alignItems: 'center', marginTop: 40, gap: 10 },
   emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: 13 },

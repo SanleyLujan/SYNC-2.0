@@ -32,6 +32,9 @@ export class Feedback {
   @Column({ type: 'text' })
   message: string;
 
+  @Column({ type: 'varchar', nullable: true, length: 24 })
+  protocol: string | null;
+
   @Column({ type: 'varchar', nullable: true, length: 200 })
   userAgent: string | null;
 

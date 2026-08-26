@@ -20,10 +20,13 @@ export interface User {
   sports?: string[];
   level: SportLevel;
   objectives?: string[];
+  hobbies?: string[];
   availability?: string[];
   latitude?: number;
   longitude?: number;
   city?: string;
+  isProfileVisible?: boolean;
+  showLocation?: boolean;
   weightKg?: number;
   heightCm?: number;
   gender?: 'male' | 'female' | 'other';
@@ -55,6 +58,7 @@ export interface Message {
   match_id: string;
   sender_id: string;
   content: string;
+  type?: 'text' | 'audio' | 'image' | 'location';
   isRead: boolean;
   createdAt: string;
   sender?: User;
@@ -138,6 +142,7 @@ export interface OnboardingData {
   sports: string[];
   level: SportLevel;
   objectives: string[];
+  hobbies: string[];
   availability: string[];
   latitude?: number;
   longitude?: number;

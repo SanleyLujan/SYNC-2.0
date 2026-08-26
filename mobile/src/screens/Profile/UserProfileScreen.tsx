@@ -335,6 +335,19 @@ export default function UserProfileScreen({ navigation, route }: Props) {
             </View>
           )}
 
+          {user.hobbies && user.hobbies.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Hobbies</Text>
+              <View style={styles.tags}>
+                {user.hobbies.map((h) => (
+                  <View key={h} style={[styles.tag, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+                    <Text style={[styles.tagText, { color: theme.primary }]}>{h}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* Bottom spacer */}
           <View style={{ height: 40 }} />
         </View>

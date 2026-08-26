@@ -131,8 +131,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('error', { message: 'Dados da mensagem inválidos' });
         return;
       }
-      const msgType = data.type === 'audio' ? 'audio' : 'text';
-      const content = msgType === 'audio' ? (data.audioUrl || '') : (data.content?.trim() || '');
+      const allowedTypes = ['text', 'audio', 'image', 'location'];
+      const msgType = allowedTypes.includes(data.type || '') ? data.type! : 'text';
+      const content = msgType === 'audio' && data.audioUrl ? data.audioUrl : (data.content?.trim() || '');
       if (!content) {
         client.emit('error', { message: 'Conteúdo da mensagem vazio' });
         return;

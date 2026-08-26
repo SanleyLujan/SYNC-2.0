@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like as ILike, LessThan } from 'typeorm';
 import { Logger } from '@nestjs/common';
@@ -35,6 +35,9 @@ export class UsersService {
    */
   async publicProfile(id: string) {
     const user = await this.findById(id);
+    if (!user.isActive || !user.isProfileVisible) {
+      throw new ForbiddenException('Perfil não está visível no momento');
+    }
     return {
       id: user.id,
       name: user.name,
@@ -46,8 +49,10 @@ export class UsersService {
       sports: user.sports,
       level: user.level,
       objectives: user.objectives,
+      hobbies: user.hobbies,
       availability: user.availability,
-      city: user.city,           // apenas cidade — sem coordenadas precisas
+      city: user.showLocation ? user.city : null,
+      showLocation: user.showLocation,
       isActive: user.isActive,
       subscriptionTier: user.subscriptionTier,
       totalXP: user.totalXP,
@@ -79,6 +84,7 @@ export class UsersService {
       birthDate: null,
       sports: null,
       objectives: null,
+      hobbies: null,
       availability: null,
       latitude: null,
       longitude: null,
@@ -125,6 +131,11 @@ export class UsersService {
       ...(dto.bio !== undefined && { bio: sanitizeText(dto.bio, 500) || undefined }),
       ...(dto.city !== undefined && { city: sanitizeText(dto.city, 100) || undefined }),
     };
+    if (dto.hobbies !== undefined) {
+      sanitized.hobbies = Array.isArray(dto.hobbies)
+        ? dto.hobbies.map((h) => sanitizeText(h, 40)).filter(Boolean).slice(0, 12)
+        : null;
+    }
     // Frases estilo Tinder: máx 5, pergunta ≤ 60, resposta ≤ 150, sanitizadas.
     if (dto.prompts !== undefined) {
       sanitized.prompts = Array.isArray(dto.prompts)
@@ -149,6 +160,11 @@ export class UsersService {
       ...(data.bio !== undefined && { bio: sanitizeText(data.bio, 500) || undefined }),
       ...(data.city !== undefined && { city: sanitizeText(data.city, 100) || undefined }),
     };
+    if (data.hobbies !== undefined) {
+      sanitized.hobbies = Array.isArray(data.hobbies)
+        ? data.hobbies.map((h) => sanitizeText(h, 40)).filter(Boolean).slice(0, 12)
+        : undefined;
+    }
     await this.userRepository.update(userId, {
       ...sanitized,
       onboardingCompleted: true,
@@ -164,6 +180,56 @@ export class UsersService {
     city?: string,
   ): Promise<void> {
     await this.userRepository.update(userId, { latitude, longitude, city });
+  }
+
+  async nearbyVisibleUsers(userId: string, latitude: number, longitude: number, radiusKm = 10) {
+    const safeRadius = Math.max(1, Math.min(radiusKm, 50));
+    const blocks = await this.userBlockRepository.find({
+      where: [{ blocker_id: userId }, { blocked_id: userId }],
+      select: ['blocker_id', 'blocked_id'],
+    });
+    const blockedIds = new Set(
+      blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
+    );
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id != :userId', { userId })
+      .andWhere('user.isActive = :active', { active: true })
+      .andWhere('user.onboardingCompleted = :completed', { completed: true })
+      .andWhere('user.isProfileVisible = :visible', { visible: true })
+      .andWhere('user.showLocation = :showLocation', { showLocation: true })
+      .andWhere('user.latitude IS NOT NULL')
+      .andWhere('user.longitude IS NOT NULL')
+      .take(200)
+      .getMany();
+
+    return users
+      .filter((u) => !blockedIds.has(u.id))
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        avatarUrl: u.avatarUrl,
+        city: u.city,
+        sports: u.sports,
+        level: u.level,
+        distance: Math.round(this.distanceKm(latitude, longitude, u.latitude || 0, u.longitude || 0) * 10) / 10,
+        latitude: u.latitude,
+        longitude: u.longitude,
+      }))
+      .filter((u) => u.distance <= safeRadius)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 50);
+  }
+
+  private distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const r = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   // Salvar URL do avatar — chamado após upload
@@ -224,6 +290,7 @@ export class UsersService {
       .where('user.name LIKE :query', { query: `%${safeQuery}%` })
       .andWhere('user.id != :currentUserId', { currentUserId })
       .andWhere('user.isActive = :isActive', { isActive: true })
+      .andWhere('user.isProfileVisible = :isProfileVisible', { isProfileVisible: true })
       .select([
         'user.id',
         'user.name',
@@ -231,13 +298,21 @@ export class UsersService {
         'user.sports',
         'user.level',
         'user.city',
+        'user.showLocation',
       ])
       .skip(skip)
       .take(safeLimit)
       .getManyAndCount();
 
     return {
-      users,
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        avatarUrl: u.avatarUrl,
+        sports: u.sports,
+        level: u.level,
+        city: u.showLocation ? u.city : null,
+      })),
       total,
       page: safePage,
       limit: safeLimit,

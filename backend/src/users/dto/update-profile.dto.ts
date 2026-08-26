@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsDateString,
   IsIn,
+  IsBoolean,
   MaxLength,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -47,6 +48,13 @@ export class UpdateProfileDto {
   @MaxLength(40, { each: true })
   @IsOptional()
   objectives?: string[];
+
+  @ApiPropertyOptional({ example: ['trilhas', 'cafe', 'fotografia'] })
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  @IsOptional()
+  hobbies?: string[];
 
   @ApiPropertyOptional({ example: ['morning', 'weekend'] })
   @IsArray()
@@ -90,4 +98,14 @@ export class UpdateProfileDto {
   @IsArray()
   @IsOptional()
   prompts?: { q: string; a: string }[];
+
+  @ApiPropertyOptional({ example: true })
+  @IsBoolean()
+  @IsOptional()
+  isProfileVisible?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsBoolean()
+  @IsOptional()
+  showLocation?: boolean;
 }

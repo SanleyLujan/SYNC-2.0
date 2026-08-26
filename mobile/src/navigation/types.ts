@@ -16,6 +16,7 @@ export type OnboardingStackParamList = {
   Sports: undefined;
   Level: undefined;
   Objectives: undefined;
+  Hobbies: undefined;
   Availability: undefined;
   Location: undefined;
   Photos: undefined;  // ← Obrigatório mínimo 3 fotos
@@ -89,6 +90,8 @@ export type ProfileStackParamList = {
   Challenges: undefined;
   Accessibility: undefined;
   SafetyCenter: undefined;
+  AdminPanel: undefined;
+  SupportTickets: undefined;
   SegmentsList: undefined;
   SegmentDetail: { segmentId: string };
 };

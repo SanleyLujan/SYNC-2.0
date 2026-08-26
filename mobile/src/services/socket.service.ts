@@ -167,6 +167,10 @@ class SocketService {
     this.socket?.emit('sendMessage', { matchId, content });
   }
 
+  sendTypedMessage(matchId: string, content: string, type: 'text' | 'audio' | 'image' | 'location') {
+    this.socket?.emit('sendMessage', { matchId, content, type });
+  }
+
   onNewMessage(callback: (message: any) => void) {
     this.handlers['newMessage'] = callback;
     this.socket?.off('newMessage');
@@ -227,7 +231,7 @@ class SocketService {
 
   /** Send a voice message as base64 audio content */
   sendAudioMessage(matchId: string, audioBase64: string) {
-    this.socket?.emit('sendMessage', { matchId, content: audioBase64, type: 'audio' });
+    this.sendTypedMessage(matchId, audioBase64, 'audio');
   }
 
   /** @deprecated use emitTyping(matchId) — userId comes from the server JWT */

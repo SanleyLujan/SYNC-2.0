@@ -89,16 +89,33 @@ export class ChatService {
       throw new ForbiddenException('Não é possível enviar mensagens: há um bloqueio entre vocês.');
     }
 
-    const msgType = dto.type === 'audio' ? 'audio' : 'text';
-    // Áudio agora chega como URL (/uploads/media/...) — validamos que é mesmo
-    // uma URL e não base64/script. Texto continua sanitizado.
+    const allowedTypes = ['text', 'audio', 'image', 'location'];
+    const msgType = allowedTypes.includes(dto.type || '') ? dto.type! : 'text';
+    // Mídia chega como URL e localização como JSON compacto. Texto continua sanitizado.
     let content: string;
-    if (msgType === 'audio') {
+    if (msgType === 'audio' || msgType === 'image') {
       const isValidUrl = /^https?:\/\/\S+$/i.test(dto.content) || dto.content.startsWith('/uploads/');
       if (!isValidUrl) {
-        throw new BadRequestException('Mensagem de áudio deve ser uma URL válida');
+        throw new BadRequestException('Mensagem de mídia deve ser uma URL válida');
       }
       content = dto.content.trim();
+    } else if (msgType === 'location') {
+      let parsed: any;
+      try {
+        parsed = JSON.parse(dto.content);
+      } catch {
+        throw new BadRequestException('Localização deve ser enviada em JSON');
+      }
+      const lat = Number(parsed.latitude);
+      const lng = Number(parsed.longitude);
+      if (!isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        throw new BadRequestException('Coordenadas de localização inválidas');
+      }
+      content = JSON.stringify({
+        latitude: lat,
+        longitude: lng,
+        label: sanitizeText(parsed.label || 'Localização compartilhada', 80),
+      });
     } else {
       content = sanitizeText(dto.content, 1000);
       // Moderação: bloqueia ameaças e discurso de ódio óbvios.
@@ -139,7 +156,11 @@ export class ChatService {
       select: ['id', 'name'],
     });
     const firstName = (sender?.name || 'Alguém').split(' ')[0];
-    const preview = type === 'audio' ? '🎤 Mensagem de áudio' : content.slice(0, 80);
+    const preview =
+      type === 'audio' ? 'Mensagem de áudio'
+      : type === 'image' ? 'Imagem'
+      : type === 'location' ? 'Localização compartilhada'
+      : content.slice(0, 80);
     await this.pushService.sendToUser(recipientId, firstName, preview, {
       type: 'message',
       matchId,

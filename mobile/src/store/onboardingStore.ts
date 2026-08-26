@@ -5,6 +5,7 @@ interface OnboardingState extends OnboardingData {
   setSports: (sports: string[]) => void;
   setLevel: (level: SportLevel) => void;
   setObjectives: (objectives: string[]) => void;
+  setHobbies: (hobbies: string[]) => void;
   setAvailability: (availability: string[]) => void;
   setLocation: (lat: number, lng: number, city?: string) => void;
   getData: () => OnboardingData;
@@ -15,6 +16,7 @@ const initialState: OnboardingData = {
   sports: [],
   level: SportLevel.BEGINNER,
   objectives: [],
+  hobbies: [],
   availability: [],
 };
 
@@ -24,6 +26,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   setSports: (sports) => set({ sports }),
   setLevel: (level) => set({ level }),
   setObjectives: (objectives) => set({ objectives }),
+  setHobbies: (hobbies) => set({ hobbies }),
   setAvailability: (availability) => set({ availability }),
   setLocation: (latitude, longitude, city) =>
     set({ latitude, longitude, city }),
@@ -34,6 +37,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       sports: state.sports,
       level: state.level,
       objectives: state.objectives,
+      hobbies: state.hobbies,
       availability: state.availability,
       latitude: state.latitude,
       longitude: state.longitude,

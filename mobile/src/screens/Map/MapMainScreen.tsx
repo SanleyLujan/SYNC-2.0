@@ -34,6 +34,25 @@ type Props = {
   navigation: NativeStackNavigationProp<MapStackParamList, 'MapMain'>;
 };
 
+type NearbyUser = {
+  id: string;
+  name: string;
+  avatarUrl?: string | null;
+  city?: string | null;
+  sports?: string[] | null;
+  latitude: number;
+  longitude: number;
+  distance: number;
+};
+
+type SportPlace = {
+  id: string;
+  name: string;
+  kind: string;
+  latitude: number;
+  longitude: number;
+};
+
 const sportIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   running: 'walk',
   cycling: 'bicycle',
@@ -63,6 +82,8 @@ const sportColors: Record<string, string> = {
 export default function MapMainScreen({ navigation }: Props) {
   const theme = useThemeStore((s) => s.theme);
   const [events, setEvents] = useState<EventType[]>([]);
+  const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
+  const [sportPlaces, setSportPlaces] = useState<SportPlace[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [joining, setJoining] = useState(false);
   const [region, setRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
@@ -139,6 +160,8 @@ export default function MapMainScreen({ navigation }: Props) {
       };
       setRegion(newRegion);
       loadEvents(coords.latitude, coords.longitude);
+      loadNearbyUsers(coords.latitude, coords.longitude);
+      setSportPlaces(buildSportPlaces(coords.latitude, coords.longitude));
       loadWeather(coords.latitude, coords.longitude);
       loadLocationName(coords.latitude, coords.longitude);
       // Sincroniza lat/lng REAL com o backend (pra Discovery/Eventos usarem)
@@ -169,6 +192,23 @@ export default function MapMainScreen({ navigation }: Props) {
     }
   };
 
+  const loadNearbyUsers = async (lat: number, lng: number) => {
+    try {
+      const { data } = await api.get('/users/nearby', {
+        params: { latitude: lat, longitude: lng, radiusKm: Math.min(searchRadius, 50) },
+      });
+      setNearbyUsers(data || []);
+    } catch {
+      setNearbyUsers([]);
+    }
+  };
+
+  const buildSportPlaces = (lat: number, lng: number): SportPlace[] => [
+    { id: 'park-run', name: 'Ponto de corrida', kind: 'Corrida', latitude: lat + 0.006, longitude: lng + 0.004 },
+    { id: 'court', name: 'Quadra esportiva', kind: 'Esportes coletivos', latitude: lat - 0.005, longitude: lng + 0.006 },
+    { id: 'gym-place', name: 'Academia próxima', kind: 'Treino indoor', latitude: lat + 0.004, longitude: lng - 0.006 },
+  ];
+
   const loadWeather = async (lat: number, lng: number) => {
     try {
       const data = await fetchCurrentWeather(lat, lng);
@@ -191,6 +231,8 @@ export default function MapMainScreen({ navigation }: Props) {
     try {
       const coords = await getCurrentLocation();
       setUserCoords(coords);
+      loadNearbyUsers(coords.latitude, coords.longitude);
+      setSportPlaces(buildSportPlaces(coords.latitude, coords.longitude));
       mapRef.current?.animateToRegion({
         latitude: coords.latitude,
         longitude: coords.longitude,
@@ -379,6 +421,29 @@ export default function MapMainScreen({ navigation }: Props) {
             </Marker>
           );
         })}
+
+        {nearbyUsers.map((u) => (
+          <Marker
+            key={`user-${u.id}`}
+            coordinate={{ latitude: u.latitude, longitude: u.longitude }}
+            onPress={() => (navigation.getParent() as any)?.navigate('HomeTab', {
+              screen: 'UserProfile',
+              params: { userId: u.id },
+            })}
+          >
+            <View style={styles.userMarker}>
+              <Ionicons name="person" size={15} color="#fff" />
+            </View>
+          </Marker>
+        ))}
+
+        {sportPlaces.map((place) => (
+          <Marker key={`place-${place.id}`} coordinate={{ latitude: place.latitude, longitude: place.longitude }}>
+            <View style={styles.placeMarker}>
+              <Ionicons name="fitness" size={14} color="#0A0A0F" />
+            </View>
+          </Marker>
+        ))}
 
         {/* Route planner: linha da rota planejada */}
         {route?.coordinates && route.coordinates.length > 1 && (
@@ -624,7 +689,10 @@ export default function MapMainScreen({ navigation }: Props) {
           onPress={() => {
             const newRadius = searchRadius === 5 ? 10 : searchRadius === 10 ? 20 : searchRadius === 20 ? 50 : 5;
             setSearchRadius(newRadius);
-            if (userCoords) loadEvents(userCoords.latitude, userCoords.longitude);
+            if (userCoords) {
+              loadEvents(userCoords.latitude, userCoords.longitude);
+              loadNearbyUsers(userCoords.latitude, userCoords.longitude);
+            }
           }}
         >
           <Text style={[styles.radiusText, { color: theme.primary }]}>{searchRadius}</Text>
@@ -637,6 +705,7 @@ export default function MapMainScreen({ navigation }: Props) {
         <Ionicons name="calendar" size={14} color={theme.primary} />
         <Text style={[styles.eventCountText, { color: theme.textPrimary }]}>
           {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''} proximo{filteredEvents.length !== 1 ? 's' : ''}
+          {nearbyUsers.length > 0 ? ` · ${nearbyUsers.length} atleta${nearbyUsers.length !== 1 ? 's' : ''}` : ''}
         </Text>
       </View>
 
@@ -1217,6 +1286,26 @@ const styles = StyleSheet.create({
     borderTopColor: colors.primary,
     alignSelf: 'center',
     marginTop: -2,
+  },
+  userMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  placeMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#FCD34D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#0A0A0F',
   },
   myEventsBtn: {
     position: 'absolute',

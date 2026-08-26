@@ -51,12 +51,12 @@ export default function FeedbackModal({ visible, type, onClose }: Props) {
     }
     setSending(true);
     try {
-      await api.post('/feedback', {
+      const { data } = await api.post('/feedback', {
         type,
         message: message.trim(),
         rating: type === 'rating' ? stars : undefined,
       });
-      showToast('Obrigado! Recebemos seu feedback 🙏', 'success');
+      showToast(data?.protocol ? `Chamado aberto: ${data.protocol}` : 'Obrigado! Recebemos seu feedback', 'success');
       reset();
       onClose();
     } catch (e: any) {

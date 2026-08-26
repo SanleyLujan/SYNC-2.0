@@ -81,6 +81,10 @@ export class User {
   @Column({ type: 'simple-array', nullable: true })
   objectives: string[] | null;
 
+  // Hobbies/interesses pessoais usados no perfil esportivo.
+  @Column({ type: 'simple-array', nullable: true })
+  hobbies: string[] | null;
+
   // Disponibilidade armazenada como string separada por virgula
   @Column({ type: 'simple-array', nullable: true })
   availability: string[] | null;
@@ -94,6 +98,12 @@ export class User {
 
   @Column({ type: 'varchar', nullable: true })
   city: string | null;
+
+  @Column({ default: true })
+  isProfileVisible: boolean;
+
+  @Column({ default: true })
+  showLocation: boolean;
 
   @Column({ default: true })
   isActive: boolean;
