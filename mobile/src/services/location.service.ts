@@ -264,6 +264,67 @@ export async function reverseGeocode(
   }
 }
 
+export interface CitySearchResult {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Busca cidades brasileiras pelo nome para o seletor manual do onboarding.
+ * O debounce fica na tela; esta função mantém a consulta pequena e limitada.
+ */
+export async function searchBrazilianCities(query: string): Promise<CitySearchResult[]> {
+  const term = query.trim();
+  if (term.length < 2) return [];
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  try {
+    const params = new URLSearchParams({
+      q: `${term}, Brasil`,
+      format: 'jsonv2',
+      addressdetails: '1',
+      countrycodes: 'br',
+      limit: '8',
+      dedupe: '1',
+      'accept-language': 'pt-BR',
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'Accept-Language': 'pt-BR',
+        Referer: 'https://sync-h29j2uaaq-rutunarciso-5121s-projects.vercel.app',
+      },
+    });
+    if (!response.ok) throw new Error(`Geocoding search failed: ${response.status}`);
+
+    const results = await response.json();
+    const seen = new Set<string>();
+    return (Array.isArray(results) ? results : [])
+      .map((item: any): CitySearchResult | null => {
+        const address = item?.address || {};
+        const city = address.city || address.town || address.village || address.municipality || address.county;
+        const lat = Number(item?.lat);
+        const lng = Number(item?.lon);
+        if (!city || !isFinite(lat) || !isFinite(lng)) return null;
+
+        const stateCode = String(address['ISO3166-2-lvl4'] || '')
+          .replace(/^BR-/i, '')
+          .toUpperCase();
+        const name = stateCode ? `${city}, ${stateCode}` : city;
+        const key = name.toLocaleLowerCase('pt-BR');
+        if (seen.has(key)) return null;
+        seen.add(key);
+        return { name, lat, lng };
+      })
+      .filter((item: CitySearchResult | null): item is CitySearchResult => item !== null);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function getCachedLocation(): LocationCoords | null {
   return cachedLocation;
 }

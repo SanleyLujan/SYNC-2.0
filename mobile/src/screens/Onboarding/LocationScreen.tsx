@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { OnboardingStackParamList } from '../../navigation/types';
@@ -10,7 +10,7 @@ import ProgressBar from '../../components/ui/ProgressBar';
 import Button from '../../components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as ExpoLocation from 'expo-location';
-import { getCurrentLocation, reverseGeocode } from '../../services/location.service';
+import { getCurrentLocation, reverseGeocode, searchBrazilianCities } from '../../services/location.service';
 import api from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -44,7 +44,10 @@ export default function LocationScreen({ navigation }: Props) {
   const [city, setCity] = useState<string | undefined>();
   const [showManual, setShowManual] = useState(false);
   const [search, setSearch] = useState('');
+  const [cityResults, setCityResults] = useState(CITIES);
+  const [citySearchLoading, setCitySearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const citySearchRequest = useRef(0);
 
   const getLocationByIP = async (): Promise<{ latitude: number; longitude: number; city?: string } | null> => {
     const controller = new AbortController();
@@ -121,9 +124,43 @@ export default function LocationScreen({ navigation }: Props) {
     }
   };
 
-  const filtered = CITIES.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  useEffect(() => {
+    const term = search.trim();
+    const normalizedTerm = term
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const localResults = CITIES.filter((c) =>
+      c.name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .includes(normalizedTerm),
+    );
+    const requestId = ++citySearchRequest.current;
+
+    if (term.length < 2) {
+      setCityResults(localResults);
+      setCitySearchLoading(false);
+      return;
+    }
+
+    setCitySearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const remoteResults = await searchBrazilianCities(term);
+        if (requestId === citySearchRequest.current) {
+          setCityResults(remoteResults.length > 0 ? remoteResults : localResults);
+        }
+      } catch {
+        if (requestId === citySearchRequest.current) setCityResults(localResults);
+      } finally {
+        if (requestId === citySearchRequest.current) setCitySearchLoading(false);
+      }
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   return (
     <ScreenContainer>
@@ -142,7 +179,14 @@ export default function LocationScreen({ navigation }: Props) {
           Pra encontrar pessoas e eventos perto de você
         </Text>
 
-        <View style={[styles.card, granted && styles.cardOk]}>
+        <TouchableOpacity
+          style={[styles.card, granted && styles.cardOk]}
+          onPress={requestLocation}
+          disabled={granted || loading}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={granted ? 'Localização configurada' : 'Detectar minha localização automaticamente'}
+        >
           <Ionicons
             name={granted ? 'checkmark-circle' : 'location'}
             size={56}
@@ -153,27 +197,21 @@ export default function LocationScreen({ navigation }: Props) {
               ? city
                 ? `📍 ${city}`
                 : 'Localização configurada!'
-              : 'Toque pra detectar automaticamente'}
+              : loading
+                ? 'Detectando sua localização...'
+                : 'Toque pra detectar automaticamente'}
           </Text>
           {error && <Text style={styles.errorText}>{error}</Text>}
-        </View>
+        </TouchableOpacity>
 
         {!granted && !showManual && (
-          <>
-            <Button
-              title={loading ? 'Detectando...' : 'Usar minha localização'}
-              variant="outline"
-              onPress={requestLocation}
-              loading={loading}
-            />
-            <TouchableOpacity
-              style={styles.linkBtn}
-              onPress={() => setShowManual(true)}
-              disabled={loading}
-            >
-              <Text style={styles.linkText}>Escolher cidade manualmente</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            style={styles.linkBtn}
+            onPress={() => setShowManual(true)}
+            disabled={loading}
+          >
+            <Text style={styles.linkText}>Escolher cidade manualmente</Text>
+          </TouchableOpacity>
         )}
 
         {showManual && !granted && (
@@ -185,8 +223,11 @@ export default function LocationScreen({ navigation }: Props) {
               value={search}
               onChangeText={setSearch}
             />
+            {citySearchLoading && (
+              <ActivityIndicator style={styles.citySearchLoading} size="small" color={colors.primary} />
+            )}
             <View style={styles.cityList}>
-              {filtered.slice(0, 8).map((c) => (
+              {cityResults.slice(0, 8).map((c) => (
                 <TouchableOpacity
                   key={c.name}
                   style={styles.cityRow}
@@ -196,10 +237,11 @@ export default function LocationScreen({ navigation }: Props) {
                   <Text style={styles.cityName}>{c.name}</Text>
                 </TouchableOpacity>
               ))}
-              {filtered.length === 0 && (
+              {!citySearchLoading && cityResults.length === 0 && (
                 <Text style={styles.emptyText}>Nenhuma cidade encontrada</Text>
               )}
             </View>
+            <Text style={styles.attribution}>Busca de localidades por OpenStreetMap</Text>
             <TouchableOpacity
               style={styles.linkBtn}
               onPress={() => { setShowManual(false); setError(null); }}
@@ -279,7 +321,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.10)',
     fontSize: fontSize.md,
   },
+  citySearchLoading: { marginTop: spacing.sm },
   cityList: { marginTop: spacing.sm },
+  attribution: {
+    color: colors.secondaryText,
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
   cityRow: {
     flexDirection: 'row',
     alignItems: 'center',

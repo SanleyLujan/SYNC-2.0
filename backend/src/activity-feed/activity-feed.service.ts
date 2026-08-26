@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, In } from 'typeorm';
 import { ActivityFeedPost } from './activity-feed.entity';
 import { UserBlock } from '../users/entities/user-block.entity';
+import { Match } from '../matching/entities/match.entity';
 import { FeedComment } from './feed-comment.entity';
 import { FeedLike } from './feed-like.entity';
 import { sanitizeText, sanitizeUrl } from '../common/security/sanitize.util';
@@ -29,6 +30,8 @@ export class ActivityFeedService {
     private readonly commentRepo: Repository<FeedComment>,
     @InjectRepository(FeedLike)
     private readonly likeRepo: Repository<FeedLike>,
+    @InjectRepository(Match)
+    private readonly matchRepo: Repository<Match>,
   ) {}
 
   async create(
@@ -66,11 +69,12 @@ export class ActivityFeedService {
     const safePage = Math.max(1, Math.min(page, 1000));
 
     // SEGURANÇA: não mostra posts de quem você bloqueou nem de quem te bloqueou.
-    const blockedIds = await this.getBlockedUserIds(viewerId);
+    // O Feed também só inclui o próprio usuário e matches mútuos.
+    const allowedUserIds = await this.getAllowedFeedUserIds(viewerId);
 
     const posts = await this.repo.find({
       relations: ['user'],
-      where: blockedIds.length ? { user_id: Not(In(blockedIds)) } : {},
+      where: { user_id: In(Array.from(allowedUserIds)) },
       order: { createdAt: 'DESC' },
       take: safeLimit,
       skip: (safePage - 1) * safeLimit,
@@ -87,7 +91,11 @@ export class ActivityFeedService {
     return blocks.map((b) => (b.blocker_id === viewerId ? b.blocked_id : b.blocker_id));
   }
 
-  async byUser(userId: string, page = 1, limit = 20) {
+  async byUser(viewerId: string, userId: string, page = 1, limit = 20) {
+    const allowedUserIds = await this.getAllowedFeedUserIds(viewerId);
+    if (!allowedUserIds.has(userId)) {
+      throw new ForbiddenException('O feed deste usuário só está disponível após um match.');
+    }
     const safeLimit = Math.max(1, Math.min(limit, 50));
     const safePage = Math.max(1, Math.min(page, 1000));
     const posts = await this.repo.find({
@@ -101,8 +109,7 @@ export class ActivityFeedService {
   }
 
   async like(postId: string, userId: string) {
-    const post = await this.repo.findOne({ where: { id: postId } });
-    if (!post) throw new NotFoundException('Post não encontrado');
+    const post = await this.assertPostVisible(postId, userId);
 
     // Idempotente: insere somente se o usuário ainda não curtiu
     const existing = await this.likeRepo.findOne({ where: { post_id: postId, user_id: userId } });
@@ -116,8 +123,7 @@ export class ActivityFeedService {
   }
 
   async unlike(postId: string, userId: string) {
-    const post = await this.repo.findOne({ where: { id: postId } });
-    if (!post) throw new NotFoundException('Post não encontrado');
+    const post = await this.assertPostVisible(postId, userId);
 
     const existing = await this.likeRepo.findOne({ where: { post_id: postId, user_id: userId } });
     if (!existing) {
@@ -145,7 +151,8 @@ export class ActivityFeedService {
     return likes.map((l) => l.fl_post_id);
   }
 
-  async getComments(postId: string, page = 1, limit = 20) {
+  async getComments(postId: string, viewerId: string, page = 1, limit = 20) {
+    await this.assertPostVisible(postId, viewerId);
     const safeLimit = Math.max(1, Math.min(limit, 100));
     const safePage = Math.max(1, Math.min(page, 1000));
     const comments = await this.commentRepo.find({
@@ -161,8 +168,7 @@ export class ActivityFeedService {
   async addComment(postId: string, userId: string, text: string) {
     if (!text || text.trim().length === 0) throw new BadRequestException('Comentário não pode ser vazio');
     if (text.length > 500) throw new BadRequestException('Comentário muito longo (máx 500 chars)');
-    const post = await this.repo.findOne({ where: { id: postId } });
-    if (!post) throw new NotFoundException('Post não encontrado');
+    const post = await this.assertPostVisible(postId, userId);
     const comment = this.commentRepo.create({
       post_id: postId,
       user_id: userId,
@@ -175,6 +181,7 @@ export class ActivityFeedService {
   }
 
   async deleteComment(postId: string, commentId: string, userId: string) {
+    await this.assertPostVisible(postId, userId);
     const comment = await this.commentRepo.findOne({ where: { id: commentId, post_id: postId } });
     if (!comment) throw new NotFoundException('Comentário não encontrado');
     if (comment.user_id !== userId) throw new BadRequestException('Você não é dono deste comentário');
@@ -189,5 +196,31 @@ export class ActivityFeedService {
     if (post.user_id !== userId) throw new BadRequestException('Você não é dono deste post');
     await this.repo.remove(post);
     return { ok: true };
+  }
+
+  private async getAllowedFeedUserIds(viewerId: string): Promise<Set<string>> {
+    const [blockedIds, matches] = await Promise.all([
+      this.getBlockedUserIds(viewerId),
+      this.matchRepo.find({
+        where: [{ user1_id: viewerId }, { user2_id: viewerId }],
+        select: ['user1_id', 'user2_id'],
+      }),
+    ]);
+    const allowed = new Set<string>([viewerId]);
+    for (const match of matches) {
+      allowed.add(match.user1_id === viewerId ? match.user2_id : match.user1_id);
+    }
+    for (const blockedId of blockedIds) allowed.delete(blockedId);
+    return allowed;
+  }
+
+  private async assertPostVisible(postId: string, viewerId: string): Promise<ActivityFeedPost> {
+    const post = await this.repo.findOne({ where: { id: postId } });
+    if (!post) throw new NotFoundException('Post não encontrado');
+    const allowedUserIds = await this.getAllowedFeedUserIds(viewerId);
+    if (!allowedUserIds.has(post.user_id)) {
+      throw new ForbiddenException('Você precisa ter match para interagir com este post.');
+    }
+    return post;
   }
 }

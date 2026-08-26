@@ -5,6 +5,7 @@ import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { UserBlock } from './entities/user-block.entity';
 import { UserReport } from './entities/user-report.entity';
+import { Match } from '../matching/entities/match.entity';
 
 function repoMock() {
   return {
@@ -28,6 +29,7 @@ describe('UsersService — LGPD soft-delete + purge', () => {
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: getRepositoryToken(UserBlock), useValue: repoMock() },
         { provide: getRepositoryToken(UserReport), useValue: repoMock() },
+        { provide: getRepositoryToken(Match), useValue: repoMock() },
       ],
     }).compile();
     service = moduleRef.get(UsersService);

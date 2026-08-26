@@ -5,9 +5,10 @@ import { ActivityFeedService } from './activity-feed.service';
 import { ActivityFeedPost } from './activity-feed.entity';
 import { FeedComment } from './feed-comment.entity';
 import { FeedLike } from './feed-like.entity';
+import { Match } from '../matching/entities/match.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ActivityFeedPost, FeedComment, FeedLike])],
+  imports: [TypeOrmModule.forFeature([ActivityFeedPost, FeedComment, FeedLike, Match])],
   controllers: [ActivityFeedController],
   providers: [ActivityFeedService],
   exports: [ActivityFeedService],

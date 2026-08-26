@@ -51,6 +51,14 @@
           "locationAlwaysAndWhenInUsePermission": "Sync usa sua localização para registrar atividades e encontrar pessoas."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita que o Sync acesse suas fotos para montar seu perfil.",
+          "cameraPermission": "Permita que o Sync use sua câmera para tirar fotos do seu perfil.",
+          "microphonePermission": false
+        }
+      ],
       "expo-font",
       [
         "expo-secure-store",

@@ -30,6 +30,7 @@ Status: implementado.
 - Backend: perfil público bloqueia acesso quando o perfil está invisível ou inativo.
 - Backend: busca, discovery e mapa filtram perfis invisíveis e respeitam a preferência de localização.
 - Backend: usuários bloqueados também são excluídos do mapa de proximidade.
+- Backend: a exibição no mapa passou a ser privada por padrão, limitada a matches mútuos e com coordenada aproximada.
 - Mobile: `SettingsScreen` ganhou switches para controlar visibilidade do perfil e exibição de localização.
 
 Arquivos principais:
@@ -94,12 +95,13 @@ Arquivos principais:
 
 ## RF25 - Mapa interativo
 
-Status: parcial.
+Status: parcial, com privacidade e interação implementadas.
 
-- Backend: criado `GET /api/users/nearby` para listar usuários próximos que permitiram visibilidade e localização.
-- Backend: o endpoint respeita perfil invisível, localização oculta e bloqueios.
-- Mobile: `MapMainScreen` carrega usuários próximos e exibe marcadores azuis no mapa.
-- Mobile: `MapMainScreen` exibe marcadores sintéticos de referência ao redor da localização atual.
+- Backend: criado `GET /api/users/nearby` para listar somente matches mútuos que optaram por aparecer.
+- Backend: o endpoint respeita perfil invisível, localização oculta, bloqueios e arredonda as coordenadas antes de entregá-las ao cliente.
+- Mobile: marcadores de atletas ficam ocultos por padrão e são ativados pelo chip `Atletas`.
+- Mobile: marcadores esportivos agora são clicáveis, exibem detalhe e permitem iniciar o planejamento de rota.
+- Mobile: o chip `Territórios` abre a tela de conquista corretamente.
 - O mapa segue cobrindo eventos, heatmap e planejamento de rotas.
 
 Limitação atual: ainda não existe catálogo real de academias, quadras ou parques. Para considerar o RF25 totalmente concluído, falta integrar uma fonte de locais esportivos ou cadastrar uma entidade própria com dados reais.
@@ -108,6 +110,17 @@ Arquivos principais:
 - `backend/src/users/users.controller.ts`
 - `backend/src/users/users.service.ts`
 - `mobile/src/screens/Map/MapMainScreen.tsx`
+
+## Consolidação das últimas observações — fotos, conexões e privacidade
+
+Status: implementado em uma única entrega.
+
+- **Fotos de perfil:** o onboarding oferece `Tirar foto` para abrir a câmera e `Escolher da galeria` para selecionar uma ou mais imagens. As permissões nativas foram configuradas sem solicitar microfone.
+- **Conexões:** o Feed e os atletas do mapa ficam restritos ao próprio usuário e a matches mútuos. Likes, comentários e acesso ao feed de outro usuário também são protegidos por essa regra.
+- **Busca e adição:** a busca aceita nome ou ID. Cada resultado possui `Adicionar`, que envia um like; antes da reciprocidade aparece como `Enviado` e, depois, como `Match`.
+- **Privacidade de localização:** a exibição no mapa é opt-in, desativada por padrão para contas existentes via migration e nunca entrega a coordenada real de outra pessoa.
+
+Observação: o modelo atual não possui um campo separado de `username`; a busca utiliza o nome e o ID do usuário. Os marcadores amarelos continuam sendo pontos esportivos sugeridos pelo app, não um catálogo real de academias, quadras ou parques.
 
 ## RF36 - Assinatura premium
 

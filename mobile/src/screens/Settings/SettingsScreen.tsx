@@ -363,7 +363,7 @@ export default function SettingsScreen({ navigation }: any) {
         />
         <Row
           icon="location-outline"
-          label="Mostrar cidade/localização"
+          label="Aparecer no mapa (local aproximado)"
           color="#10B981"
           right={
             <Switch

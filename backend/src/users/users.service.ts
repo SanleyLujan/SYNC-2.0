@@ -6,6 +6,7 @@ import { User } from './entities/user.entity';
 import { UserBlock } from './entities/user-block.entity';
 import { BannedCpf } from './entities/banned-cpf.entity';
 import { UserReport } from './entities/user-report.entity';
+import { Match } from '../matching/entities/match.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ReportReason } from './entities/user-report.entity';
 import { sanitizeText } from '../common/security/sanitize.util';
@@ -19,6 +20,8 @@ export class UsersService {
     private readonly userBlockRepository: Repository<UserBlock>,
     @InjectRepository(UserReport)
     private readonly userReportRepository: Repository<UserReport>,
+    @InjectRepository(Match)
+    private readonly matchRepository: Repository<Match>,
   ) {}
 
   async findById(id: string): Promise<User> {
@@ -191,6 +194,14 @@ export class UsersService {
     const blockedIds = new Set(
       blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
     );
+    const matches = await this.matchRepository.find({
+      where: [{ user1_id: userId }, { user2_id: userId }],
+      select: ['user1_id', 'user2_id'],
+    });
+    const matchedIds = matches.map((match) => (
+      match.user1_id === userId ? match.user2_id : match.user1_id
+    ));
+    if (matchedIds.length === 0) return [];
     const users = await this.userRepository
       .createQueryBuilder('user')
       .where('user.id != :userId', { userId })
@@ -198,10 +209,15 @@ export class UsersService {
       .andWhere('user.onboardingCompleted = :completed', { completed: true })
       .andWhere('user.isProfileVisible = :visible', { visible: true })
       .andWhere('user.showLocation = :showLocation', { showLocation: true })
+      .andWhere('user.id IN (:...matchedIds)', { matchedIds })
       .andWhere('user.latitude IS NOT NULL')
       .andWhere('user.longitude IS NOT NULL')
       .take(200)
       .getMany();
+
+    // O mapa nunca recebe a coordenada real de outra pessoa. A posição é
+    // arredondada para uma área de aproximadamente 1 km antes de sair da API.
+    const approximateCoordinate = (value: number) => Math.round(value * 100) / 100;
 
     return users
       .filter((u) => !blockedIds.has(u.id))
@@ -213,8 +229,8 @@ export class UsersService {
         sports: u.sports,
         level: u.level,
         distance: Math.round(this.distanceKm(latitude, longitude, u.latitude || 0, u.longitude || 0) * 10) / 10,
-        latitude: u.latitude,
-        longitude: u.longitude,
+        latitude: approximateCoordinate(u.latitude as number),
+        longitude: approximateCoordinate(u.longitude as number),
       }))
       .filter((u) => u.distance <= safeRadius)
       .sort((a, b) => a.distance - b.distance)
@@ -287,7 +303,10 @@ export class UsersService {
 
     const [users, total] = await this.userRepository
       .createQueryBuilder('user')
-      .where('user.name LIKE :query', { query: `%${safeQuery}%` })
+      .where('(LOWER(user.name) LIKE LOWER(:query) OR user.id = :exactId)', {
+        query: `%${safeQuery}%`,
+        exactId: safeQuery,
+      })
       .andWhere('user.id != :currentUserId', { currentUserId })
       .andWhere('user.isActive = :isActive', { isActive: true })
       .andWhere('user.isProfileVisible = :isProfileVisible', { isProfileVisible: true })
@@ -304,6 +323,14 @@ export class UsersService {
       .take(safeLimit)
       .getManyAndCount();
 
+    const matches = await this.matchRepository.find({
+      where: [{ user1_id: currentUserId }, { user2_id: currentUserId }],
+      select: ['user1_id', 'user2_id'],
+    });
+    const matchedIds = new Set(matches.map((match) => (
+      match.user1_id === currentUserId ? match.user2_id : match.user1_id
+    )));
+
     return {
       users: users.map((u) => ({
         id: u.id,
@@ -312,6 +339,7 @@ export class UsersService {
         sports: u.sports,
         level: u.level,
         city: u.showLocation ? u.city : null,
+        matchStatus: matchedIds.has(u.id) ? 'matched' : 'available',
       })),
       total,
       page: safePage,

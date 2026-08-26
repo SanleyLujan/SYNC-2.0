@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  Modal,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { OnboardingStackParamList } from '../../navigation/types';
@@ -59,8 +60,39 @@ export default function PhotosScreen({ navigation }: Props) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+
+  const processAssets = async (assets: ImagePicker.ImagePickerAsset[]) => {
+    const remainingSlots = MAX_PHOTOS - photos.length;
+    if (remainingSlots <= 0) return;
+
+    setUploading(true);
+    // Mantém base64 no state (sem rede) — persistido só no final em handleFinish,
+    // que tem fallback offline. Onboarding não pode travar por upload.
+    const processed: string[] = [];
+    for (const asset of assets.slice(0, remainingSlots)) {
+      try {
+        let base64: string;
+        if (Platform.OS === 'web') {
+          base64 = await resizeForWeb(asset.uri, 400);
+        } else {
+          const mime = asset.mimeType || 'image/jpeg';
+          base64 = asset.base64 ? `data:${mime};base64,${asset.base64}` : asset.uri;
+        }
+        processed.push(base64);
+      } catch {
+        // pula uma foto que falhou em processar, mas mantém as outras
+      }
+    }
+
+    if (processed.length > 0) {
+      setPhotos((prev) => [...prev, ...processed].slice(0, MAX_PHOTOS));
+    }
+    setUploading(false);
+  };
 
   const pickPhoto = async () => {
+    setShowPhotoOptions(false);
     try {
       if (Platform.OS !== 'web') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -85,34 +117,35 @@ export default function PhotosScreen({ navigation }: Props) {
       });
 
       if (result.canceled || !result.assets?.length) return;
-
-      setUploading(true);
-      // Mantém base64 no state (sem rede) — persistido só no final em handleFinish,
-      // que tem fallback offline. Onboarding não pode travar por upload.
-      const assets = result.assets.slice(0, remainingSlots);
-      const processed: string[] = [];
-      for (const asset of assets) {
-        try {
-          let base64: string;
-          if (Platform.OS === 'web') {
-            base64 = await resizeForWeb(asset.uri, 400);
-          } else {
-            const mime = asset.mimeType || 'image/jpeg';
-            base64 = asset.base64 ? `data:${mime};base64,${asset.base64}` : asset.uri;
-          }
-          processed.push(base64);
-        } catch {
-          // pula uma foto que falhou em processar, mas mantém as outras
-        }
-      }
-
-      if (processed.length > 0) {
-        setPhotos((prev) => [...prev, ...processed].slice(0, MAX_PHOTOS));
-      }
+      await processAssets(result.assets);
     } catch (e: any) {
       showToast(e?.message || 'Não foi possível carregar as fotos', 'error');
-    } finally {
-      setUploading(false);
+    }
+  };
+
+  const takePhoto = async () => {
+    setShowPhotoOptions(false);
+    if (photos.length >= MAX_PHOTOS) return;
+
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        showToast('Libere o acesso à câmera para tirar uma foto.', 'error');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+      await processAssets(result.assets);
+    } catch (e: any) {
+      showToast(e?.message || 'Não foi possível abrir a câmera', 'error');
     }
   };
 
@@ -214,9 +247,11 @@ export default function PhotosScreen({ navigation }: Props) {
           {photos.length < MAX_PHOTOS && (
             <TouchableOpacity
               style={[styles.photoCell, styles.addCell]}
-              onPress={pickPhoto}
+              onPress={() => setShowPhotoOptions(true)}
               disabled={uploading}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={photos.length === 0 ? 'Adicionar fotos' : 'Adicionar mais fotos'}
             >
               {uploading ? (
                 <ActivityIndicator size="small" color={ACCENT} />
@@ -253,6 +288,67 @@ export default function PhotosScreen({ navigation }: Props) {
           ))}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showPhotoOptions}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPhotoOptions(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowPhotoOptions(false)}
+        >
+          <View style={styles.photoOptionsSheet}>
+            <Text style={styles.photoOptionsTitle}>Adicionar foto</Text>
+            <Text style={styles.photoOptionsSubtitle}>Escolha de onde deseja adicionar sua foto</Text>
+
+            <TouchableOpacity
+              style={styles.photoOption}
+              onPress={takePhoto}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Tirar foto com a câmera"
+            >
+              <View style={styles.photoOptionIcon}>
+                <Ionicons name="camera" size={22} color={ACCENT} />
+              </View>
+              <View style={styles.photoOptionTextWrap}>
+                <Text style={styles.photoOptionTitle}>Tirar foto</Text>
+                <Text style={styles.photoOptionDescription}>Abrir a câmera agora</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.photoOption}
+              onPress={pickPhoto}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Escolher fotos da galeria"
+            >
+              <View style={styles.photoOptionIcon}>
+                <Ionicons name="images" size={22} color={ACCENT} />
+              </View>
+              <View style={styles.photoOptionTextWrap}>
+                <Text style={styles.photoOptionTitle}>Escolher da galeria</Text>
+                <Text style={styles.photoOptionDescription}>Selecionar uma ou mais fotos</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelOption}
+              onPress={() => setShowPhotoOptions(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+            >
+              <Text style={styles.cancelOptionText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Button
         title={saving ? 'Criando perfil…' : canContinue ? 'Entrar no Sync 🎉' : `Faltam ${MIN_PHOTOS - photos.length} foto${MIN_PHOTOS - photos.length !== 1 ? 's' : ''}`}
@@ -382,6 +478,73 @@ const styles = StyleSheet.create({
   addLabel: {
     fontSize: fontSize.sm,
     color: ACCENT,
+    fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  photoOptionsSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  photoOptionsTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+  },
+  photoOptionsSubtitle: {
+    color: colors.secondaryText,
+    fontSize: fontSize.sm,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  photoOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  photoOptionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ACCENT + '20',
+  },
+  photoOptionTextWrap: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  photoOptionTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  photoOptionDescription: {
+    color: colors.secondaryText,
+    fontSize: fontSize.sm,
+    marginTop: 2,
+  },
+  cancelOption: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
+  },
+  cancelOptionText: {
+    color: colors.secondaryText,
+    fontSize: fontSize.md,
     fontWeight: '600',
   },
   tipsBox: {

@@ -182,6 +182,36 @@ export class MatchingService {
 
   // Processar swipe - cria like e verifica match mutuo
   async swipe(userId: string, dto: SwipeDto) {
+    if (userId === dto.targetUserId) {
+      throw new NotFoundException('Você não pode adicionar a si mesmo');
+    }
+
+    const existingAction = await this.likeRepository.findOne({
+      where: { from_user_id: userId, to_user_id: dto.targetUserId },
+    });
+    if (existingAction) {
+      if (!dto.isLike) return { matched: false, alreadyActed: true };
+
+      const mutualLike = await this.likeRepository.findOne({
+        where: { from_user_id: dto.targetUserId, to_user_id: userId },
+      });
+      if (!mutualLike) return { matched: false, alreadyLiked: true };
+
+      const existingMatch = await this.matchRepository.findOne({
+        where: [
+          { user1_id: userId, user2_id: dto.targetUserId },
+          { user1_id: dto.targetUserId, user2_id: userId },
+        ],
+      });
+      if (existingMatch) return { matched: true, matchId: existingMatch.id };
+
+      const match = await this.matchRepository.save({
+        user1_id: userId,
+        user2_id: dto.targetUserId,
+      });
+      return { matched: true, matchId: match.id };
+    }
+
     if (!dto.isLike) {
       await this.likeRepository.save({
         from_user_id: userId,
@@ -215,7 +245,7 @@ export class MatchingService {
           ],
         });
         if (existingMatch) {
-          return { matched: true, matchId: existingMatch.id };
+        return { matched: true, matchId: existingMatch.id };
         }
         const match = await this.matchRepository.save({
           user1_id: userId,

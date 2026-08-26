@@ -45,7 +45,7 @@
 - **Eventos esportivos** organizados pela comunidade
 - **Chat 1:1** entre matches
 - **Grupos/clubes** com ranking colaborativo
-- **Feed de atividades** público
+- **Feed de atividades** entre matches mútuos
 - **Gamificação** (XP, levels, conquistas, daily quests)
 - **Planos de treino** prontos (5K/10K/21K)
 - **Audio coach** com TTS durante treinos
@@ -283,7 +283,7 @@ SYNC/
 │   │   │   └── entities/
 │   │   │       ├── group.entity.ts
 │   │   │       └── group-member.entity.ts
-│   │   ├── activity-feed/        # Feed de atividades públicas
+│   │   ├── activity-feed/        # Feed de atividades entre matches
 │   │   ├── common/
 │   │   │   ├── security/         # Audit log + sanitização
 │   │   │   │   ├── audit-log.entity.ts
@@ -725,8 +725,8 @@ Base URL: `https://sync-backend-o2zc.onrender.com/api`
 
 | Método | Rota | Auth | Descrição |
 |--------|------|------|-----------|
-| GET | `/?page=` | JWT | Feed global |
-| GET | `/user/:userId?page=` | JWT | Feed de um usuário |
+| GET | `/?page=` | JWT | Feed do usuário e de matches mútuos |
+| GET | `/user/:userId?page=` | JWT | Feed de um usuário com match mútuo |
 | POST | `/` | JWT | Postar atividade (sanitizado) |
 | POST | `/:id/like` | JWT | Like |
 | DELETE | `/:id` | JWT | Deletar (só dono) |

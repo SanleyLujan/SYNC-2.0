@@ -25,6 +25,10 @@ export const matchingApi = {
 
   swipe: (toUserId: string, action: 'like' | 'super_like' | 'pass') =>
     api
-      .post<{ matched: boolean; matchId?: string }>('/matching/swipe', { toUserId, action })
+      .post<{ matched: boolean; matchId?: string; alreadyLiked?: boolean }>('/matching/swipe', {
+        targetUserId: toUserId,
+        isLike: action !== 'pass',
+        isSuperLike: action === 'super_like',
+      })
       .then((r) => r.data),
 };

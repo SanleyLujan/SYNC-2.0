@@ -85,6 +85,7 @@ export default function MapMainScreen({ navigation }: Props) {
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
   const [sportPlaces, setSportPlaces] = useState<SportPlace[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<SportPlace | null>(null);
   const [joining, setJoining] = useState(false);
   const [region, setRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +96,7 @@ export default function MapMainScreen({ navigation }: Props) {
   const [showWeatherPanel, setShowWeatherPanel] = useState(false);
   const [searchRadius, setSearchRadius] = useState(20);
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [showPeopleOnMap, setShowPeopleOnMap] = useState(false);
   const [heatmapPoints, setHeatmapPoints] = useState<Array<[number, number]>>([]);
   const [showHeatmap, setShowHeatmap] = useState(false);
   // Route planner state
@@ -160,7 +162,6 @@ export default function MapMainScreen({ navigation }: Props) {
       };
       setRegion(newRegion);
       loadEvents(coords.latitude, coords.longitude);
-      loadNearbyUsers(coords.latitude, coords.longitude);
       setSportPlaces(buildSportPlaces(coords.latitude, coords.longitude));
       loadWeather(coords.latitude, coords.longitude);
       loadLocationName(coords.latitude, coords.longitude);
@@ -231,7 +232,7 @@ export default function MapMainScreen({ navigation }: Props) {
     try {
       const coords = await getCurrentLocation();
       setUserCoords(coords);
-      loadNearbyUsers(coords.latitude, coords.longitude);
+      if (showPeopleOnMap) loadNearbyUsers(coords.latitude, coords.longitude);
       setSportPlaces(buildSportPlaces(coords.latitude, coords.longitude));
       mapRef.current?.animateToRegion({
         latitude: coords.latitude,
@@ -286,6 +287,25 @@ export default function MapMainScreen({ navigation }: Props) {
     const r = { latitude, longitude, latitudeDelta, longitudeDelta: latitudeDelta };
     mapRef.current?.animateToRegion(r, 350);
     setRegion(r);
+  };
+
+  const planRouteToPlace = async (place: SportPlace) => {
+    if (!userCoords) {
+      showToast('Aguarde sua localização carregar.', 'info');
+      return;
+    }
+    const dest = { latitude: place.latitude, longitude: place.longitude };
+    setSelectedPlace(null);
+    setRouteMode(true);
+    setDestination(dest);
+    setRouteLoading(true);
+    try {
+      setRoute(await planRoute(userCoords, dest, 'foot'));
+    } catch {
+      showToast('Não foi possível calcular a rota agora.', 'error');
+    } finally {
+      setRouteLoading(false);
+    }
   };
 
   const filters = [
@@ -350,6 +370,7 @@ export default function MapMainScreen({ navigation }: Props) {
         showsMyLocationButton={false}
         onPress={async (e: any) => {
           setSelectedEvent(null);
+          setSelectedPlace(null);
           setShowWeatherPanel(false);
           // Modo planejador: usa coordenadas do clique
           if (routeMode && userCoords) {
@@ -395,6 +416,7 @@ export default function MapMainScreen({ navigation }: Props) {
                 coordinate={{ latitude: event.latitude, longitude: event.longitude }}
                 onPress={() => {
                   setSelectedEvent(event);
+                  setSelectedPlace(null);
                   setShowWeatherPanel(false);
                 }}
               >
@@ -422,7 +444,7 @@ export default function MapMainScreen({ navigation }: Props) {
           );
         })}
 
-        {nearbyUsers.map((u) => (
+        {showPeopleOnMap && nearbyUsers.map((u) => (
           <Marker
             key={`user-${u.id}`}
             coordinate={{ latitude: u.latitude, longitude: u.longitude }}
@@ -438,7 +460,15 @@ export default function MapMainScreen({ navigation }: Props) {
         ))}
 
         {sportPlaces.map((place) => (
-          <Marker key={`place-${place.id}`} coordinate={{ latitude: place.latitude, longitude: place.longitude }}>
+          <Marker
+            key={`place-${place.id}`}
+            coordinate={{ latitude: place.latitude, longitude: place.longitude }}
+            onPress={() => {
+              setSelectedPlace(place);
+              setSelectedEvent(null);
+              setShowWeatherPanel(false);
+            }}
+          >
             <View style={styles.placeMarker}>
               <Ionicons name="fitness" size={14} color="#0A0A0F" />
             </View>
@@ -555,11 +585,37 @@ export default function MapMainScreen({ navigation }: Props) {
           </Text>
         </TouchableOpacity>
 
+        {/* Atletas: opt-in e com localização aproximada */}
+        <TouchableOpacity
+          style={[
+            styles.locationChip,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+            showPeopleOnMap && { backgroundColor: theme.primary, borderColor: theme.primary },
+          ]}
+          onPress={() => {
+            const next = !showPeopleOnMap;
+            setShowPeopleOnMap(next);
+            if (next && userCoords) {
+              loadNearbyUsers(userCoords.latitude, userCoords.longitude);
+            } else {
+              setNearbyUsers([]);
+            }
+          }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={showPeopleOnMap ? 'Ocultar atletas do mapa' : 'Mostrar atletas próximos no mapa'}
+        >
+          <Ionicons name="people" size={14} color={showPeopleOnMap ? theme.primaryText : theme.primary} />
+          <Text style={[styles.locationText, { color: theme.textPrimary }, showPeopleOnMap && { color: theme.primaryText }]}>Atletas</Text>
+        </TouchableOpacity>
+
         {/* Territórios — jogo de conquista */}
         <TouchableOpacity
           style={[styles.locationChip, { backgroundColor: theme.surface, borderColor: '#FCD34D' }]}
-          onPress={() => navigation.navigate('Territory')}
+          onPress={() => navigation.push('Territory')}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir territórios"
         >
           <Ionicons name="flag" size={14} color="#FCD34D" />
           <Text style={[styles.locationText, { color: '#FCD34D' }]}>Territórios</Text>
@@ -678,7 +734,7 @@ export default function MapMainScreen({ navigation }: Props) {
 
       {/* Controles de fundo — escondidos quando um evento está aberto, pra
           não ficar tudo empilhado em cima do card. */}
-      {!selectedEvent && (<>
+      {!selectedEvent && !selectedPlace && (<>
       {/* Map controls */}
       <View style={styles.mapControls}>
         <TouchableOpacity style={[styles.mapBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={centerOnUser}>
@@ -691,7 +747,11 @@ export default function MapMainScreen({ navigation }: Props) {
             setSearchRadius(newRadius);
             if (userCoords) {
               loadEvents(userCoords.latitude, userCoords.longitude);
-              loadNearbyUsers(userCoords.latitude, userCoords.longitude);
+              if (showPeopleOnMap) {
+                loadNearbyUsers(userCoords.latitude, userCoords.longitude);
+              } else {
+                setNearbyUsers([]);
+              }
             }
           }}
         >
@@ -931,6 +991,52 @@ export default function MapMainScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
         </Animated.View>
+      )}
+
+      {/* Local esportivo sugerido */}
+      {selectedPlace && (
+        <View style={[styles.eventCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <TouchableOpacity
+            style={styles.closeCard}
+            onPress={() => setSelectedPlace(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar detalhe do local"
+          >
+            <Ionicons name="close-circle" size={24} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={styles.eventCardHeader}>
+            <View style={[styles.eventSportBadge, { backgroundColor: '#FCD34D20' }]}>
+              <Ionicons name="fitness" size={22} color="#FCD34D" />
+            </View>
+            <View style={styles.eventCardInfo}>
+              <Text style={[styles.eventTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                {selectedPlace.name}
+              </Text>
+              <Text style={[styles.eventSport, { color: '#FCD34D' }]}>{selectedPlace.kind}</Text>
+            </View>
+          </View>
+
+          <View style={styles.eventDetails}>
+            <View style={styles.eventDetailRow}>
+              <Ionicons name="information-circle-outline" size={16} color={theme.textSecondary} />
+              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]}>Ponto esportivo sugerido no mapa</Text>
+            </View>
+            <View style={styles.eventDetailRow}>
+              <Ionicons name="location-outline" size={16} color={theme.textSecondary} />
+              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]}>Localização aproximada</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.detailLinkBtn}
+            onPress={() => planRouteToPlace(selectedPlace)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="navigate-outline" size={18} color={colors.primary} />
+            <Text style={styles.detailLinkText}>Planejar rota</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Loading overlay */}

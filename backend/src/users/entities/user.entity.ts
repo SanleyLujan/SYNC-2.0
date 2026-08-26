@@ -102,7 +102,7 @@ export class User {
   @Column({ default: true })
   isProfileVisible: boolean;
 
-  @Column({ default: true })
+  @Column({ default: false })
   showLocation: boolean;
 
   @Column({ default: true })

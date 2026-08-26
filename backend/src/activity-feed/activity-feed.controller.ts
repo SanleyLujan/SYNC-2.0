@@ -23,8 +23,8 @@ export class ActivityFeedController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Posts de um usuário' })
-  userPosts(@Param('userId') userId: string, @Query('page') page?: string) {
-    return this.service.byUser(userId, page ? parseInt(page, 10) : 1);
+  userPosts(@CurrentUser() user: User, @Param('userId') userId: string, @Query('page') page?: string) {
+    return this.service.byUser(user.id, userId, page ? parseInt(page, 10) : 1);
   }
 
   @Post()
@@ -66,8 +66,8 @@ export class ActivityFeedController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar comentários do post' })
-  getComments(@Param('id') id: string, @Query('page') page?: string) {
-    return this.service.getComments(id, page ? parseInt(page, 10) : 1);
+  getComments(@CurrentUser() user: User, @Param('id') id: string, @Query('page') page?: string) {
+    return this.service.getComments(id, user.id, page ? parseInt(page, 10) : 1);
   }
 
   @Post(':id/comments')
