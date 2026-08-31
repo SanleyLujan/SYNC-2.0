@@ -6,16 +6,24 @@
 
 Conecte. Treine. Evolua. — junto com uma comunidade que respira esporte.
 
-[🌐 Acessar app](https://tutu-sync.vercel.app) · [📱 Demo login](#demo) · [📖 Documentação](./DOCUMENTACAO.md)
+[🌐 Acessar app](https://sync-2-0-blush.vercel.app) · [📱 Demo login](#demo) · [📖 Documentação](./DOCUMENTACAO.md)
 
-[![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel)](https://tutu-sync.vercel.app)
-[![Railway](https://img.shields.io/badge/Backend-Railway-0B0D0E?logo=railway)](https://sync-production-4830.up.railway.app/health)
+[![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel)](https://sync-2-0-blush.vercel.app)
+[![Render](https://img.shields.io/badge/Backend-Render-000000?logo=render)](https://sync-backend-o2zc.onrender.com/health)
+[![Supabase](https://img.shields.io/badge/Database-Supabase-3FCF8E?logo=supabase)](https://supabase.com)
+[![Resend](https://img.shields.io/badge/Email-Resend-000000)](https://resend.com)
 [![NestJS](https://img.shields.io/badge/NestJS-10-E0234E?logo=nestjs)](https://nestjs.com)
 [![React Native](https://img.shields.io/badge/React%20Native-0.76-61DAFB?logo=react)](https://reactnative.dev)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)](https://postgresql.org)
 [![License](https://img.shields.io/badge/License-MIT-FF6B35)](#licença)
 
 </div>
+
+> Documentação revisada em 2026-08-30 contra o código e a infraestrutura atuais.
+
+> **Documentação canônica:** [`DOCUMENTACAO.md`](./DOCUMENTACAO.md) concentra os
+> tutoriais técnicos e operacionais. Os demais arquivos `.md` de guia existem apenas
+> para preservar links antigos e encaminham para a seção correspondente.
 
 ---
 
@@ -46,9 +54,10 @@ App rodando em produção:
 
 | Ambiente | URL | Status |
 |----------|-----|--------|
-| **Frontend (PWA)** | https://tutu-sync.vercel.app | 🟢 Online |
-| **Backend API** | https://sync-production-4830.up.railway.app | 🟢 Online |
-| **Healthcheck** | https://sync-production-4830.up.railway.app/health | 🟢 OK |
+| **Frontend (PWA)** | https://sync-2-0-blush.vercel.app | `200` verificado em 2026-08-30 |
+| **Backend API** | https://sync-backend-o2zc.onrender.com | `200` verificado; sujeito a cold start |
+| **Healthcheck** | https://sync-backend-o2zc.onrender.com/health | `200 { "status": "ok" }` verificado |
+| **Swagger opcional** | https://sync-backend-o2zc.onrender.com/api/docs | Desativado no ambiente atual (`404`) |
 
 ### Login de demonstração
 
@@ -59,7 +68,7 @@ Email:    ana@demo.sync       (ou carlos@demo.sync, juliana@demo.sync, etc.)
 Senha:    demo1234
 ```
 
-Ou crie sua própria conta em https://tutu-sync.vercel.app/
+Ou crie sua própria conta em https://sync-2-0-blush.vercel.app/
 
 ---
 
@@ -122,7 +131,7 @@ Ou crie sua própria conta em https://tutu-sync.vercel.app/
 <summary><b>🗺️ Mapa & Rotas</b></summary>
 
 - Mapa minimalista estilo Strava (CartoDB Dark)
-- **Planejador de rotas** — clique no destino, calcula via OSRM (free)
+- **Planejador de rotas** — clique no destino, calcula via instância pública do OSRM
 - Distância + tempo + calorias por sport (walking/running/cycling)
 - **Heatmap** das rotas populares próximas
 - Marker de eventos no mapa
@@ -242,7 +251,7 @@ Ou crie sua própria conta em https://tutu-sync.vercel.app/
 ```
 NestJS 10  ·  TypeORM  ·  PostgreSQL  ·  Socket.io  ·  JWT + bcrypt
 @nestjs/throttler  ·  Helmet  ·  multer  ·  @nestjs/schedule
-Railway hosting + auto-deploy
+Render hosting + auto-deploy
 ```
 
 ### Mobile
@@ -266,23 +275,25 @@ GitHub Actions CI (typecheck + testes em todo PR)
 Chat: reconexão automática de socket (re-vincula handlers + re-entra nas salas)
 Fila offline de mensagens — reenvia quando a internet volta
 Swipe (like/nope) e like do feed com retry antes de reverter
-Retry automático em GET no cold-start do backend (Railway free tier)
+Retry automático em GET no cold-start do backend (Render Free)
 Sessão expirada → volta pro login sozinho (sem tela travada)
 Estados de erro consistentes com "Tentar de novo" (sem dado falso/mock)
 ```
 
-### APIs externas (todas free)
+### APIs externas (sem chave ou em faixa gratuita)
 ```
 OSRM (routing)  ·  OpenStreetMap + CartoDB (tiles)
 Nominatim (geocoding)  ·  Open-Meteo (clima + AQI)
 Sunrise-Sunset.org  ·  ipapi.co  ·  Expo Push  ·  Unsplash
+Resend (email)  ·  Google OAuth tokeninfo  ·  Quotable  ·  VLibras
 ```
 
 ### Hosting
 ```
 Frontend:  Vercel (CDN global)
-Backend:   Railway (container Node.js)
-Database:  PostgreSQL (Railway volume persistente)
+Backend:   Render (Web Service Node.js)
+Database:  PostgreSQL gerenciado (Supabase)
+Email:     Resend API + domínio syncapp.site (DNS na Hostinger)
 ```
 
 ---
@@ -356,8 +367,8 @@ sync/
 ### Pré-requisitos
 
 ```bash
-node >= 18
-npm >= 9
+node >= 20
+npm >= 10
 PostgreSQL (ou usar SQLite via better-sqlite3 em dev)
 ```
 
@@ -375,7 +386,7 @@ npm run start:dev     # http://localhost:3000
 ```bash
 cd mobile
 npm install --legacy-peer-deps
-npm run web           # http://localhost:19006
+npm run web           # http://localhost:8081
 ```
 
 ### Mobile (iOS/Android dev)
@@ -385,7 +396,7 @@ cd mobile
 npm run ios           # ou npm run android
 ```
 
-### Variáveis de ambiente (Railway / dev)
+### Variáveis de ambiente (Render / Supabase / Resend)
 
 ```env
 NODE_ENV=production
@@ -393,18 +404,24 @@ DATABASE_URL=postgres://...
 JWT_SECRET=<64+ chars random>
 JWT_EXPIRATION=7d
 DB_SSL=true
-DB_SYNCHRONIZE=true
+DB_SYNCHRONIZE=false
 PORT=3000
-FRONTEND_URL=https://tutu-sync.vercel.app
+FRONTEND_URL=https://sync-2-0-blush.vercel.app
+BACKEND_URL=https://sync-backend-o2zc.onrender.com
+RESEND_API_KEY=re_...
+EMAIL_FROM=Sync <noreply@syncapp.site>
 
 # Opcionais
 SWAGGER_USER=admin
 SWAGGER_PASS=<senha>
 SEED_TOKEN=<token>          # pra re-rodar seed em prod
 REMINDERS_DISABLED=false    # cron de hidratação
-GOOGLE_CLIENT_ID=<config>   # OAuth (futuro)
+GOOGLE_CLIENT_ID=<config>   # OAuth opcional; veja DOCUMENTACAO.md, seção 22
 STRIPE_SECRET_KEY=<config>  # Pagamentos (futuro)
 ```
+
+Use `DB_SYNCHRONIZE=true` somente no primeiro provisionamento de um banco vazio.
+Depois disso, mantenha `false` para o TypeORM executar as migrations versionadas.
 
 ---
 
@@ -412,17 +429,23 @@ STRIPE_SECRET_KEY=<config>  # Pagamentos (futuro)
 
 | Cor | Hex | Uso |
 |-----|-----|-----|
-| 🟣 Brand | `#4A0E2C` | Logo infinito, badges principais |
-| 🟠 Accent | `#FF6B35` | CTAs, tracking, gradients |
-| ⚫ Background | `#0A0A0F` | Dark theme base |
+| 🔵 Blue | `#3A86FF` | Marca e ação principal no modo escuro |
+| 🩵 Cyan | `#00B4D8` | Gradiente e destaque no modo escuro |
+| 🪸 Coral | `#FF6868` | Ação principal no modo claro |
+| 🟠 Orange | `#FF9F43` | Gradiente e aviso no modo claro |
+| ⚫ Dark background | `#030914` | Fundo principal do tema escuro |
 
-**Logo:** símbolo de infinito (∞) em roxo profundo — representando conexão e movimento contínuo.
+**Logo:** monograma `S` em fita dobrada. O app usa uma versão azul/ciano no modo
+escuro e uma versão coral/roxo/laranja no modo claro, centralizadas em
+`mobile/src/components/Logo.tsx`.
 
 ---
 
 ## 📡 API
 
-Swagger docs: https://sync-production-4830.up.railway.app/api/docs *(protegido com basic auth em prod)*
+Swagger opcional: https://sync-backend-o2zc.onrender.com/api/docs. No ambiente atual ele está desativado e retorna `404`; para habilitar com Basic Auth, configure `SWAGGER_USER` e `SWAGGER_PASS` no Render e faça redeploy.
+
+Os controllers em `backend/src/**/**.controller.ts` são a fonte de verdade permanente para o inventário completo. Quando habilitado, o Swagger reflete esses controllers. Atualmente o backend contém 25 controllers e 166 decorators de rotas REST.
 
 ### Endpoints principais
 
@@ -506,6 +529,6 @@ MIT © Arthur Silva Narciso
 
 **Feito com 🟣 + 🟠 no Brasil.**
 
-[🌐 tutu-sync.vercel.app](https://tutu-sync.vercel.app)
+[🌐 sync-2-0-blush.vercel.app](https://sync-2-0-blush.vercel.app)
 
 </div>
