@@ -83,7 +83,7 @@ api.interceptors.response.use(
     const config: any = error.config || {};
     const url: string = config.url || '';
 
-    // Cold start do Railway (free tier dorme): a 1ª request demora a responder
+    // Cold start do Render Free: a 1ª request pode demorar a responder
     // e estoura timeout/erro de rede. Tenta UMA vez de novo em GET idempotente
     // — assim o app não mostra "erro" só porque o backend estava acordando.
     const isNetworkOrTimeout = !error.response; // timeout ECONNABORTED ou rede

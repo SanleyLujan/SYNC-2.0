@@ -1,4 +1,4 @@
-// Map para web — usa Leaflet vanilla (sem react-leaflet) para evitar
+// Mapa web com Leaflet vanilla para manter controle direto da instância.
 // complexidades de bundle CSS no Metro/Expo Web.
 import React, {
   forwardRef,

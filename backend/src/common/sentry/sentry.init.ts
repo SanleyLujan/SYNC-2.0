@@ -19,7 +19,7 @@ export function initSentry(): { enabled: boolean; dsn?: string } {
     } catch {}
 
     const env = process.env.NODE_ENV || 'development';
-    const release = process.env.SENTRY_RELEASE || process.env.RAILWAY_GIT_COMMIT_SHA || undefined;
+    const release = process.env.SENTRY_RELEASE || process.env.RENDER_GIT_COMMIT || undefined;
 
     Sentry.init({
       dsn,

@@ -48,18 +48,15 @@ async function bootstrap() {
                 'https://images.unsplash.com',
                 'https://*.tile.openstreetmap.org',
                 'https://cdn.jsdelivr.net',
-                'https://*.railway.app',
               ],
               connectSrc: [
                 "'self'",
-                'https://*.railway.app',
                 'https://api.open-meteo.com',
                 'https://air-quality-api.open-meteo.com',
                 'https://api.sunrise-sunset.org',
                 'https://nominatim.openstreetmap.org',
                 'https://ipapi.co',
                 'https://exp.host',
-                'wss://*.railway.app',
               ],
               fontSrc: ["'self'", 'data:', 'https://cdn.jsdelivr.net'],
               objectSrc: ["'none'"],
@@ -124,7 +121,7 @@ async function bootstrap() {
     maxAge: 86400,
   });
 
-  // Trust proxy (Railway envia X-Forwarded-Proto)
+  // Render termina o TLS e encaminha o protocolo original pelos headers do proxy.
   const expressApp = app.getHttpAdapter().getInstance();
   if (typeof expressApp?.set === 'function') {
     expressApp.set('trust proxy', 1);

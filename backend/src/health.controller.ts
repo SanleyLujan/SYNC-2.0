@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 
-// Endpoint de healthcheck para Railway/Render/uptime monitors
+// Endpoint de healthcheck para Render e monitores de disponibilidade.
 @Controller()
 export class HealthController {
   @Get('/')

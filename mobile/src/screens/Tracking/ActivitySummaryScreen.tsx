@@ -335,7 +335,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
       setPhotoUri(asset.uri);
       setUploadingPhoto(true);
       try {
-        // base64 primeiro → vai pro banco e sempre exibe (disco do Railway é
+        // base64 primeiro → vai pro banco e sempre exibe (disco do Render é
         // efêmero e o /media/upload dava 404). Só usa upload se não houver base64.
         if (asset.base64) {
           setPhotoUrl(`data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`);

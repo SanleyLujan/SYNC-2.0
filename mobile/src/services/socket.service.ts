@@ -76,7 +76,7 @@ class SocketService {
         // SECURITY: JWT no handshake.auth, nunca em query params (evita logging em proxies)
         auth: { token },
         // websocket primeiro; cai pra polling se o upgrade WS falhar atrás do
-        // proxy do Railway (evita "falha de conexão" no chat)
+        // proxy do Render (evita "falha de conexão" no chat)
         transports: ['websocket', 'polling'],
         reconnection: false, // gerenciamos manualmente com backoff exponencial
         timeout: 10000,

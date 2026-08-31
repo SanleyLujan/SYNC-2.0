@@ -11,7 +11,7 @@ import * as path from 'path';
  *   npm run migration:run
  *   npm run migration:revert
  *
- * Em produção (Railway), DB_SYNCHRONIZE pode ser desligado e as migrations
+ * Em produção (Render), DB_SYNCHRONIZE fica desligado e as migrations
  * rodam automaticamente (migrationsRun no databaseConfig).
  */
 const isProduction = process.env.NODE_ENV === 'production';

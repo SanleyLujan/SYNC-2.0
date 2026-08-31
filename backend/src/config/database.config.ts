@@ -2,7 +2,7 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import * as path from 'path';
 
 // SQLite para dev. PostgreSQL para produção.
-// Railway/Render injetam DATABASE_URL (preferida) ou DB_* separados.
+// Render injeta DATABASE_URL (preferida); DB_* separados continuam disponíveis em dev.
 export const databaseConfig = (): TypeOrmModuleOptions => {
   const isProduction = process.env.NODE_ENV === 'production';
 

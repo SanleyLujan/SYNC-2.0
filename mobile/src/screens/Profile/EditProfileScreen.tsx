@@ -128,7 +128,7 @@ export default function EditProfileScreen({ navigation }: Props) {
       setUploadingAvatar(true);
       // Avatar vai como base64 → guardado no banco (sempre exibe e sobrevive a
       // redeploy). Evita o /media/upload, cujos arquivos ficam em disco efêmero
-      // no Railway e davam 404 (foto "não trocava").
+      // no container de produção e davam 404 (foto "não trocava").
       let avatarValue: string;
       if (asset.base64) {
         avatarValue = `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;

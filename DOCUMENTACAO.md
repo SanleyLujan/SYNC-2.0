@@ -322,7 +322,6 @@ SYNC/
 │   │   └── main.ts               # Bootstrap (Helmet, CORS, Swagger, etc)
 │   ├── uploads/                  # Arquivos enviados (avatars, stories)
 │   ├── package.json
-│   ├── railway.json                  # Legado; produção atual usa Render
 │   ├── Procfile
 │   ├── .npmrc                    # legacy-peer-deps=true
 │   └── tsconfig.json
