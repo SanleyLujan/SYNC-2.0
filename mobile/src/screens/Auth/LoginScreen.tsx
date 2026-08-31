@@ -23,6 +23,7 @@ import Input from '../../components/ui/Input';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showToast } from '../../components/ui/Toast';
+import { getEmailVerificationRequirement } from '../../utils/authError';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -68,9 +69,10 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (error: any) {
-      if (error.response?.status === 403 && error.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
-        navigation.navigate('VerifyEmailCode', {
-          email: error.response.data.email || email.trim().toLowerCase(),
+      const verification = getEmailVerificationRequirement(error, email);
+      if (verification) {
+        navigation.replace('VerifyEmailCode', {
+          email: verification.email,
         });
         return;
       }

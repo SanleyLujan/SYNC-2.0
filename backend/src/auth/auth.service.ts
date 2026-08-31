@@ -235,6 +235,7 @@ export class AuthService {
       throw new ForbiddenException({
         statusCode: 403,
         code: 'EMAIL_NOT_VERIFIED',
+        emailVerificationRequired: true,
         message: 'Confirme seu email para entrar',
         email: user.email,
       });

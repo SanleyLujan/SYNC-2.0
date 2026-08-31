@@ -132,9 +132,8 @@ export default function RegisterScreen({ navigation }: Props) {
       const msg = error.response?.data?.message;
       const detail = Array.isArray(msg) ? msg.join(' • ') : msg;
       if (status === 409) {
-        // E-mail já cadastrado (backend é vago de propósito p/ anti-enumeração).
-        // Orientamos o usuário legítimo a entrar em vez de só dizer "dados inválidos".
-        showToast('Esse e-mail pode já ter conta. Tente fazer login ou recuperar a senha.', 'error');
+        // O backend mantém a resposta vaga para não revelar qual identificador existe.
+        showToast('Já existe uma conta com esse email ou CPF. Tente entrar ou recuperar a senha.', 'error');
       } else if (!error.response) {
         // Sem resposta = falha de rede/servidor fora do ar
         showToast('Sem conexão com o servidor. Verifique sua internet e tente de novo.', 'error');

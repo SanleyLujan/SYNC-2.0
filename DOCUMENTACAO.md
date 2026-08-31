@@ -15,7 +15,7 @@
 - **CI/CD:** https://github.com/SanleyLujan/SYNC-2.0/actions
 - **Autor:** Sanley Lujan
 - **Versão:** 1.0.0
-- **Última atualização:** 2026-08-30
+- **Última atualização:** 2026-08-31
 
 ---
 
@@ -1709,6 +1709,12 @@ O backend NestJS é responsável por usuários, senha bcrypt, confirmação de e
 O Supabase é somente o PostgreSQL. Essa separação permite trocar o provedor de banco
 sem substituir endpoints, tokens ou as regras de sessão do Sync.
 
+Email e CPF identificam a conta. Um email não pode ser cadastrado novamente e o mesmo
+CPF não pode criar outra conta, ainda que seja informado um email diferente. O backend
+responde `409` de forma genérica para não revelar qual identificador já existe; o app
+orienta a entrar ou recuperar a senha. Uma conta com email e CPF diferentes continua
+podendo ser criada normalmente.
+
 ## 22.2 Confirmação obrigatória por código
 
 1. `POST /api/auth/register` valida os dados e cria a conta com
@@ -1720,8 +1726,11 @@ sem substituir endpoints, tokens ou as regras de sessão do Sync.
    `POST /api/auth/verify-email-code`.
 5. Depois da validação correta, código e expiração são apagados, a conta é marcada
    como confirmada e o JWT é emitido.
-6. `POST /api/auth/login` devolve `EMAIL_NOT_VERIFIED` para uma conta pendente; a
-   estratégia JWT também impede que um token antigo contorne a confirmação.
+6. Depois de validar email e senha, `POST /api/auth/login` devolve `403` com
+   `EMAIL_NOT_VERIFIED`, `emailVerificationRequired=true` e o email normalizado quando
+   a conta continua pendente. O app troca a tela de login por `VerifyEmailCodeScreen`,
+   permitindo usar o código recebido ou solicitar outro. A estratégia JWT também
+   impede que um token antigo contorne a confirmação.
 
 O reenvio usa `POST /api/auth/request-verification`: há espera de 60 segundos na UI,
 limite de três solicitações em cinco minutos por IP, invalidação imediata do código
@@ -1734,7 +1743,7 @@ contas. A comparação usa `timingSafeEqual` e falhas entram no audit log como
 | `POST` | `/api/auth/register` | Cria conta pendente e envia o código |
 | `POST` | `/api/auth/verify-email-code` | Confirma o código e retorna usuário + JWT |
 | `POST` | `/api/auth/request-verification` | Invalida o anterior e envia outro código |
-| `POST` | `/api/auth/login` | Bloqueia conta pendente com `EMAIL_NOT_VERIFIED` |
+| `POST` | `/api/auth/login` | Encaminha conta pendente à confirmação após validar a senha |
 
 A migration `backend/src/migrations/1781700000000-AddEmailVerificationAttempts.ts`
 adiciona `emailVerificationAttempts`. Os campos `emailVerified`,
@@ -2003,4 +2012,4 @@ contém as tabelas e colunas desta entrega. Em produção, mantenha
 
 ---
 
-**Documentação revisada em 2026-08-30 — versão 1.0 — Sync v1.0.0**
+**Documentação revisada em 2026-08-31 — versão 1.0 — Sync v1.0.0**
