@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showToast } from '../../components/ui/Toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isRequestTimeout } from '../../utils/authError';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
@@ -134,8 +135,13 @@ export default function RegisterScreen({ navigation }: Props) {
       if (status === 409) {
         // O backend mantém a resposta vaga para não revelar qual identificador existe.
         showToast('Já existe uma conta com esse email ou CPF. Tente entrar ou recuperar a senha.', 'error');
+      } else if (isRequestTimeout(error)) {
+        showToast(
+          'O servidor demorou para iniciar. Aguarde um instante e tente entrar com este email e senha; sua conta pode já ter sido criada.',
+          'error',
+        );
       } else if (!error.response) {
-        // Sem resposta = falha de rede/servidor fora do ar
+        // Sem resposta e sem timeout = falha de rede ou servidor indisponível.
         showToast('Sem conexão com o servidor. Verifique sua internet e tente de novo.', 'error');
       } else {
         showToast(detail || 'Não foi possível criar sua conta.', 'error');

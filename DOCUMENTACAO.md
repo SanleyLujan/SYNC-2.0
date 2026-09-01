@@ -1366,6 +1366,7 @@ Versão `sync-v4` com invalidação automática dos caches anteriores.
 | `DB_SSL` | não | Default `true` em prod |
 | `RESEND_API_KEY` | sim | Chave privada da API HTTPS do Resend |
 | `EMAIL_FROM` | sim | Remetente verificado, ex.: `Sync <noreply@syncapp.site>` |
+| `RESEND_TIMEOUT_MS` | não | Limite de espera pelo Resend em ms; default `8000` |
 | `SWAGGER_USER` | não | Username pra basic-auth do `/api/docs` |
 | `SWAGGER_PASS` | não | Senha pra basic-auth |
 | `ADMIN_EMAILS` | não | CSV de emails autorizados no painel administrativo |

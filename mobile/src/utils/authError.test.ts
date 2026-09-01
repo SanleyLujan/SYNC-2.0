@@ -1,4 +1,17 @@
-import { getEmailVerificationRequirement } from './authError';
+import { getEmailVerificationRequirement, isRequestTimeout } from './authError';
+
+describe('isRequestTimeout', () => {
+  it('recognizes Axios and network timeout errors', () => {
+    expect(isRequestTimeout({ code: 'ECONNABORTED' })).toBe(true);
+    expect(isRequestTimeout({ code: 'ETIMEDOUT' })).toBe(true);
+    expect(isRequestTimeout({ message: 'timeout of 30000ms exceeded' })).toBe(true);
+  });
+
+  it('does not classify a generic network error as timeout', () => {
+    expect(isRequestTimeout({ code: 'ERR_NETWORK', message: 'Network Error' })).toBe(false);
+    expect(isRequestTimeout(null)).toBe(false);
+  });
+});
 
 describe('getEmailVerificationRequirement', () => {
   it('recognizes the current flat backend response', () => {

@@ -1,4 +1,4 @@
-import api from './api';
+import api, { ensureApiAvailable } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { secureStorage } from './secure-storage';
 import { AuthResponse, RegistrationResponse, User, SportLevel } from '../types';
@@ -36,12 +36,18 @@ export const authService = {
     name: string, email: string, password: string, confirmPassword: string,
     extra?: { weightKg?: number; heightCm?: number; gender?: string; cpf?: string },
   ): Promise<RegistrationResponse> {
-    const { data } = await api.post('/auth/register', { name, email, password, confirmPassword, ...extra });
+    await ensureApiAvailable();
+    const { data } = await api.post(
+      '/auth/register',
+      { name, email, password, confirmPassword, ...extra },
+      { timeout: 30_000 },
+    );
     return data;
   },
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const { data } = await api.post('/auth/login', { email, password });
+    await ensureApiAvailable();
+    const { data } = await api.post('/auth/login', { email, password }, { timeout: 30_000 });
     await this.saveAuth(data);
     return data;
   },

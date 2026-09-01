@@ -38,6 +38,13 @@ export const API_URL = getApiBase();
 // Base sem o /api — usado por sockets e static (avatars)
 export const API_HOST = API_URL.replace(/\/api$/, '');
 
+// O Render pode levar cerca de um minuto para iniciar o serviço após um
+// período ocioso. Esta chamada GET acorda a API antes de operações POST que
+// não podem ser repetidas com segurança, como cadastro e login.
+export async function ensureApiAvailable(): Promise<void> {
+  await axios.get(`${API_URL}/health`, { timeout: 75_000 });
+}
+
 const api = axios.create({
   baseURL: API_URL,
   timeout: 15000,

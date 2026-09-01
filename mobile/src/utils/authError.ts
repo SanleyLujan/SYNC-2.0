@@ -4,6 +4,16 @@ export interface EmailVerificationRequirement {
   email: string;
 }
 
+export function isRequestTimeout(error: unknown): boolean {
+  const payload = asPayload(error);
+  const code = asString(payload?.code)?.toUpperCase();
+  const message = asString(payload?.message)?.toLowerCase() || '';
+
+  return code === 'ECONNABORTED'
+    || code === 'ETIMEDOUT'
+    || message.includes('timeout');
+}
+
 function asPayload(value: unknown): ErrorPayload | null {
   return value !== null && typeof value === 'object' ? value as ErrorPayload : null;
 }

@@ -33,14 +33,26 @@ export class EmailService {
   }
 
   private async sendWithResend(apiKey: string, from: string, to: string, subject: string, html: string, text: string): Promise<void> {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, html, text }),
-    });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new Error(`Resend falhou (${response.status}): ${detail.slice(0, 300)}`);
+    const configuredTimeout = parseInt(process.env.RESEND_TIMEOUT_MS || '8000', 10);
+    const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+      ? configuredTimeout
+      : 8000;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, subject, html, text }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(`Resend falhou (${response.status}): ${detail.slice(0, 300)}`);
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

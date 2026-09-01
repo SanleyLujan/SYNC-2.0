@@ -410,6 +410,7 @@ FRONTEND_URL=https://sync-2-0-blush.vercel.app
 BACKEND_URL=https://sync-backend-o2zc.onrender.com
 RESEND_API_KEY=re_...
 EMAIL_FROM=Sync <noreply@syncapp.site>
+RESEND_TIMEOUT_MS=8000
 
 # Opcionais
 SWAGGER_USER=admin
