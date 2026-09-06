@@ -454,6 +454,14 @@ pasta; apenas os arquivos de exemplo sem segredos são versionados.
 escuro e uma versão coral/roxo/laranja no modo claro, centralizadas em
 `mobile/src/components/Logo.tsx`.
 
+O ícone de instalação (PWA, iOS e Android) usa a imagem fornecida em
+`mobile/src/assets/images/app-icon-source.png`. Para regenerar os tamanhos, com
+as dependências do backend instaladas, execute da raiz
+`node mobile/scripts/generate-app-icons.js`. O manifesto e as tags Apple são
+publicados por `mobile/scripts/postbuild.js`; ao trocar a imagem, atualize também
+a versão nas URLs dos ícones e no service worker. Um app nativo exige novo build;
+um atalho PWA existente pode precisar ser removido e adicionado novamente após o deploy.
+
 ---
 
 ## 📡 API

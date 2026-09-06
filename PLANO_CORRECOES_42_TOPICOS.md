@@ -116,6 +116,11 @@ Riscos que continuam impedindo qualquer promessa de segurança total:
 
 ## Validação local desta atualização
 
+Atualização adicional em 06/09/2026: a logo enviada pelo usuário foi incorporada aos
+ícones de instalação PWA/iOS/Android e favicon. Ícones quadrados preservam as cores
+e proporções da arte, com versão nova nas URLs e no cache do service worker.
+Essa alteração de identidade visual não muda o estado funcional dos 42 tópicos.
+
 - Backend: build/typecheck concluído; **41 testes aprovados em 10 suítes**.
 - Mobile: typecheck concluído; **21 testes aprovados em 6 suítes**.
 - Web: export de produção concluído; **1.295 módulos empacotados**.

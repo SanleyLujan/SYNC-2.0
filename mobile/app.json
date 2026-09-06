@@ -11,7 +11,7 @@
       "resizeMode": "contain"
     },
     "web": {
-      "favicon": "./src/assets/images/sync-logo-light.png",
+      "favicon": "./public/favicon.png",
       "name": "Sync — Seu próximo treino começa aqui",
       "shortName": "Sync",
       "themeColor": "#3A86FF",
@@ -34,8 +34,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/images/icon.png",
-        "backgroundColor": "#0A0A0F"
+        "foregroundImage": "./src/assets/images/adaptive-icon.png",
+        "backgroundColor": "#000000"
       },
       "package": "com.sync.app",
       "permissions": [

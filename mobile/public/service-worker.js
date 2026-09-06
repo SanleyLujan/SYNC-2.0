@@ -6,7 +6,7 @@
 //   - tiles (OSM): cache-first até 7 dias
 //   - API (/api/*): network-first com cache de 5min
 
-const VERSION = 'sync-v4';
+const VERSION = 'sync-v5-icons-20260906';
 const SHELL = `sync-shell-${VERSION}`;
 const IMAGES = `sync-images-${VERSION}`;
 const TILES = `sync-tiles-${VERSION}`;
@@ -43,6 +43,12 @@ self.addEventListener('fetch', (event) => {
 
   // Apenas GET é cacheado
   if (req.method !== 'GET') return;
+
+  // O manifesto pode mudar a cada deploy; não deve ficar preso no cache-first.
+  if (url.origin === self.location.origin && url.pathname === '/manifest.json') {
+    event.respondWith(networkFirst(req, SHELL, 0));
+    return;
+  }
 
   // O HTML precisa vir da rede primeiro. Usar cache-first aqui pode manter um
   // index.html antigo apontando para bundles removidos em um novo deploy.
@@ -150,8 +156,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Sync';
   const options = {
     body: data.body || '',
-    icon: '/favicon.png',
-    badge: '/favicon.png',
+    icon: '/icon-192.png?v=20260906',
+    badge: '/favicon.png?v=20260906',
     data: data.data || {},
     tag: data.tag || 'sync-notification',
   };
