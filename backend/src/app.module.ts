@@ -32,6 +32,7 @@ import { MediaModule } from './media/media.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 import { VerificationModule } from './verification/verification.module';
+import { PlacesModule } from './places/places.module';
 
 @Module({
   controllers: [HealthController],
@@ -82,6 +83,7 @@ import { VerificationModule } from './verification/verification.module';
     MediaModule,
     AdminModule,
     VerificationModule,
+    PlacesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

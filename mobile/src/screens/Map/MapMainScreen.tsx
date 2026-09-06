@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ScrollView,
   Dimensions,
+  Linking,
 } from 'react-native';
 import MapView, { Marker, Circle, HeatLayer, Polyline } from '../../components/map/SyncMap';
 import { planRoute, RouteResult } from '../../services/routing.service';
@@ -51,6 +52,8 @@ type SportPlace = {
   kind: string;
   latitude: number;
   longitude: number;
+  address: string;
+  sourceUrl: string;
 };
 
 const sportIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -83,9 +86,9 @@ export default function MapMainScreen({ navigation }: Props) {
   const theme = useThemeStore((s) => s.theme);
   const [events, setEvents] = useState<EventType[]>([]);
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
-  // Item 31: keep places hidden until a real, licensed data source is integrated.
-  // Never generate destinations by offsetting the user's coordinates.
-  const sportPlaces: SportPlace[] = [];
+  const [sportPlaces, setSportPlaces] = useState<SportPlace[]>([]);
+  const [placesStatus, setPlacesStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [placesRetry, setPlacesRetry] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<SportPlace | null>(null);
   const [joining, setJoining] = useState(false);
@@ -107,6 +110,24 @@ export default function MapMainScreen({ navigation }: Props) {
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const mapRef = useRef<MapView>(null);
+
+  useEffect(() => {
+    if (!userCoords) return;
+    let active = true;
+    setSportPlaces([]);
+    setSelectedPlace(null);
+    setPlacesStatus('loading');
+    api.get('/places/gyms/nearby', { params: { latitude: userCoords.latitude, longitude: userCoords.longitude }, timeout: 30_000 })
+      .then(({ data }) => {
+        if (!active) return;
+        if (!Array.isArray(data?.places)) throw new Error('Invalid places response');
+        setSportPlaces(data.places);
+        setPlacesStatus('ready');
+      }).catch(() => {
+        if (active) setPlacesStatus('error');
+      });
+    return () => { active = false; };
+  }, [userCoords?.latitude, userCoords?.longitude, placesRetry]);
 
   // Carrega heatmap quando ativado e há localização
   useEffect(() => {
@@ -241,6 +262,7 @@ export default function MapMainScreen({ navigation }: Props) {
 
   const handleFilterPress = (sportId: string | null) => {
     setFilter(sportId);
+    setSelectedPlace(null);
     if (userCoords) {
       loadEvents(userCoords.latitude, userCoords.longitude);
     }
@@ -453,7 +475,7 @@ export default function MapMainScreen({ navigation }: Props) {
           </Marker>
         ))}
 
-        {sportPlaces.map((place) => (
+        {(!filter || filter === 'gym') && sportPlaces.map((place) => (
           <Marker
             key={`place-${place.id}`}
             coordinate={{ latitude: place.latitude, longitude: place.longitude }}
@@ -464,7 +486,7 @@ export default function MapMainScreen({ navigation }: Props) {
             }}
           >
             <View style={styles.placeMarker}>
-              <Ionicons name="fitness" size={14} color="#0A0A0F" />
+              <Ionicons name="barbell" size={14} color="#0A0A0F" />
             </View>
           </Marker>
         ))}
@@ -760,6 +782,14 @@ export default function MapMainScreen({ navigation }: Props) {
         <Text style={[styles.eventCountText, { color: theme.textPrimary }]}>
           {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''} proximo{filteredEvents.length !== 1 ? 's' : ''}
           {nearbyUsers.length > 0 ? ` · ${nearbyUsers.length} atleta${nearbyUsers.length !== 1 ? 's' : ''}` : ''}
+          {(!filter || filter === 'gym') && (
+            <Text onPress={() => { if (placesStatus !== 'loading') setPlacesRetry(n => n + 1); }}>
+              {'\n'}{placesStatus === 'loading' ? 'Buscando academias no OSM…' : placesStatus === 'error'
+                ? 'Academias indisponíveis · toque para tentar'
+                : sportPlaces.length ? `${sportPlaces.length} academias no OSM · até 5 km`
+                : 'Nenhuma academia cadastrada no OSM em 5 km'}
+            </Text>
+          )}
         </Text>
       </View>
 
@@ -1014,11 +1044,15 @@ export default function MapMainScreen({ navigation }: Props) {
           <View style={styles.eventDetails}>
             <View style={styles.eventDetailRow}>
               <Ionicons name="information-circle-outline" size={16} color={theme.textSecondary} />
-              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]}>Ponto esportivo sugerido no mapa</Text>
+              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]} onPress={() => {
+                if (/^https:\/\/www\.openstreetmap\.org\/(node|way|relation)\/\d+$/.test(selectedPlace.sourceUrl)) {
+                  Linking.openURL(selectedPlace.sourceUrl).catch(() => showToast('Não foi possível abrir a fonte.', 'info'));
+                }
+              }}>© OpenStreetMap · ver cadastro (ODbL)</Text>
             </View>
             <View style={styles.eventDetailRow}>
               <Ionicons name="location-outline" size={16} color={theme.textSecondary} />
-              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]}>Localização aproximada</Text>
+              <Text style={[styles.eventDetailText, { color: theme.textSecondary }]}>{selectedPlace.address || 'Endereço não informado no cadastro'}{'\n'}Localização cadastrada; dados podem estar desatualizados.</Text>
             </View>
           </View>
 
@@ -1315,6 +1349,7 @@ const styles = StyleSheet.create({
     marginTop: -3,
   },
   eventCountBadge: {
+    maxWidth: '94%',
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 100 : 85,
     alignSelf: 'center',

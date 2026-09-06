@@ -49,7 +49,7 @@
 | 28 | 🔴 | Territórios e prêmios manipuláveis | Coordenadas ainda podem ser confiadas ao cliente e prêmios são decorativos, embora o módulo sugira competição real. | Aceitar apenas atividades GPS validadas e implementar temporada/premiação server-side. |
 | 29 | 🔴 | Segmentos e KOM manipuláveis | Tempos manuais/geometria insuficiente permitem ranking não confiável. | Gerar esforços apenas de rotas GPS elegíveis, com detecção de anomalia. |
 | 30 | 🔴 | Desafios sem validação esportiva | Resultado pode ser autodeclarado e expiração não é concluída de forma confiável. | Apurar atividades elegíveis no servidor e criar job idempotente de encerramento. |
-| 31 | ⚫ | Locais esportivos fictícios no mapa | Em 06/09/2026, removida a geração de pontos por deslocamento das coordenadas do usuário, inclusive ao recentralizar. Marcadores e cartões desses locais ficam ocultos; eventos e pessoas não foram alterados. | Integrar uma fonte real licenciada antes de reativar; publicação e conferência no celular pendentes. |
+| 31 | 🟡 | Locais esportivos fictícios no mapa | Em 06/09/2026, substituídos por consulta autenticada de academias cadastradas no OpenStreetMap via Overpass. Até 100 resultados em 5 km, nome/endereço disponível, fonte e rota; estados de carregamento, vazio e falha sem locais inventados. | Publicar backend e frontend e conferir no celular. Cobertura depende dos cadastros OSM; demais tipos de locais continuam ocultos. |
 | 32 | 🔴 | Planejador descarta a rota ao iniciar | A rota planejada não acompanha o tracking, apesar de a interface sugerir que será seguida. | Persistir e repassar geometria, orientação e estado de desvio. |
 | 33 | 🟡 | Planos de treino são calendário estático | O calendário aparece, mas ainda não registra conclusão, vínculo com atividade ou adaptação. | Criar sessões de treino e progresso sincronizado. |
 | 34 | 🟡 | “IA Coach” é regra fixa | Algumas sugestões funcionam, porém o nome “IA” promete mais do que a implementação determinística entrega. | Renomear para “Insights” ou implementar IA real com limites e ações verificáveis. |
@@ -65,10 +65,10 @@
 ## Resumo por cor
 
 - 🟢 **10 resolvidos no código:** 2, 3, 10, 11, 14, 17, 18, 19, 20 e 22.
-- 🟡 **17 parciais/condicionados:** 1, 6, 7, 9, 12, 13, 23, 24, 27, 33, 34, 36, 37, 39, 40, 41 e 42.
+- 🟡 **18 parciais/condicionados:** 1, 6, 7, 9, 12, 13, 23, 24, 27, 31, 33, 34, 36, 37, 39, 40, 41 e 42.
 - 🔴 **8 ainda não funcionam como prometido:** 21, 25, 28, 29, 30, 32, 35 e 38.
 - ⚪ **1 não iniciado e não deve ser anunciado:** 26.
-- ⚫ **5 removidos/ocultos:** 4, 5, 15, 16 e 31.
+- ⚫ **4 removidos/ocultos:** 4, 5, 15 e 16.
 - 🔵 **1 adiado conscientemente:** 8.
 
 Os itens 14–23 solicitados nesta etapa foram tratados. Os itens 14, 17, 18, 19, 20 e 22 estão concluídos no código; 15 e 16 foram ocultados; 21 permanece incompleto na web por decisão pendente; 23 está implementado, mas fica amarelo até receber infraestrutura privada, migration, deploy e teste operacional. O item 1 foi substituído — não reativado como simulação — pelo fluxo seguro do item 23.
@@ -77,10 +77,18 @@ Os itens 14–23 solicitados nesta etapa foram tratados. Os itens 14, 17, 18, 19
 
 ### Atualização de mapas — 06/09/2026
 
-- Item 31: geração de locais fictícios removida; academias reais via fonte licenciada ainda pendentes. Layout, eventos e pessoas preservados.
+- Legibilidade (item 41, web/PWA): mapa compartilhado passa a acompanhar o tema persistido do app. Voyager no claro; Dark Matter com brilho 1,75 e contraste 1,08 apenas na camada de tiles no escuro. Créditos com cores adaptadas e fonte de 11 px. Troca de tema atualiza apenas tiles, preservando instância, centro, zoom, marcadores e rotas. Layout externo inalterado; ajuste visual final no celular e publicação pendentes. Mapas nativos não foram alterados nesta etapa.
+
+- Item 31: academias reais integradas via `GET /api/places/gyms/nearby`, sem tabela, migration, chave nova ou dependência adicional. Mantidos cores e componentes existentes, com ícone de academia e mensagens de estado/fonte.
+- Consulta `leisure=fitness_centre`, incluindo pontos e centros de áreas; exclui cadastros privados/desativados e coordenadas inválidas, deduplica IDs OSM. Não certifica funcionamento comercial nem entrada exata do estabelecimento.
+- Cache em memória de seis horas por grade (~1 km), máximo 200 entradas; no máximo uma consulta externa simultânea e intervalo global de 15 segundos por processo. Login, rate limit, parâmetros numéricos limitados, endpoint HTTPS fixo sem redirects, timeout e resposta limitada a 2 MB. Falhas não se transformam em resultados vazios de sucesso.
+- Overpass recebe apenas centro arredondado e raio, não identidade, token ou GPS exato. O frontend envia coordenadas ao próprio backend para filtragem dos 5 km. A hospedagem comunitária é gratuita mas limitada, sem garantia de disponibilidade; cache/limite local precisam ser compartilhados se houver múltiplas instâncias.
+- Fontes: https://wiki.openstreetmap.org/wiki/Tag:leisure=fitness_centre e https://wiki.openstreetmap.org/wiki/Overpass_API . Dados OSM sob ODbL, com fonte identificada e link no cartão.
+- Validação local: TypeScript backend/mobile e 46 testes backend aprovados, incluindo cinco testes da nova busca (normalização, cache, parâmetros, falhas e limite). Publicação e teste visual em celular pendentes.
+- Consulta externa real validada em 06/09/2026: centro arredondado de Resende (-22.47, -44.45) retornou três academias cadastradas em até 5 km. Isso não representa cobertura completa ou verificação presencial.
 - Os dois componentes web agora leem `EXPO_PUBLIC_CARTO_API_KEY` no build. Configurar na Vercel como Config antes do deploy; não versionar o valor real. Chave pública de basemaps, não segredo administrativo.
 - Mantidos os estilos existentes e a atribuição CARTO/OpenStreetMap; cache do service worker versionado para renovar os mapas. Sem chave, o provedor ainda pode exibir o aviso.
-- A integração não altera GPS nem adiciona estabelecimentos. Confirmação da chave em produção depende do deploy e da aceitação pela CARTO.
+- A configuração CARTO não altera GPS nem adiciona estabelecimentos; a nova busca OSM é independente dela. Confirmação da chave em produção depende do deploy e da aceitação pela CARTO.
 
 **Não é possível garantir que um app conectado à internet seja “100% seguro”.** O que pode ser afirmado é que foram aplicadas defesas concretas e que as validações locais passaram. Uma garantia absoluta seria tecnicamente enganosa, especialmente antes do deploy, pentest independente e operação contínua.
 

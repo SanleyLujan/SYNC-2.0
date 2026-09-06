@@ -11,6 +11,7 @@ import { View } from 'react-native';
 import ReactDOMServer from 'react-dom/server';
 import L from 'leaflet';
 import { getCartoTileUrl } from '../../utils/carto';
+import { useThemeStore } from '../../store/themeStore';
 
 // CSS do Leaflet + overrides do Sync (injetado uma vez)
 function ensureLeafletCss() {
@@ -29,13 +30,22 @@ function ensureLeafletCss() {
   const style = document.createElement('style');
   style.id = 'sync-leaflet-style';
   style.innerHTML = `
-    .leaflet-container { background: #0A0A0F; outline: none; }
-    .leaflet-control-attribution {
-      background: rgba(10,10,15,0.6) !important;
-      color: rgba(255,255,255,0.5) !important;
-      font-size: 9px !important;
+    .sync-map { background: #f2f4f5; outline: none; }
+    .sync-map[data-theme="dark"] { background: #17212b; }
+    .sync-map[data-theme="dark"] .leaflet-tile-pane {
+      filter: brightness(1.75) contrast(1.08);
     }
-    .leaflet-control-attribution a { color: #FF6B35 !important; }
+    .sync-map .leaflet-control-attribution {
+      background: rgba(255,255,255,0.94) !important;
+      color: #334155 !important;
+      font-size: 11px !important;
+    }
+    .sync-map .leaflet-control-attribution a { color: #1d4ed8 !important; }
+    .sync-map[data-theme="dark"] .leaflet-control-attribution {
+      background: rgba(15,23,42,0.94) !important;
+      color: #e2e8f0 !important;
+    }
+    .sync-map[data-theme="dark"] .leaflet-control-attribution a { color: #93c5fd !important; }
     .sync-marker { background: transparent !important; border: 0 !important; }
   `;
   document.head.appendChild(style);
@@ -94,6 +104,8 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const tileRef = useRef<L.TileLayer | null>(null);
+  const mode = useThemeStore(s => s.theme.mode);
   const [, force] = React.useReducer((x) => x + 1, 0);
 
   // Aceita region OU initialRegion; fallback pra coords seguras
@@ -119,8 +131,7 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
       return;
     }
 
-    // Estilo Strava-like: minimalista, sem cores fortes (CartoDB Positron / Voyager)
-    L.tileLayer(getCartoTileUrl(), {
+    tileRef.current = L.tileLayer(getCartoTileUrl(mode === 'dark'), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       maxZoom: 19,
       subdomains: 'abcd',
@@ -129,13 +140,23 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
     if (onPress) map.on('click', onPress);
     mapRef.current = map;
     force(); // re-render para filhos receberem o context
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      tileRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Only replace basemap tiles; preserve GPS, zoom, markers and route layers.
+  useEffect(() => {
+    tileRef.current?.setUrl(getCartoTileUrl(mode === 'dark'));
+  }, [mode]);
 
   // Atualiza centro quando region muda externamente (sem re-criar o map)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !region) return;
     const current = map.getCenter();
     if (
       Math.abs(current.lat - region.latitude) > 0.0001 ||
@@ -146,7 +167,7 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
         duration: 0.5,
       });
     }
-  }, [region.latitude, region.longitude, region.latitudeDelta]);
+  }, [region?.latitude, region?.longitude, region?.latitudeDelta]);
 
   useImperativeHandle(
     ref,
@@ -165,6 +186,8 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
   return (
     <View style={[{ flex: 1, position: 'relative', overflow: 'hidden' }, style]}>
       <div
+        className="sync-map"
+        data-theme={mode}
         ref={containerRef as any}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       />
