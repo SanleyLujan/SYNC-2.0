@@ -10,6 +10,7 @@ import React, {
 import { View } from 'react-native';
 import ReactDOMServer from 'react-dom/server';
 import L from 'leaflet';
+import { getCartoTileUrl } from '../../utils/carto';
 
 // CSS do Leaflet + overrides do Sync (injetado uma vez)
 function ensureLeafletCss() {
@@ -119,8 +120,8 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
     }
 
     // Estilo Strava-like: minimalista, sem cores fortes (CartoDB Positron / Voyager)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    L.tileLayer(getCartoTileUrl(), {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       maxZoom: 19,
       subdomains: 'abcd',
     }).addTo(map);

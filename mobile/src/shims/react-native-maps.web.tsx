@@ -1,6 +1,7 @@
 // Web shim for react-native-maps - renders an interactive map using Leaflet
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
+import { getCartoTileUrl } from '../utils/carto';
 
 const getLeafletHTML = (lat: number, lng: number, zoom: number, darkMode: boolean) => `
 <!DOCTYPE html>
@@ -18,8 +19,8 @@ const getLeafletHTML = (lat: number, lng: number, zoom: number, darkMode: boolea
   <div id="map"></div>
   <script>
     var map = L.map('map', { zoomControl: false }).setView([${lat}, ${lng}], ${zoom});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/${darkMode ? 'dark_all' : 'rastertiles/voyager'}/{z}/{x}/{y}{r}.png', {
-      attribution: '',
+    L.tileLayer('${getCartoTileUrl(darkMode)}', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       maxZoom: 19,
     }).addTo(map);
 

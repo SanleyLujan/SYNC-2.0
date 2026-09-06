@@ -49,7 +49,7 @@
 | 28 | 🔴 | Territórios e prêmios manipuláveis | Coordenadas ainda podem ser confiadas ao cliente e prêmios são decorativos, embora o módulo sugira competição real. | Aceitar apenas atividades GPS validadas e implementar temporada/premiação server-side. |
 | 29 | 🔴 | Segmentos e KOM manipuláveis | Tempos manuais/geometria insuficiente permitem ranking não confiável. | Gerar esforços apenas de rotas GPS elegíveis, com detecção de anomalia. |
 | 30 | 🔴 | Desafios sem validação esportiva | Resultado pode ser autodeclarado e expiração não é concluída de forma confiável. | Apurar atividades elegíveis no servidor e criar job idempotente de encerramento. |
-| 31 | 🔴 | Locais esportivos fictícios no mapa | Marcadores artificiais continuam parecendo locais reais para o usuário. | Integrar uma fonte real licenciada ou remover os marcadores. |
+| 31 | ⚫ | Locais esportivos fictícios no mapa | Em 06/09/2026, removida a geração de pontos por deslocamento das coordenadas do usuário, inclusive ao recentralizar. Marcadores e cartões desses locais ficam ocultos; eventos e pessoas não foram alterados. | Integrar uma fonte real licenciada antes de reativar; publicação e conferência no celular pendentes. |
 | 32 | 🔴 | Planejador descarta a rota ao iniciar | A rota planejada não acompanha o tracking, apesar de a interface sugerir que será seguida. | Persistir e repassar geometria, orientação e estado de desvio. |
 | 33 | 🟡 | Planos de treino são calendário estático | O calendário aparece, mas ainda não registra conclusão, vínculo com atividade ou adaptação. | Criar sessões de treino e progresso sincronizado. |
 | 34 | 🟡 | “IA Coach” é regra fixa | Algumas sugestões funcionam, porém o nome “IA” promete mais do que a implementação determinística entrega. | Renomear para “Insights” ou implementar IA real com limites e ações verificáveis. |
@@ -66,14 +66,21 @@
 
 - 🟢 **10 resolvidos no código:** 2, 3, 10, 11, 14, 17, 18, 19, 20 e 22.
 - 🟡 **17 parciais/condicionados:** 1, 6, 7, 9, 12, 13, 23, 24, 27, 33, 34, 36, 37, 39, 40, 41 e 42.
-- 🔴 **9 ainda não funcionam como prometido:** 21, 25, 28, 29, 30, 31, 32, 35 e 38.
+- 🔴 **8 ainda não funcionam como prometido:** 21, 25, 28, 29, 30, 32, 35 e 38.
 - ⚪ **1 não iniciado e não deve ser anunciado:** 26.
-- ⚫ **4 removidos/ocultos:** 4, 5, 15 e 16.
+- ⚫ **5 removidos/ocultos:** 4, 5, 15, 16 e 31.
 - 🔵 **1 adiado conscientemente:** 8.
 
 Os itens 14–23 solicitados nesta etapa foram tratados. Os itens 14, 17, 18, 19, 20 e 22 estão concluídos no código; 15 e 16 foram ocultados; 21 permanece incompleto na web por decisão pendente; 23 está implementado, mas fica amarelo até receber infraestrutura privada, migration, deploy e teste operacional. O item 1 foi substituído — não reativado como simulação — pelo fluxo seguro do item 23.
 
 ## Segurança — avaliação honesta
+
+### Atualização de mapas — 06/09/2026
+
+- Item 31: geração de locais fictícios removida; academias reais via fonte licenciada ainda pendentes. Layout, eventos e pessoas preservados.
+- Os dois componentes web agora leem `EXPO_PUBLIC_CARTO_API_KEY` no build. Configurar na Vercel como Config antes do deploy; não versionar o valor real. Chave pública de basemaps, não segredo administrativo.
+- Mantidos os estilos existentes e a atribuição CARTO/OpenStreetMap; cache do service worker versionado para renovar os mapas. Sem chave, o provedor ainda pode exibir o aviso.
+- A integração não altera GPS nem adiciona estabelecimentos. Confirmação da chave em produção depende do deploy e da aceitação pela CARTO.
 
 **Não é possível garantir que um app conectado à internet seja “100% seguro”.** O que pode ser afirmado é que foram aplicadas defesas concretas e que as validações locais passaram. Uma garantia absoluta seria tecnicamente enganosa, especialmente antes do deploy, pentest independente e operação contínua.
 

@@ -6,7 +6,7 @@
 //   - tiles (OSM): cache-first até 7 dias
 //   - API (/api/*): network-first com cache de 5min
 
-const VERSION = 'sync-v5-icons-20260906';
+const VERSION = 'sync-v6-carto-20260906';
 const SHELL = `sync-shell-${VERSION}`;
 const IMAGES = `sync-images-${VERSION}`;
 const TILES = `sync-tiles-${VERSION}`;

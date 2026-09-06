@@ -83,7 +83,9 @@ export default function MapMainScreen({ navigation }: Props) {
   const theme = useThemeStore((s) => s.theme);
   const [events, setEvents] = useState<EventType[]>([]);
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
-  const [sportPlaces, setSportPlaces] = useState<SportPlace[]>([]);
+  // Item 31: keep places hidden until a real, licensed data source is integrated.
+  // Never generate destinations by offsetting the user's coordinates.
+  const sportPlaces: SportPlace[] = [];
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<SportPlace | null>(null);
   const [joining, setJoining] = useState(false);
@@ -162,7 +164,6 @@ export default function MapMainScreen({ navigation }: Props) {
       };
       setRegion(newRegion);
       loadEvents(coords.latitude, coords.longitude);
-      setSportPlaces(buildSportPlaces(coords.latitude, coords.longitude));
       loadWeather(coords.latitude, coords.longitude);
       loadLocationName(coords.latitude, coords.longitude);
       // Sincroniza lat/lng REAL com o backend (pra Discovery/Eventos usarem)
@@ -204,12 +205,6 @@ export default function MapMainScreen({ navigation }: Props) {
     }
   };
 
-  const buildSportPlaces = (lat: number, lng: number): SportPlace[] => [
-    { id: 'park-run', name: 'Ponto de corrida', kind: 'Corrida', latitude: lat + 0.006, longitude: lng + 0.004 },
-    { id: 'court', name: 'Quadra esportiva', kind: 'Esportes coletivos', latitude: lat - 0.005, longitude: lng + 0.006 },
-    { id: 'gym-place', name: 'Academia próxima', kind: 'Treino indoor', latitude: lat + 0.004, longitude: lng - 0.006 },
-  ];
-
   const loadWeather = async (lat: number, lng: number) => {
     try {
       const data = await fetchCurrentWeather(lat, lng);
@@ -233,7 +228,6 @@ export default function MapMainScreen({ navigation }: Props) {
       const coords = await getCurrentLocation();
       setUserCoords(coords);
       if (showPeopleOnMap) loadNearbyUsers(coords.latitude, coords.longitude);
-      setSportPlaces(buildSportPlaces(coords.latitude, coords.longitude));
       mapRef.current?.animateToRegion({
         latitude: coords.latitude,
         longitude: coords.longitude,
