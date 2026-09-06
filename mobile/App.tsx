@@ -7,6 +7,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import RootNavigator from './src/navigation/RootNavigator';
 import LiveViewScreen from './src/screens/Live/LiveViewScreen';
 import VerifyEmailScreen from './src/screens/Auth/VerifyEmailScreen';
+import ResetPasswordScreen from './src/screens/Auth/ResetPasswordScreen';
 import ToastHost from './src/components/ui/Toast';
 import AccessibilityEffects from './src/components/AccessibilityEffects';
 import ConnectionBanner from './src/components/ConnectionBanner';
@@ -54,7 +55,7 @@ function registerServiceWorker() {
 // Detecta rota pública /live/:token no web e renderiza só a tela de live
 function getLiveToken(): string | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
-  const m = window.location.pathname.match(/^\/live\/([a-z0-9]+)\/?$/i);
+  const m = window.location.pathname.match(/^\/live\/([a-z0-9_-]+)\/?$/i);
   return m?.[1] || null;
 }
 
@@ -64,11 +65,18 @@ function getEmailVerificationToken(): string | null {
   return new URLSearchParams(window.location.search).get('token');
 }
 
+function getPasswordResetToken(): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  if (!window.location.pathname.match(/^\/reset-password\/?$/i)) return null;
+  return new URLSearchParams(window.location.search).get('token');
+}
+
 export default function App() {
   const theme = useThemeStore((s) => s.theme);
   const loadTheme = useThemeStore((s) => s.loadTheme);
   const liveToken = getLiveToken();
   const emailVerificationToken = getEmailVerificationToken();
+  const passwordResetToken = getPasswordResetToken();
 
   useEffect(() => {
     loadTheme();
@@ -89,6 +97,17 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
         <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
         <VerifyEmailScreen token={emailVerificationToken} />
+        <ToastHost />
+      </GestureHandlerRootView>
+    );
+  }
+
+
+  if (passwordResetToken) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
+        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+        <ResetPasswordScreen token={passwordResetToken} />
         <ToastHost />
       </GestureHandlerRootView>
     );

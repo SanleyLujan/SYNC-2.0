@@ -13,8 +13,11 @@ import {
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ActivitiesService } from './activities.service';
+import { ActivitiesGateway } from './activities.gateway';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { AddPointDto } from './dto/add-point.dto';
+import { FinishActivityDto } from './dto/finish-activity.dto';
+import { ActivityTimingEventDto } from './dto/activity-timing-event.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
@@ -22,7 +25,10 @@ import { User } from '../users/entities/user.entity';
 @ApiTags('Activities')
 @Controller('api/activities')
 export class ActivitiesController {
-  constructor(private readonly activitiesService: ActivitiesService) {}
+  constructor(
+    private readonly activitiesService: ActivitiesService,
+    private readonly activitiesGateway: ActivitiesGateway,
+  ) {}
 
   // ====== ROTAS PÚBLICAS (sem auth) ======
   @Get('live/:token')
@@ -49,12 +55,61 @@ export class ActivitiesController {
     return this.activitiesService.addPoint(id, user.id, dto);
   }
 
+  @Post(':id/points/batch')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Sincronizar lote GPS capturado em segundo plano' })
+  async addPointsBatch(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: FinishActivityDto,
+  ) {
+    const inserted = await this.activitiesService.reconcilePoints(id, user.id, dto.points || []);
+    return { inserted };
+  }
+
+  @Put(':id/pause')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Pausar cronômetro da atividade' })
+  async pause(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: ActivityTimingEventDto,
+  ) {
+    const result = await this.activitiesService.pause(id, user.id, dto?.occurredAt);
+    this.activitiesGateway.broadcastTiming(id, result);
+    return result;
+  }
+
+  @Put(':id/resume')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Retomar cronômetro da atividade' })
+  async resume(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: ActivityTimingEventDto,
+  ) {
+    const result = await this.activitiesService.resume(id, user.id, dto?.occurredAt);
+    this.activitiesGateway.broadcastTiming(id, result);
+    return result;
+  }
+
   @Put(':id/finish')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Finalizar atividade e calcular métricas' })
-  finish(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.activitiesService.finish(id, user.id);
+  async finish(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: FinishActivityDto,
+  ) {
+    await this.activitiesGateway.flushOwnedActivity(id, user.id);
+    if (dto?.points?.length) {
+      await this.activitiesService.reconcilePoints(id, user.id, dto.points);
+    }
+    return this.activitiesService.finish(id, user.id, dto?.activeDurationSeconds, dto?.laps);
   }
 
   @Post(':id/share')
@@ -81,12 +136,24 @@ export class ActivitiesController {
     return this.activitiesService.getUserActivities(user.id, page ? parseInt(page, 10) : 1);
   }
 
+  @Get('records')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Recordes pessoais calculados a partir das atividades concluídas' })
+  getRecords(
+    @CurrentUser() user: User,
+    @Query('sport') sport?: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    return this.activitiesService.getPersonalRecords(user.id, sport, excludeId);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Detalhes da atividade com rota' })
-  getDetail(@Param('id') id: string) {
-    return this.activitiesService.getActivityDetail(id);
+  getDetail(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.activitiesService.getActivityDetail(id, user.id);
   }
 
   // === COMMENTS ===
@@ -207,6 +274,8 @@ export class ActivitiesController {
 
   // === HEATMAP ===
   @Get('heatmap/nearby')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Heatmap de pontos GPS próximos (rotas populares)' })
   async heatmap(
     @Query('lat') lat: string,
@@ -230,10 +299,7 @@ export class ActivitiesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Exportar atividade como GPX (compatível Strava, Garmin Connect)' })
   async exportGpx(@CurrentUser() user: User, @Param('id') id: string, @Res() res: Response) {
-    const detail = await this.activitiesService.getActivityDetail(id);
-    if (!detail) return res.status(404).send('Activity not found');
-    // GPS privacy: só o dono pode exportar a rota precisa
-    if ((detail as any).user_id !== user.id) return res.status(403).send('Forbidden');
+    const detail = await this.activitiesService.getActivityDetail(id, user.id);
     const gpx = this.buildGpx(detail);
     res.setHeader('Content-Type', 'application/gpx+xml');
     res.setHeader('Content-Disposition', `attachment; filename="sync-${id}.gpx"`);

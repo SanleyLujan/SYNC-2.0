@@ -1,4 +1,4 @@
-import { IsNumber, IsDateString, IsOptional } from 'class-validator';
+import { IsBoolean, IsNumber, IsDateString, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AddPointDto {
@@ -14,6 +14,14 @@ export class AddPointDto {
   @IsNumber()
   @IsOptional()
   altitude?: number;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Marca o primeiro ponto do treino ou da retomada após uma pausa.',
+  })
+  @IsBoolean()
+  @IsOptional()
+  segmentStart?: boolean;
 
   @ApiProperty({ example: '2026-04-10T07:30:15Z' })
   @IsDateString()

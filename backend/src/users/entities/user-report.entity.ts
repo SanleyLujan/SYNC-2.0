@@ -9,6 +9,12 @@ export enum ReportReason {
   OTHER = 'other',
 }
 
+export enum ModerationStatus {
+  PENDING = 'pending',
+  DISMISSED = 'dismissed',
+  ACTIONED = 'actioned',
+}
+
 @Entity('user_reports')
 export class UserReport {
   @PrimaryGeneratedColumn('uuid')
@@ -33,6 +39,15 @@ export class UserReport {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @Column({ type: 'varchar', default: ModerationStatus.PENDING })
+  status: ModerationStatus;
+
+  @Column({ type: 'varchar', nullable: true })
+  reviewed_by: string | null;
+
+  @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', nullable: true })
+  reviewedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import MapView from '../../components/map/SyncMap';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { TrackingStackParamList } from '../../navigation/types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { useThemeStore } from '../../store/themeStore';
@@ -27,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
+import { getBackgroundTrackingContext } from '../../services/background-tracking.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -58,6 +60,7 @@ export default function TrackingMainScreen({ navigation }: Props) {
   const mapRef = useRef<MapView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const startBtnScale = useRef(new Animated.Value(1)).current;
+  const startInFlightRef = useRef(false);
 
   useEffect(() => {
     initLocation();
@@ -79,6 +82,25 @@ export default function TrackingMainScreen({ navigation }: Props) {
       ]),
     ).start();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+      startInFlightRef.current = false;
+      setLoading(false);
+      getBackgroundTrackingContext()
+        .then((tracking) => {
+          if (!active || !tracking) return;
+          navigation.navigate('ActiveTracking', {
+            sport: tracking.sport,
+            existingActivityId: tracking.activityId,
+            existingStartedAt: tracking.startedAt,
+          });
+        })
+        .catch(() => {});
+      return () => { active = false; };
+    }, [navigation]),
+  );
 
   const initLocation = async () => {
     setLocationError(null);
@@ -111,7 +133,9 @@ export default function TrackingMainScreen({ navigation }: Props) {
     }
   };
 
-  const startActivity = async () => {
+  const startActivity = (goal?: { type: 'distance' | 'duration'; value: number }) => {
+    if (startInFlightRef.current) return;
+    startInFlightRef.current = true;
     // Button press animation
     Animated.sequence([
       Animated.timing(startBtnScale, {
@@ -127,23 +151,32 @@ export default function TrackingMainScreen({ navigation }: Props) {
     ]).start();
 
     setLoading(true);
-    try {
-      const { data } = await api.post('/activities/start', {
-        sport: selectedSport,
-        startTime: new Date().toISOString(),
-      });
-      navigation.navigate('ActiveTracking', { activityId: data.id });
-    } catch (error: any) {
-      const msg = error?.response?.data?.message || 'Não foi possível iniciar o treino. Verifique sua conexão e tente novamente.';
-      showToast(Array.isArray(msg) ? msg.join(' • ') : msg, 'error');
-    } finally {
-      setLoading(false);
-    }
+    navigation.navigate('ActiveTracking', {
+      sport: selectedSport,
+      enableLiveShare: liveShare,
+      countLaps,
+      goalType: goal?.type,
+      goalValue: goal?.value,
+    });
   };
 
   const selectedSportData = SPORT_OPTIONS.find((s) => s.id === selectedSport);
   const selectedSportColor = selectedSport === 'running' ? theme.primary : selectedSportData?.color || theme.primary;
   const recommendation = weather ? getExerciseRecommendation(weather) : null;
+  const distanceBased = selectedSport !== 'gym';
+  const quickGoals = distanceBased
+    ? [
+        { label: '1 km', value: 1_000, icon: 'walk-outline' as const },
+        { label: '3 km', value: 3_000, icon: 'walk-outline' as const },
+        { label: '5 km', value: 5_000, icon: 'fitness-outline' as const },
+        { label: '10 km', value: 10_000, icon: 'trophy-outline' as const },
+      ]
+    : [
+        { label: '15 min', value: 900, icon: 'time-outline' as const },
+        { label: '30 min', value: 1_800, icon: 'time-outline' as const },
+        { label: '45 min', value: 2_700, icon: 'fitness-outline' as const },
+        { label: '60 min', value: 3_600, icon: 'trophy-outline' as const },
+      ];
 
   if (!region) {
     return (
@@ -173,6 +206,14 @@ export default function TrackingMainScreen({ navigation }: Props) {
             >
               <Ionicons name="refresh" size={18} color={colors.white} />
               <Text style={{ color: colors.white, fontWeight: '700' }}>Tentar novamente</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: spacing.sm, borderWidth: 1, borderColor: theme.primary + '55', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              onPress={() => navigation.navigate('ActiveTracking', { sport: 'gym', countLaps })}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="barbell-outline" size={18} color={theme.primary} />
+              <Text style={{ color: theme.primary, fontWeight: '700' }}>Iniciar academia sem GPS</Text>
             </TouchableOpacity>
           </>
         )}
@@ -280,7 +321,7 @@ export default function TrackingMainScreen({ navigation }: Props) {
           <Animated.View style={{ transform: [{ scale: Animated.multiply(pulseAnim, startBtnScale) }] }}>
             <TouchableOpacity
               style={[styles.startButton, { shadowColor: selectedSportColor }]}
-              onPress={startActivity}
+              onPress={() => startActivity()}
               disabled={loading}
               activeOpacity={0.8}
             >
@@ -376,56 +417,26 @@ export default function TrackingMainScreen({ navigation }: Props) {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.optionItem, { borderBottomColor: theme.border }]}
-            onPress={() => showToast('Bluetooth será ativado para buscar sensores de frequência cardíaca, cadência e outros.', 'info')}
-          >
-            <View style={styles.optionLeft}>
-              <Ionicons name="bluetooth-outline" size={22} color={theme.textSecondary} />
-              <Text style={[styles.optionTitle, { color: theme.textPrimary }]}>Adicionar um sensor</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.optionItem, { borderBottomColor: theme.border }]}
-            onPress={() => showToast('Avisos de áudio a cada 1km e pausa automática estão ativos.', 'info')}
-          >
-            <View style={styles.optionLeft}>
-              <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
-              <View style={styles.optionTextWrap}>
-                <Text style={[styles.optionTitle, { color: theme.textPrimary }]}>Configuracoes</Text>
-                <Text style={[styles.optionSubtitle, { color: theme.textSecondary }]}>Avisos de audio, pausa automatica...</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
-          </TouchableOpacity>
-
           {/* Quick goals */}
           <View style={styles.goalsSection}>
             <Text style={[styles.goalsSectionTitle, { color: theme.textSecondary }]}>Metas rapidas</Text>
             <View style={styles.goalsRow}>
-              {[
-                { dist: '1 km', icon: 'walk-outline' as const },
-                { dist: '3 km', icon: 'walk-outline' as const },
-                { dist: '5 km', icon: 'fitness-outline' as const },
-                { dist: '10 km', icon: 'trophy-outline' as const },
-              ].map((g, i) => (
+              {quickGoals.map((g, i) => (
                 <TouchableOpacity
                   key={i}
                   style={[styles.goalChip, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}
                   onPress={async () => {
                     const ok = await confirmAsync(
-                      `Meta: ${g.dist}`,
-                      `Sua meta para esta atividade será ${g.dist}. Você receberá um aviso ao atingir a distância.`,
+                      `Meta: ${g.label}`,
+                      `Sua meta para esta atividade será ${g.label}. Você receberá um aviso ao atingir o objetivo.`,
                       { confirmText: 'Definir e iniciar' },
                     );
-                    if (ok) startActivity();
+                    if (ok) startActivity({ type: distanceBased ? 'distance' : 'duration', value: g.value });
                   }}
                   activeOpacity={0.7}
                 >
                   <Ionicons name={g.icon} size={14} color={theme.primary} />
-                  <Text style={[styles.goalChipText, { color: theme.primary }]}>{g.dist}</Text>
+                  <Text style={[styles.goalChipText, { color: theme.primary }]}>{g.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>

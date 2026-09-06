@@ -19,6 +19,12 @@ import { User } from '../users/entities/user.entity';
 import { GroupsService } from '../groups/groups.service';
 import { SegmentsMatchService } from '../segments/segments-match.service';
 import { ILike, In } from 'typeorm';
+import {
+  calculateCalories,
+  calculateElevationGain,
+  isDistanceSport,
+  sanitizeLaps,
+} from './activity-metrics';
 
 // Lista branca de emoji-reaction permitidas (curto, validado)
 const ALLOWED_REACTIONS = new Set(['❤️', '🔥', '💪', '🚀', '👏', '🙌', '😂', '🎉']);
@@ -249,12 +255,77 @@ export class ActivitiesService {
 
   // Iniciar nova atividade
   async start(userId: string, dto: CreateActivityDto): Promise<Activity> {
+    if ((dto.goalType && dto.goalValue == null) || (!dto.goalType && dto.goalValue != null)) {
+      throw new BadRequestException('Informe goalType e goalValue juntos');
+    }
+    const expectedGoalType = isDistanceSport(dto.sport) ? 'distance' : 'duration';
+    if (dto.goalType && dto.goalType !== expectedGoalType) {
+      throw new BadRequestException(
+        expectedGoalType === 'distance'
+          ? 'Este esporte usa meta em distância'
+          : 'Este esporte usa meta em duração',
+      );
+    }
     const activity = this.activityRepository.create({
       user_id: userId,
       sport: dto.sport,
-      startTime: new Date(dto.startTime),
+      // O servidor registra o instante real. O endpoint só é chamado depois
+      // do countdown, então a contagem regressiva não entra na duração.
+      startTime: new Date(),
+      pausedAt: null,
+      pausedDuration: 0,
+      goalType: dto.goalType ?? null,
+      goalValue: dto.goalValue ?? null,
+      goalReachedAt: null,
     });
     return this.activityRepository.save(activity);
+  }
+
+  async pause(activityId: string, userId: string, occurredAt?: string) {
+    const activity = await this.activityRepository.findOne({
+      where: { id: activityId, user_id: userId },
+    });
+    if (!activity) throw new NotFoundException('Atividade não encontrada');
+    if (activity.isCompleted) throw new BadRequestException('Atividade já finalizada');
+    let pausedAt = activity.pausedAt ? new Date(activity.pausedAt) : null;
+    if (!pausedAt) {
+      const parsedAt = occurredAt ? new Date(occurredAt).getTime() : Date.now();
+      const requestedAt = Number.isFinite(parsedAt) ? parsedAt : Date.now();
+      const startAt = new Date(activity.startTime).getTime();
+      const eventAt = new Date(Math.min(Date.now(), Math.max(startAt, requestedAt)));
+      await this.activityRepository.update(activityId, { pausedAt: eventAt });
+      pausedAt = eventAt;
+    }
+    return {
+      paused: true as const,
+      pausedAt: pausedAt?.toISOString() || new Date().toISOString(),
+      pausedDuration: activity.pausedDuration || 0,
+    };
+  }
+
+  async resume(activityId: string, userId: string, occurredAt?: string) {
+    const activity = await this.activityRepository.findOne({
+      where: { id: activityId, user_id: userId },
+    });
+    if (!activity) throw new NotFoundException('Atividade não encontrada');
+    if (activity.isCompleted) throw new BadRequestException('Atividade já finalizada');
+    let pausedDuration = activity.pausedDuration || 0;
+    if (activity.pausedAt) {
+      const pausedAt = new Date(activity.pausedAt).getTime();
+      const parsedAt = occurredAt ? new Date(occurredAt).getTime() : Date.now();
+      const requestedAt = Number.isFinite(parsedAt) ? parsedAt : Date.now();
+      const eventAt = Math.min(Date.now(), Math.max(pausedAt, requestedAt));
+      const added = Math.max(
+        0,
+        Math.floor((eventAt - pausedAt) / 1000),
+      );
+      pausedDuration += added;
+      await this.activityRepository.update(activityId, {
+        pausedAt: null,
+        pausedDuration,
+      });
+    }
+    return { paused: false as const, pausedAt: null, pausedDuration };
   }
 
   // Adicionar ponto GPS durante a atividade
@@ -275,10 +346,15 @@ export class ActivitiesService {
 
     // Validate GPS coordinates
     if (
-      dto.latitude < -90 || dto.latitude > 90 ||
-      dto.longitude < -180 || dto.longitude > 180
+      !Number.isFinite(dto.latitude) || dto.latitude < -90 || dto.latitude > 90 ||
+      !Number.isFinite(dto.longitude) || dto.longitude < -180 || dto.longitude > 180
     ) {
       throw new BadRequestException('Coordenadas GPS inválidas');
+    }
+
+    const timestamp = new Date(dto.timestamp);
+    if (Number.isNaN(timestamp.getTime())) {
+      throw new BadRequestException('Data do ponto GPS inválida');
     }
 
     const point = this.pointRepository.create({
@@ -286,14 +362,71 @@ export class ActivitiesService {
       latitude: dto.latitude,
       longitude: dto.longitude,
       altitude: dto.altitude,
-      timestamp: new Date(dto.timestamp),
+      segmentStart: Boolean(dto.segmentStart),
+      timestamp,
     });
 
     return this.pointRepository.save(point);
   }
 
+  /**
+   * Reconcilia a cópia local enviada no encerramento com o que já chegou pelo
+   * WebSocket. O timestamp original torna retries idempotentes e evita usar
+   * coordenadas `real`, que podem sofrer arredondamento no PostgreSQL.
+   */
+  async reconcilePoints(activityId: string, userId: string, incoming: AddPointDto[]): Promise<number> {
+    const activity = await this.activityRepository.findOne({
+      where: { id: activityId, user_id: userId },
+      select: ['id', 'isCompleted'],
+    });
+    if (!activity) throw new NotFoundException('Atividade não encontrada');
+    if (activity.isCompleted) return 0;
+
+    const existing = await this.pointRepository.find({
+      where: { activity_id: activityId },
+      select: ['latitude', 'longitude', 'timestamp'],
+    });
+    const pointKey = (timestamp: Date | string) => String(new Date(timestamp).getTime());
+    const known = new Set(
+      existing.map((point) => pointKey(point.timestamp)),
+    );
+
+    const missing: ActivityPoint[] = [];
+    for (const dto of incoming) {
+      if (
+        !Number.isFinite(dto.latitude) || dto.latitude < -90 || dto.latitude > 90 ||
+        !Number.isFinite(dto.longitude) || dto.longitude < -180 || dto.longitude > 180
+      ) {
+        throw new BadRequestException('Coordenadas GPS inválidas');
+      }
+      const timestamp = new Date(dto.timestamp);
+      if (Number.isNaN(timestamp.getTime())) {
+        throw new BadRequestException('Data do ponto GPS inválida');
+      }
+      const key = pointKey(timestamp);
+      if (known.has(key)) continue;
+      known.add(key);
+      missing.push(this.pointRepository.create({
+        activity_id: activityId,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        altitude: dto.altitude,
+        segmentStart: Boolean(dto.segmentStart),
+        timestamp,
+      }));
+    }
+
+    if (missing.length) await this.pointRepository.save(missing, { chunk: 500 });
+    return missing.length;
+  }
+
   // Finalizar atividade - calcula métricas (distância, pace, velocidade)
-  async finish(activityId: string, userId: string): Promise<Activity> {
+  async finish(
+    activityId: string,
+    userId: string,
+    activeDurationSeconds?: number,
+    laps?: Array<{ number: number; time: number; distance: number }>,
+  ): Promise<Activity> {
     const activity = await this.activityRepository.findOne({
       where: { id: activityId, user_id: userId },
       relations: ['points'],
@@ -302,6 +435,8 @@ export class ActivitiesService {
     if (!activity) {
       throw new NotFoundException('Atividade não encontrada');
     }
+    // Retry após perda da resposta não pode creditar grupos/segments duas vezes.
+    if (activity.isCompleted) return activity;
 
     // Calcular distância total usando Haversine
     const points = activity.points.sort(
@@ -310,6 +445,7 @@ export class ActivitiesService {
 
     let totalDistance = 0;
     for (let i = 1; i < points.length; i++) {
+      if (points[i].segmentStart) continue;
       totalDistance += haversineMeters(
         points[i - 1].latitude,
         points[i - 1].longitude,
@@ -319,26 +455,64 @@ export class ActivitiesService {
     }
 
     const endTime = new Date();
-    const durationSeconds = Math.floor(
-      (endTime.getTime() - new Date(activity.startTime).getTime()) / 1000,
+    const wallDuration = Math.max(
+      0,
+      Math.floor((endTime.getTime() - new Date(activity.startTime).getTime()) / 1000),
     );
+    const openPauseSeconds = activity.pausedAt
+      ? Math.max(0, Math.floor((endTime.getTime() - new Date(activity.pausedAt).getTime()) / 1000))
+      : 0;
+    const serverDuration = Math.max(
+      0,
+      wallDuration - (activity.pausedDuration || 0) - openPauseSeconds,
+    );
+    // O valor local cobre períodos em que o SO suspendeu o JavaScript e as
+    // transições de pausa só chegaram depois. Nunca aceita duração maior que
+    // o tempo de parede do servidor.
+    const durationSeconds = activeDurationSeconds == null
+      ? serverDuration
+      : Math.min(wallDuration, Math.max(0, Math.floor(activeDurationSeconds)));
 
-    // Pace = minutos por km
+    // Pace e velocidade só existem para esportes medidos por distância.
     const distanceKm = totalDistance / 1000;
     const durationMinutes = durationSeconds / 60;
-    const avgPace = distanceKm > 0 ? durationMinutes / distanceKm : 0;
+    const distanceBased = isDistanceSport(activity.sport);
+    const avgPace = distanceBased && distanceKm > 0 ? durationMinutes / distanceKm : null;
 
     // Velocidade = km/h
     const durationHours = durationSeconds / 3600;
-    const avgSpeed = durationHours > 0 ? distanceKm / durationHours : 0;
+    const avgSpeed = distanceBased && durationHours > 0 ? distanceKm / durationHours : null;
+    const profile = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'weightKg', 'heightCm'],
+    });
+    const calories = calculateCalories({
+      sport: activity.sport,
+      durationSeconds,
+      distanceMeters: totalDistance,
+      weightKg: profile?.weightKg,
+      heightCm: profile?.heightCm,
+    });
+    const elevationGain = calculateElevationGain(points);
+    const goalReached = activity.goalType === 'distance'
+      ? totalDistance >= Number(activity.goalValue || Infinity)
+      : activity.goalType === 'duration'
+        ? durationSeconds >= Number(activity.goalValue || Infinity)
+        : false;
 
     await this.activityRepository.update(activityId, {
       endTime,
       distance: totalDistance,
       duration: durationSeconds,
-      avgPace: Math.round(avgPace * 100) / 100,
-      avgSpeed: Math.round(avgSpeed * 100) / 100,
+      avgPace: avgPace == null ? null : Math.round(avgPace * 100) / 100,
+      avgSpeed: avgSpeed == null ? null : Math.round(avgSpeed * 100) / 100,
+      calories,
+      elevationGain,
+      laps: sanitizeLaps(laps),
+      goalReachedAt: goalReached ? endTime : null,
       isCompleted: true,
+      pausedAt: null,
+      pausedDuration: Math.max(0, wallDuration - durationSeconds),
     });
 
     // Credita os km nos grupos do usuário (soma contínua) — fire-and-forget
@@ -352,6 +526,30 @@ export class ActivitiesService {
         .matchActivity(userId, activityId, points as any)
         .catch(() => {});
     }
+
+    const completion = this.activityCompletionMessage(
+      activity.id,
+      activity.sport,
+      durationSeconds,
+      totalDistance,
+      calories,
+      goalReached,
+    );
+    Promise.allSettled([
+      this.notificationsService.create(
+        userId,
+        NotificationType.ACTIVITY_COMPLETED,
+        completion.title,
+        completion.body,
+        JSON.stringify({ type: 'activity_completed', activityId }),
+      ),
+      this.pushService.sendToUser(
+        userId,
+        completion.title,
+        completion.body,
+        { type: 'activity_completed', activityId },
+      ),
+    ]).catch(() => undefined);
 
     return this.activityRepository.findOne({
       where: { id: activityId },
@@ -371,6 +569,61 @@ export class ActivitiesService {
     });
   }
 
+  async getPersonalRecords(userId: string, sport?: string, excludeId?: string) {
+    const qb = this.activityRepository
+      .createQueryBuilder('activity')
+      .where('activity.user_id = :userId', { userId })
+      .andWhere('activity.isCompleted = :completed', { completed: true });
+    if (sport) qb.andWhere('activity.sport = :sport', { sport });
+    if (excludeId) qb.andWhere('activity.id != :excludeId', { excludeId });
+    const activities = await qb.getMany();
+    const bySport: Record<string, { longestDistance: number; longestDuration: number; bestPace: number | null }> = {};
+    for (const item of activities) {
+      const current = bySport[item.sport] || { longestDistance: 0, longestDuration: 0, bestPace: null };
+      current.longestDistance = Math.max(current.longestDistance, Number(item.distance) || 0);
+      current.longestDuration = Math.max(current.longestDuration, Number(item.duration) || 0);
+      if (item.avgPace != null && item.avgPace > 0) {
+        current.bestPace = current.bestPace == null ? item.avgPace : Math.min(current.bestPace, item.avgPace);
+      }
+      bySport[item.sport] = current;
+    }
+    return { bySport };
+  }
+
+  private activityCompletionMessage(
+    activityId: string,
+    sport: string,
+    durationSeconds: number,
+    distanceMeters: number,
+    calories: number,
+    goalReached: boolean,
+  ) {
+    const names: Record<string, string> = {
+      running: 'Corrida', cycling: 'Pedal', swimming: 'Natação', hiking: 'Trilha',
+      gym: 'Treino de academia', yoga: 'Yoga', crossfit: 'CrossFit', football: 'Futebol',
+      basketball: 'Basquete', tennis: 'Tênis', martial_arts: 'Artes marciais', dance: 'Dança',
+    };
+    const name = names[sport] || 'Atividade';
+    const minutes = Math.max(1, Math.round(durationSeconds / 60));
+    const km = (distanceMeters / 1000).toFixed(distanceMeters >= 10_000 ? 1 : 2).replace('.', ',');
+    const variants = isDistanceSport(sport)
+      ? [
+          `${km} km em ${minutes} min. Mais um treino registrado!`,
+          `Você concluiu ${km} km em ${minutes} min e estimou ${calories} kcal.`,
+          `${minutes} min em movimento e ${km} km para a sua história.`,
+        ]
+      : [
+          `${minutes} min concluídos e cerca de ${calories} kcal estimadas.`,
+          `Você dedicou ${minutes} min ao seu treino. Consistência conta!`,
+          `${minutes} min de atividade registrados com sucesso.`,
+        ];
+    const index = activityId.split('').reduce((total, char) => total + char.charCodeAt(0), 0) % variants.length;
+    return {
+      title: goalReached ? `Meta alcançada · ${name}` : `${name} concluído`,
+      body: variants[index],
+    };
+  }
+
   // === LIVE CHEER === (alguém apertou "Vai!" durante seu live tracking)
   async addCheer(activityId: string) {
     const activity = await this.activityRepository.findOne({ where: { id: activityId } });
@@ -387,7 +640,7 @@ export class ActivitiesService {
       this.activityRepository.findOne({ where: { id: activity2Id } }),
     ]);
     if (!a1 || !a2) throw new NotFoundException('Uma das atividades não foi encontrada');
-    if (a1.user_id !== userId && a2.user_id !== userId) {
+    if (a1.user_id !== userId || a2.user_id !== userId) {
       throw new BadRequestException('Você só pode comparar suas próprias atividades');
     }
     const km1 = (a1.distance || 0) / 1000;
@@ -471,20 +724,30 @@ export class ActivitiesService {
       .limit(5000)
       .getRawMany();
 
-    // Subsample: 1 a cada 5
-    const points: Array<[number, number]> = [];
-    for (let i = 0; i < activities.length; i += 5) {
-      const lat = activities[i].p_latitude;
-      const lng = activities[i].p_longitude;
-      if (lat != null && lng != null) points.push([lat, lng]);
+    // Privacidade por agregação: célula de ~110m e no mínimo 3 atividades
+    // distintas. Nunca devolve o traçado bruto de uma única pessoa.
+    const cells = new Map<string, { lat: number; lng: number; activityIds: Set<string> }>();
+    for (const row of activities) {
+      const lat = Number(row.p_latitude);
+      const lng = Number(row.p_longitude);
+      if (!isFinite(lat) || !isFinite(lng)) continue;
+      const roundedLat = Math.round(lat * 1000) / 1000;
+      const roundedLng = Math.round(lng * 1000) / 1000;
+      const key = `${roundedLat}:${roundedLng}`;
+      const cell = cells.get(key) || { lat: roundedLat, lng: roundedLng, activityIds: new Set<string>() };
+      cell.activityIds.add(String(row.a_id));
+      cells.set(key, cell);
     }
-    return points;
+    return [...cells.values()]
+      .filter((cell) => cell.activityIds.size >= 3)
+      .slice(0, 1000)
+      .map((cell) => [cell.lat, cell.lng] as [number, number]);
   }
 
   // Detalhes de uma atividade com todos os pontos (para desenhar rota)
-  async getActivityDetail(activityId: string) {
+  async getActivityDetail(activityId: string, userId: string) {
     const activity = await this.activityRepository.findOne({
-      where: { id: activityId },
+      where: { id: activityId, user_id: userId },
       relations: ['points'],
     });
     if (!activity) {
@@ -514,7 +777,12 @@ export class ActivitiesService {
       liveToken: token,
       liveTokenExpiresAt: expiresAt,
     });
-    return { liveToken: token, url: `/live/${token}`, expiresAt };
+    const configuredFrontend = (process.env.PUBLIC_WEB_URL || process.env.FRONTEND_URL || '')
+      .split(',')[0]
+      .trim()
+      .replace(/\/$/, '');
+    const publicWebUrl = configuredFrontend || 'https://sync-2-0-blush.vercel.app';
+    return { liveToken: token, url: `${publicWebUrl}/live/${token}`, expiresAt };
   }
 
   // Revoga compartilhamento
@@ -548,17 +816,30 @@ export class ActivitiesService {
     activity.points.sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
+    let liveDistance = 0;
+    for (let i = 1; i < activity.points.length; i++) {
+      if (activity.points[i].segmentStart) continue;
+      liveDistance += haversineMeters(
+        activity.points[i - 1].latitude,
+        activity.points[i - 1].longitude,
+        activity.points[i].latitude,
+        activity.points[i].longitude,
+      );
+    }
     // Retorna apenas dados públicos do dono
     return {
       activityId: activity.id,
       sport: activity.sport,
       startTime: activity.startTime,
       isCompleted: activity.isCompleted,
-      distance: activity.distance,
+      distance: activity.isCompleted ? activity.distance : liveDistance,
       duration: activity.duration,
+      pausedAt: activity.pausedAt,
+      pausedDuration: activity.pausedDuration || 0,
       points: activity.points.map((p) => ({
         latitude: p.latitude,
         longitude: p.longitude,
+        segmentStart: p.segmentStart,
         timestamp: p.timestamp,
       })),
       athlete: { name: activity.user?.name, avatarUrl: activity.user?.avatarUrl },

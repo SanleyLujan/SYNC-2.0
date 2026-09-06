@@ -14,6 +14,7 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Skeleton from '../../components/ui/Skeleton';
 import api from '../../services/api';
+import { unwrapActivityHistory } from '../../utils/activity-history';
 import { computeUserXP } from '../../utils/xp-system';
 import { useThemeStore } from '../../store/themeStore';
 
@@ -61,8 +62,14 @@ export default function StatsDashboardScreen({ navigation }: any) {
     setError(false);
     api.get('/activities/history')
       .then((r) => {
-        const list = Array.isArray(r.data) ? r.data[0] : r.data;
-        setActivities(Array.isArray(list) ? list : (list?.activities || []));
+        setActivities(unwrapActivityHistory(r.data).map((activity) => ({
+          id: activity.id,
+          sport: activity.sport,
+          distance: activity.distance || 0,
+          duration: activity.duration || 0,
+          avgPace: activity.avgPace || 0,
+          startTime: activity.startTime,
+        })));
       })
       .catch(() => { setError(true); setActivities([]); })
       .finally(() => setLoading(false));

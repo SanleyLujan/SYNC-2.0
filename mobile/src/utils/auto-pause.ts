@@ -52,6 +52,11 @@ export class AutoPauseDetector {
   currentSpeed(): number | null {
     if (this.points.length < 2) return null;
     const last = this.points[this.points.length - 1];
+    // Quando o aparelho fornece velocidade calculada pelo sensor, ela reage
+    // melhor à retomada que a diferença entre dois fixes GPS ruidosos.
+    if (last.speed != null && Number.isFinite(last.speed) && last.speed >= 0) {
+      return last.speed;
+    }
     const fiveSecAgo = last.timestamp - 5000;
     const window = this.points.filter((p) => p.timestamp >= fiveSecAgo);
     if (window.length < 2) return null;

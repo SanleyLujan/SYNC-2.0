@@ -21,6 +21,7 @@ export type SecurityEvent =
   | 'email_verification_resent'
   | 'token_refresh'
   | 'permission_denied'
+  | 'admin_action'
   | 'suspicious_activity';
 
 @Entity('audit_logs')

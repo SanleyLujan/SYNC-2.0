@@ -12,13 +12,9 @@ build/
 backend/sync_dev.db
 backend/uploads/
 
-# Env vars (use só os .example)
-.env
-.env.local
-.env.production
-**/.env
-**/.env.local
-**/.env.production
+# Env vars (bloqueia também .env.development, .env.*.local etc.)
+.env*
+**/.env*
 !**/.env.example
 !**/.env.production.example
 

@@ -1,4 +1,4 @@
-// Tela de configurações — surface sessões, LGPD, conta, notificações, plano
+// Tela de configurações — sessões, LGPD, conta, notificações e privacidade
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -13,7 +13,6 @@ import {
   Linking,
   Share,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, spacing, borderRadius, ThemeMode } from '../../theme';
@@ -41,27 +40,29 @@ export default function SettingsScreen({ navigation }: any) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [plan, setPlan] = useState<any>(null);
   const [pushOn, setPushOn] = useState(true);
   const [emailOn, setEmailOn] = useState(true);
   const [profileVisible, setProfileVisible] = useState(user?.isProfileVisible ?? true);
   const [locationVisible, setLocationVisible] = useState(user?.showLocation ?? true);
   const [showChangePwd, setShowChangePwd] = useState(false);
 
-  // Load persisted notification preferences
+  // Preferências vêm do backend e, por isso, valem em todos os aparelhos.
   useEffect(() => {
-    AsyncStorage.multiGet(['notif_push', 'notif_email']).then((pairs) => {
-      const pushVal = pairs.find(([k]) => k === 'notif_push')?.[1];
-      const emailVal = pairs.find(([k]) => k === 'notif_email')?.[1];
-      if (pushVal !== null && pushVal !== undefined) setPushOn(pushVal === 'true');
-      if (emailVal !== null && emailVal !== undefined) setEmailOn(emailVal === 'true');
-    }).catch(() => {});
+    api.get('/notifications/preferences').then(({ data }) => {
+      if (typeof data?.push === 'boolean') setPushOn(data.push);
+      if (typeof data?.email === 'boolean') setEmailOn(data.email);
+    }).catch(() => {
+      setPushOn(user?.pushNotificationsEnabled ?? true);
+      setEmailOn(user?.emailNotificationsEnabled ?? true);
+    });
   }, []);
   const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'rating' | 'support' | null>(null);
 
   useEffect(() => {
     api.get('/auth/sessions').then((r) => setSessions(r.data || [])).catch(() => {});
-    api.get('/subscriptions/me').then((r) => setPlan(r.data)).catch(() => {});
+    // Recarrega o papel administrativo e o selo caso tenham sido alterados
+    // diretamente no Supabase depois do último login.
+    api.get('/users/me').then((r) => useAuthStore.getState().setUser(r.data)).catch(() => {});
   }, []);
 
   const handleRevokeSession = async (familyId: string) => {
@@ -123,17 +124,6 @@ export default function SettingsScreen({ navigation }: any) {
     if (ok) await logout();
   };
 
-  const handleUpgrade = async () => {
-    try {
-      const { data } = await api.post('/subscriptions/upgrade', { tier: 'premium' });
-      showToast(data.message || 'Upgrade!', 'success');
-      const { data: meData } = await api.get('/subscriptions/me');
-      setPlan(meData);
-    } catch {
-      showToast('Erro no upgrade', 'error');
-    }
-  };
-
   const updateVisibility = async (patch: { isProfileVisible?: boolean; showLocation?: boolean }) => {
     if (patch.isProfileVisible !== undefined) setProfileVisible(patch.isProfileVisible);
     if (patch.showLocation !== undefined) setLocationVisible(patch.showLocation);
@@ -145,6 +135,26 @@ export default function SettingsScreen({ navigation }: any) {
       if (patch.isProfileVisible !== undefined) setProfileVisible(!patch.isProfileVisible);
       if (patch.showLocation !== undefined) setLocationVisible(!patch.showLocation);
       showToast('Não foi possível salvar a privacidade.', 'error');
+    }
+  };
+
+  const updateNotificationPreference = async (key: 'push' | 'email', value: boolean) => {
+    key === 'push' ? setPushOn(value) : setEmailOn(value);
+    try {
+      await api.put('/notifications/preferences', { [key]: value });
+    } catch {
+      key === 'push' ? setPushOn(!value) : setEmailOn(!value);
+      showToast('Não foi possível salvar a preferência.', 'error');
+    }
+  };
+
+  const updateTheme = async (mode: ThemeMode) => {
+    await setThemeMode(mode);
+    try {
+      const { data } = await api.put('/users/me', { themeMode: mode });
+      useAuthStore.getState().setUser(data);
+    } catch {
+      // A preferência local já está salva; sincronização poderá ocorrer depois.
     }
   };
 
@@ -186,7 +196,7 @@ export default function SettingsScreen({ navigation }: any) {
             borderColor: active ? theme.primary : theme.border,
           },
         ]}
-        onPress={() => setThemeMode(mode)}
+        onPress={() => void updateTheme(mode)}
         activeOpacity={0.78}
         accessibilityRole="button"
         accessibilityState={{ selected: active }}
@@ -201,7 +211,7 @@ export default function SettingsScreen({ navigation }: any) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 100 }}>
-      {/* Premium gradient header */}
+      {/* Gradient header */}
       <LinearGradient
         colors={theme.mode === 'dark'
           ? ['#071427', '#040B16', theme.background]
@@ -237,22 +247,6 @@ export default function SettingsScreen({ navigation }: any) {
             <View style={styles.profileInfo}>
               <Text style={[styles.profileName, { color: theme.textPrimary }]}>{user.name}</Text>
               <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>{user.email}</Text>
-              {plan && (
-                <View style={styles.planBadge}>
-                  <Ionicons
-                    name={plan.currentTier === 'premium' ? 'star' : 'star-outline'}
-                    size={11}
-                    color={plan.currentTier === 'premium' ? '#FCD34D' : theme.textSecondary}
-                  />
-                  <Text style={[
-                    styles.planBadgeText,
-                    { color: theme.textSecondary },
-                    plan.currentTier === 'premium' && { color: '#FCD34D' },
-                  ]}>
-                    {plan.plan?.name || 'Free'}
-                  </Text>
-                </View>
-              )}
             </View>
           </View>
           <TouchableOpacity
@@ -262,31 +256,6 @@ export default function SettingsScreen({ navigation }: any) {
             <Ionicons name="create-outline" size={16} color={theme.primary} />
           </TouchableOpacity>
         </View>
-      )}
-
-      {/* Upgrade card */}
-      {plan?.currentTier === 'free' && (
-        <TouchableOpacity
-          style={styles.upgradeCard}
-          onPress={handleUpgrade}
-          activeOpacity={0.85}
-        >
-          <LinearGradient
-            colors={theme.gradientPrimary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.upgradeCardInner}
-          >
-            <View style={styles.upgradeCardLeft}>
-              <Ionicons name="star" size={22} color="#fff" />
-              <View>
-                <Text style={styles.upgradeCardTitle}>Upgrade para Premium</Text>
-                <Text style={styles.upgradeCardSub}>R$ 19/mês · Sem anúncios · Ilimitado</Text>
-              </View>
-            </View>
-            <Ionicons name="arrow-forward" size={20} color="#fff" />
-          </LinearGradient>
-        </TouchableOpacity>
       )}
 
       <SectionTitle label="APARÊNCIA" />
@@ -316,15 +285,8 @@ export default function SettingsScreen({ navigation }: any) {
         <Row icon="lock-closed-outline" label="Alterar senha" onPress={() => setShowChangePwd(true)} />
       </View>
 
-      <SectionTitle label="PLANO" />
+      <SectionTitle label="RECURSOS" />
       <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Row
-          icon="star"
-          label={plan?.plan?.name || 'Free'}
-          value={plan?.plan?.price === 0 ? 'Grátis' : `R$ ${plan?.plan?.price}/mês`}
-          color="#FCD34D"
-          onPress={() => navigation?.navigate?.('Premium')}
-        />
         <Row
           icon="flash"
           label="Desafios"
@@ -338,7 +300,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Row
           icon="shield-checkmark-outline"
           label="Central de Segurança"
-          value="SOS · verificação · encontro seguro"
+          value="SOS · contato · encontro seguro"
           onPress={() => navigation?.navigate?.('SafetyCenter')}
           color="#E11D48"
         />
@@ -381,12 +343,21 @@ export default function SettingsScreen({ navigation }: any) {
           color="#10B981"
         />
         <Row
-          icon="analytics-outline"
-          label="Painel administrativo"
-          value="denúncias · relatórios"
-          onPress={() => navigation?.navigate?.('AdminPanel')}
-          color="#A78BFA"
+          icon={user?.isVerified ? 'checkmark-circle' : 'shield-checkmark-outline'}
+          label={user?.isVerified ? 'Perfil verificado' : 'Verificar perfil'}
+          value={user?.isVerified ? 'aprovado' : 'enviar documentos'}
+          onPress={() => navigation?.navigate?.('ProfileVerification')}
+          color="#2E7BFF"
         />
+        {user?.isAdmin && (
+          <Row
+            icon="analytics-outline"
+            label="Painel administrativo"
+            value="denúncias · relatórios"
+            onPress={() => navigation?.navigate?.('AdminPanel')}
+            color="#A78BFA"
+          />
+        )}
       </View>
 
       <SectionTitle label="NOTIFICAÇÕES" />
@@ -397,10 +368,7 @@ export default function SettingsScreen({ navigation }: any) {
           right={
             <Switch
               value={pushOn}
-              onValueChange={(val) => {
-                setPushOn(val);
-                AsyncStorage.setItem('notif_push', String(val)).catch(() => {});
-              }}
+              onValueChange={(val) => void updateNotificationPreference('push', val)}
               trackColor={{ false: theme.surfaceSecondary, true: theme.primary }}
               thumbColor="#fff"
             />
@@ -413,10 +381,7 @@ export default function SettingsScreen({ navigation }: any) {
           right={
             <Switch
               value={emailOn}
-              onValueChange={(val) => {
-                setEmailOn(val);
-                AsyncStorage.setItem('notif_email', String(val)).catch(() => {});
-              }}
+              onValueChange={(val) => void updateNotificationPreference('email', val)}
               trackColor={{ false: theme.surfaceSecondary, true: theme.blue }}
               thumbColor="#fff"
             />
@@ -427,7 +392,7 @@ export default function SettingsScreen({ navigation }: any) {
       <SectionTitle label="SESSÕES ATIVAS" />
       <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         {sessions.length === 0 ? (
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Apenas esta sessão ativa.</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhuma sessão ativa registrada.</Text>
         ) : (
           sessions.map((s) => (
             <View key={s.familyId} style={styles.row}>

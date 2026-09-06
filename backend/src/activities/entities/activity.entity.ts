@@ -32,6 +32,13 @@ export class Activity {
   @Column({ nullable: true })
   endTime: Date;
 
+  // Estado de pausa persistido para que a duração não conte intervalos parados.
+  @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', nullable: true })
+  pausedAt: Date | null;
+
+  @Column({ type: 'integer', default: 0 })
+  pausedDuration: number;
+
   // Distancia em metros
   @Column({ type: 'real', default: 0 })
   distance: number;
@@ -42,11 +49,30 @@ export class Activity {
 
   // Pace medio em min/km
   @Column({ type: 'real', nullable: true })
-  avgPace: number;
+  avgPace: number | null;
 
   // Velocidade media em km/h
   @Column({ type: 'real', nullable: true })
-  avgSpeed: number;
+  avgSpeed: number | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  goalType: 'distance' | 'duration' | null;
+
+  // Metros quando goalType=distance; segundos quando goalType=duration.
+  @Column({ type: 'integer', nullable: true })
+  goalValue: number | null;
+
+  @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', nullable: true })
+  goalReachedAt: Date | null;
+
+  @Column({ type: 'integer', default: 0 })
+  calories: number;
+
+  @Column({ type: 'real', default: 0 })
+  elevationGain: number;
+
+  @Column({ type: 'simple-json', nullable: true })
+  laps: Array<{ number: number; time: number; distance: number }> | null;
 
   @Column({ default: false })
   isCompleted: boolean;

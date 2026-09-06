@@ -6,7 +6,6 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -18,6 +17,7 @@ import { LoginDto } from './dto/login.dto';
 import { EmailService } from './email.service';
 import { AuditService } from '../common/security/audit.service';
 import { Request } from 'express';
+import { RefreshTokenService } from './refresh-token.service';
 
 const BCRYPT_ROUNDS = 12;
 const MAX_FAILED_ATTEMPTS = 5;
@@ -49,9 +49,9 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
     private readonly audit: AuditService,
+    private readonly refreshTokens: RefreshTokenService,
   ) {}
 
   async register(dto: RegisterDto, req?: Request) {
@@ -80,9 +80,12 @@ export class AuthService {
     if (!isValidCpf(digits)) {
       throw new BadRequestException('CPF inválido. Confira os 11 dígitos.');
     }
+    const cpfSalt = process.env.CPF_HASH_SALT || (process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('CPF_HASH_SALT é obrigatório em produção') })()
+      : 'sync-cpf-salt-dev-only');
     const cpfHash = crypto
       .createHash('sha256')
-      .update(digits + (process.env.CPF_HASH_SALT || 'sync-cpf-salt'))
+      .update(digits + cpfSalt)
       .digest('hex');
     const banned = await this.userRepository.manager.findOne(BannedCpf, {
       where: { cpfHash },
@@ -170,7 +173,6 @@ export class AuthService {
         email,
         password: randomPwd,
         emailVerified: true,
-        isVerified: true,
       };
       if (payload.picture) newUser.avatarUrl = payload.picture;
       user = this.userRepository.create(newUser);
@@ -178,13 +180,19 @@ export class AuthService {
       await this.audit.log({ userId: user.id, event: 'register_success', req, detail: 'google' });
     } else {
       user = existing;
+      if (!user.isActive) {
+        await this.audit.log({ userId: user.id, event: 'login_failure', req, detail: 'inactive_account_google' });
+        throw new UnauthorizedException(GENERIC_INVALID);
+      }
+      if (!user.emailVerified) {
+        await this.userRepository.update(user.id, { emailVerified: true });
+        user.emailVerified = true;
+      }
       await this.audit.log({ userId: user.id, event: 'login_success', req, detail: 'google' });
     }
 
-    return {
-      user: this.publicUser(user),
-      accessToken: this.generateToken(user),
-    };
+    const pair = await this.refreshTokens.issueTokenPair(user, req);
+    return { user: this.publicUser(user), ...this.publicTokenPair(pair) };
   }
 
   async login(dto: LoginDto, req?: Request) {
@@ -204,6 +212,12 @@ export class AuthService {
     if (!user) {
       await bcrypt.compare(dto.password, '$2b$12$' + 'x'.repeat(53));
       await this.audit.log({ event: 'login_failure', req, detail: 'unknown_email' });
+      throw new UnauthorizedException(GENERIC_INVALID);
+    }
+
+    if (!user.isActive) {
+      await bcrypt.compare(dto.password, user.password);
+      await this.audit.log({ userId: user.id, event: 'login_failure', req, detail: 'inactive_account' });
       throw new UnauthorizedException(GENERIC_INVALID);
     }
 
@@ -250,21 +264,17 @@ export class AuthService {
     });
     await this.audit.log({ userId: user.id, event: 'login_success', req });
 
-    const token = this.generateToken(user);
-
-    return {
-      user: this.publicUser(user),
-      accessToken: token,
-    };
+    const pair = await this.refreshTokens.issueTokenPair(user, req);
+    return { user: this.publicUser(user), ...this.publicTokenPair(pair) };
   }
 
   async validateUser(userId: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException('Usuário não encontrado');
+    if (!user || !user.isActive) throw new UnauthorizedException('Usuário não encontrado');
     return user;
   }
 
-  async forgotPassword(email: string, req?: Request): Promise<{ message: string; resetToken?: string }> {
+  async forgotPassword(email: string, req?: Request): Promise<{ message: string }> {
     const normalized = email.toLowerCase().trim();
     const user = await this.userRepository.findOne({ where: { email: normalized } });
     const genericMsg = 'Se o email existir, você receberá as instruções em breve.';
@@ -284,12 +294,9 @@ export class AuthService {
     });
 
     await this.audit.log({ userId: user.id, event: 'password_reset_requested', req });
+    await this.sendPasswordResetEmailSafe(user, resetToken);
 
-    return {
-      message: genericMsg,
-      // Em dev expomos o token pra facilitar; prod requer email externo
-      resetToken: process.env.NODE_ENV !== 'production' ? resetToken : undefined,
-    };
+    return { message: genericMsg };
   }
 
   async verifyEmail(token: string, req?: Request): Promise<{ ok: true; message: string }> {
@@ -360,7 +367,8 @@ export class AuthService {
     });
     user.emailVerified = true;
     await this.audit.log({ userId: user.id, event: 'email_verified', req });
-    return { user: this.publicUser(user), accessToken: this.generateToken(user) };
+    const pair = await this.refreshTokens.issueTokenPair(user, req);
+    return { user: this.publicUser(user), ...this.publicTokenPair(pair) };
   }
 
   async requestVerification(email: string, req?: Request): Promise<{ ok: true; message: string; emailVerificationSent?: boolean }> {
@@ -449,13 +457,8 @@ export class AuthService {
       failedLoginAttempts: 0,
       lockedUntil: null,
     });
+    await this.refreshTokens.revokeAllForUser(user.id);
     await this.audit.log({ userId: user.id, event: 'password_changed', req });
-  }
-
-  private generateToken(user: User): string {
-    const payload = { sub: user.id, email: user.email };
-    // 7 dias por padrão. Pra refresh rotation real, usar @nestjs/jwt com 2 tokens.
-    return this.jwtService.sign(payload, { expiresIn: '7d' });
   }
 
   private publicUser(user: User) {
@@ -478,6 +481,12 @@ export class AuthService {
       gender: user.gender,
       isActive: user.isActive,
       emailVerified: user.emailVerified,
+      isVerified: user.isVerified,
+      isAdmin: user.isAdmin,
+      pushNotificationsEnabled: user.pushNotificationsEnabled,
+      emailNotificationsEnabled: user.emailNotificationsEnabled,
+      inAppNotificationsEnabled: user.inAppNotificationsEnabled,
+      themeMode: user.themeMode,
       createdAt: user.createdAt,
     };
   }
@@ -506,6 +515,31 @@ export class AuthService {
       );
       return false;
     }
+  }
+
+  private async sendPasswordResetEmailSafe(user: User, token: string): Promise<boolean> {
+    try {
+      this.logger.log(`Disparando email de recuperacao para user=${user.id}`);
+      await this.emailService.sendPasswordResetEmail(user.email, user.name, token);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Falha ao enviar email de recuperacao para user=${user.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  }
+
+  private publicTokenPair(pair: {
+    accessToken: string;
+    refreshToken: string;
+    refreshExpiresAt: Date;
+  }) {
+    return {
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+      refreshExpiresAt: pair.refreshExpiresAt,
+    };
   }
 
   /** Senha forte: mín 8 chars, ≥1 letra, ≥1 número, não em blacklist de óbvias. */

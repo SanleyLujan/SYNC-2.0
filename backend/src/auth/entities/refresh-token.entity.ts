@@ -30,6 +30,7 @@ export class RefreshToken {
   familyId: string;
 
   /** SHA-256 hex do token em claro. */
+  @Index({ unique: true })
   @Column({ length: 64 })
   tokenHash: string;
 

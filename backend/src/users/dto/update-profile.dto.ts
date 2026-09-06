@@ -108,4 +108,9 @@ export class UpdateProfileDto {
   @IsBoolean()
   @IsOptional()
   showLocation?: boolean;
+
+  @ApiPropertyOptional({ enum: ['dark', 'light'] })
+  @IsIn(['dark', 'light'])
+  @IsOptional()
+  themeMode?: 'dark' | 'light';
 }

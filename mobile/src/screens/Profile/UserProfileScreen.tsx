@@ -198,24 +198,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           <View style={styles.heroNameWrap}>
             <View style={styles.heroNameRow}>
               <Text style={styles.heroName} numberOfLines={1}>{user.name}</Text>
-              {user.isVerified && (
-                <View style={[styles.verifiedBadge, { backgroundColor: theme.blue }]}>
-                  <Ionicons name="checkmark" size={11} color="#fff" />
-                </View>
-              )}
-              {user.subscriptionTier && user.subscriptionTier !== 'free' && (
-                <View style={[
-                  styles.tierBadge,
-                  { backgroundColor: theme.primary },
-                  user.subscriptionTier === 'atleta_pro' && styles.tierBadgePro,
-                ]}>
-                  <Ionicons
-                    name={user.subscriptionTier === 'atleta_pro' ? 'trophy' : 'star'}
-                    size={10}
-                    color="#fff"
-                  />
-                </View>
-              )}
+              {user.isVerified && <Ionicons name="checkmark-circle" size={20} color="#2E7BFF" accessibilityLabel="Perfil verificado" />}
             </View>
             {user.city && (
               <View style={styles.heroLocation}>
@@ -237,24 +220,6 @@ export default function UserProfileScreen({ navigation, route }: Props) {
                 <Text style={[styles.levelText, { color: levelColor }]}>
                   {levelLabels[user.level] || user.level}
                 </Text>
-              </View>
-            )}
-            {user.isVerified && (
-              <View style={[styles.verifiedRowBadge, { backgroundColor: theme.blue + '18', borderColor: theme.blue + '35' }]}>
-                <Ionicons name="checkmark-circle" size={14} color={theme.blue} />
-                <Text style={[styles.verifiedRowText, { color: theme.blue }]}>Verificado</Text>
-              </View>
-            )}
-            {user.subscriptionTier === 'premium' && (
-              <View style={[styles.premiumRowBadge, { backgroundColor: theme.warningSoft, borderColor: theme.warning + '35' }]}>
-                <Ionicons name="star" size={13} color="#FCD34D" />
-                <Text style={[styles.premiumRowText, { color: theme.warning }]}>Premium</Text>
-              </View>
-            )}
-            {user.subscriptionTier === 'atleta_pro' && (
-              <View style={[styles.proRowBadge, { backgroundColor: theme.purpleSoft, borderColor: theme.purple + '35' }]}>
-                <Ionicons name="trophy" size={13} color={theme.purple} />
-                <Text style={[styles.proRowText, { color: theme.purple }]}>Atleta Pro</Text>
               </View>
             )}
           </View>
@@ -409,18 +374,6 @@ const styles = StyleSheet.create({
   },
   content: { padding: spacing.lg },
   heroNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  verifiedBadge: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  tierBadge: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: '#FF6B35',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  tierBadgePro: { backgroundColor: '#7C3AED' },
-
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.md },
   levelBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -429,28 +382,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full, borderWidth: 1,
   },
   levelText: { fontSize: fontSize.sm, fontWeight: '700' },
-  verifiedRowBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: 'rgba(59,130,246,0.12)',
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(59,130,246,0.30)',
-  },
-  verifiedRowText: { fontSize: 11, fontWeight: '700', color: '#3B82F6' },
-  premiumRowBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: 'rgba(252,211,77,0.12)',
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(252,211,77,0.30)',
-  },
-  premiumRowText: { fontSize: 11, fontWeight: '700', color: '#FCD34D' },
-  proRowBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: 'rgba(167,139,250,0.12)',
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(167,139,250,0.30)',
-  },
-  proRowText: { fontSize: 11, fontWeight: '700', color: '#A78BFA' },
-
   challengeBtn: { borderRadius: borderRadius.md, overflow: 'hidden', marginBottom: spacing.lg },
   challengeBtnGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

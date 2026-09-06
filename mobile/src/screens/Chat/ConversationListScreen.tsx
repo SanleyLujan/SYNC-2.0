@@ -224,7 +224,7 @@ export default function ConversationListScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Premium gradient header */}
+      {/* Gradient header */}
       <LinearGradient
         colors={theme.mode === 'dark'
           ? ['#071427', '#040B16', theme.background]

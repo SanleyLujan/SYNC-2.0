@@ -4,11 +4,12 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -23,10 +24,17 @@ import { haversineMeters } from '../common/utils/haversine';
 //  - livePoint (broadcast) → seguidores recebem em tempo real
 //  - finishActivity → fecha a sala
 @WebSocketGateway({
-  cors: { origin: true, credentials: false },
+  cors: {
+    origin: process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.split(',').map((origin) => origin.trim())
+      : process.env.NODE_ENV === 'production'
+        ? false
+        : true,
+    credentials: false,
+  },
   namespace: '/tracking',
 })
-export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, OnModuleDestroy {
   @WebSocketServer()
   server: Server;
 
@@ -38,11 +46,12 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
   private socketActivities: Map<string, Set<string>> = new Map();
 
   // Buffer de pontos por atividade para persistência em batch (reduz writes no SQLite)
-  private pointBuffer: Map<string, { lat: number; lng: number; alt?: number; ts: Date }[]> = new Map();
+  private pointBuffer: Map<string, { lat: number; lng: number; alt?: number; segmentStart: boolean; ts: Date }[]> = new Map();
+  private flushInFlight: Map<string, Promise<void>> = new Map();
   // Cache do último ponto por atividade (para snapshot ao novo seguidor)
   private lastPoint: Map<string, { lat: number; lng: number; ts: Date; distance: number }> = new Map();
 
-  private flushInterval: NodeJS.Timeout;
+  private flushInterval?: NodeJS.Timeout;
 
   constructor(
     @InjectRepository(Activity)
@@ -50,9 +59,15 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
     @InjectRepository(ActivityPoint)
     private readonly pointRepository: Repository<ActivityPoint>,
     private readonly jwtService: JwtService,
-  ) {
-    // Persiste buffer a cada 3s
+  ) {}
+
+  afterInit() {
+    // Persiste buffer a cada 3s, somente depois que o gateway está pronto.
     this.flushInterval = setInterval(() => this.flushBuffers().catch(() => undefined), 3000);
+  }
+
+  onModuleDestroy() {
+    if (this.flushInterval) clearInterval(this.flushInterval);
   }
 
   async handleConnection(client: Socket) {
@@ -85,9 +100,28 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
   @SubscribeMessage('joinActivity')
   async onJoin(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { activityId: string },
+    @MessageBody() data: { activityId: string; liveToken?: string },
   ) {
     if (!data?.activityId) return { ok: false };
+
+    const activity = await this.activityRepository.findOne({
+      where: { id: data.activityId },
+      select: ['id', 'user_id', 'liveToken', 'liveTokenExpiresAt'],
+    });
+    if (!activity) return { ok: false, error: 'not_found' };
+
+    const userId = this.socketUser.get(client.id);
+    const isOwner = Boolean(userId && activity.user_id === userId);
+    const hasValidPublicToken = Boolean(
+      data.liveToken &&
+      activity.liveToken &&
+      data.liveToken === activity.liveToken &&
+      (!activity.liveTokenExpiresAt || activity.liveTokenExpiresAt > new Date()),
+    );
+    if (!isOwner && !hasValidPublicToken) {
+      return { ok: false, error: 'forbidden' };
+    }
+
     const room = `activity:${data.activityId}`;
     await client.join(room);
 
@@ -115,6 +149,7 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
       latitude: number;
       longitude: number;
       altitude?: number;
+      segmentStart?: boolean;
       timestamp?: string;
     },
   ) {
@@ -147,17 +182,18 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
       }
       // Sanity check coordenadas
       if (
-        data.latitude < -90 || data.latitude > 90 ||
-        data.longitude < -180 || data.longitude > 180
+        !Number.isFinite(data.latitude) || data.latitude < -90 || data.latitude > 90 ||
+        !Number.isFinite(data.longitude) || data.longitude < -180 || data.longitude > 180
       ) {
         return { ok: false, error: 'invalid coords' };
       }
       const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+      if (Number.isNaN(ts.getTime())) return { ok: false, error: 'invalid timestamp' };
 
       // Atualiza distância acumulada baseado no último ponto
       const prev = this.lastPoint.get(data.activityId);
       let distance = prev?.distance ?? 0;
-      if (prev) {
+      if (prev && !data.segmentStart) {
         distance += haversineMeters(prev.lat, prev.lng, data.latitude, data.longitude);
       }
       this.lastPoint.set(data.activityId, {
@@ -169,7 +205,13 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
 
       // Adiciona ao buffer (persistido em batch)
       const buf = this.pointBuffer.get(data.activityId) || [];
-      buf.push({ lat: data.latitude, lng: data.longitude, alt: data.altitude, ts });
+      buf.push({
+        lat: data.latitude,
+        lng: data.longitude,
+        alt: data.altitude,
+        segmentStart: Boolean(data.segmentStart),
+        ts,
+      });
       this.pointBuffer.set(data.activityId, buf);
 
       // Broadcast pra seguidores na sala
@@ -178,6 +220,7 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
         latitude: data.latitude,
         longitude: data.longitude,
         altitude: data.altitude,
+        segmentStart: Boolean(data.segmentStart),
         timestamp: ts.toISOString(),
         distance,
       });
@@ -205,12 +248,39 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
     if (!activity || activity.user_id !== userId) {
       return { ok: false, error: 'forbidden' };
     }
-    await this.flushActivity(data.activityId);
+    try {
+      await this.flushActivity(data.activityId);
+    } catch {
+      return { ok: false, error: 'flush_failed' };
+    }
     this.server.to(`activity:${data.activityId}`).emit('activityFinished', {
       activityId: data.activityId,
     });
     this.lastPoint.delete(data.activityId);
     return { ok: true };
+  }
+
+  /** Atualiza observadores públicos quando o cronômetro pausa ou retoma. */
+  broadcastTiming(
+    activityId: string,
+    timing: { paused: boolean; pausedAt: string | null; pausedDuration: number },
+  ) {
+    this.server.to(`activity:${activityId}`).emit('activityTiming', {
+      activityId,
+      ...timing,
+    });
+  }
+
+  /** Garante que o endpoint REST finalize somente depois do buffer WebSocket. */
+  async flushOwnedActivity(activityId: string, userId: string): Promise<void> {
+    const activity = await this.activityRepository.findOne({
+      where: { id: activityId },
+      select: ['id', 'user_id'],
+    });
+    if (!activity || activity.user_id !== userId) {
+      throw new NotFoundException('Atividade não encontrada');
+    }
+    await this.flushActivity(activityId);
   }
 
   private async flushBuffers() {
@@ -220,23 +290,41 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
   }
 
   private async flushActivity(activityId: string) {
-    const buf = this.pointBuffer.get(activityId);
-    if (!buf || buf.length === 0) return;
-    this.pointBuffer.delete(activityId);
+    const currentFlush = this.flushInFlight.get(activityId);
+    if (currentFlush) return currentFlush;
+
+    const flush = this.drainActivityBuffer(activityId);
+    this.flushInFlight.set(activityId, flush);
 
     try {
-      const rows = buf.map((p) =>
-        this.pointRepository.create({
-          activity_id: activityId,
-          latitude: p.lat,
-          longitude: p.lng,
-          altitude: p.alt,
-          timestamp: p.ts,
-        }),
-      );
-      await this.pointRepository.save(rows);
-    } catch (err) {
-      this.logger.error(`flush falhou: ${(err as Error)?.message ?? err}`);
+      await flush;
+    } finally {
+      this.flushInFlight.delete(activityId);
+    }
+  }
+
+  private async drainActivityBuffer(activityId: string): Promise<void> {
+    while (this.pointBuffer.get(activityId)?.length) {
+      const buf = this.pointBuffer.get(activityId)!;
+      this.pointBuffer.delete(activityId);
+      try {
+        const rows = buf.map((p) =>
+          this.pointRepository.create({
+            activity_id: activityId,
+            latitude: p.lat,
+            longitude: p.lng,
+            altitude: p.alt,
+            segmentStart: p.segmentStart,
+            timestamp: p.ts,
+          }),
+        );
+        await this.pointRepository.save(rows);
+      } catch (err) {
+        const pending = this.pointBuffer.get(activityId) || [];
+        this.pointBuffer.set(activityId, [...buf, ...pending]);
+        this.logger.error(`flush falhou: ${(err as Error)?.message ?? err}`);
+        throw err;
+      }
     }
   }
 }

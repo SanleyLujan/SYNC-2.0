@@ -160,6 +160,22 @@ export class User {
   @Column({ default: false })
   isVerified: boolean;
 
+  // Papéis e preferências nunca são aceitos no DTO público de perfil.
+  @Column({ default: false })
+  isAdmin: boolean;
+
+  @Column({ default: true })
+  pushNotificationsEnabled: boolean;
+
+  @Column({ default: true })
+  emailNotificationsEnabled: boolean;
+
+  @Column({ default: true })
+  inAppNotificationsEnabled: boolean;
+
+  @Column({ type: 'varchar', length: 10, default: 'dark' })
+  themeMode: 'dark' | 'light';
+
   // Hash (SHA-256) do CPF informado no cadastro. NÃO guardamos o CPF cru
   // (LGPD). Serve só para barrar reincidência de banidos (ver banned_cpfs).
   @Column({ type: 'varchar', length: 64, nullable: true, select: false })

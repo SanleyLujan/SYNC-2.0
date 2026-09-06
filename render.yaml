@@ -14,18 +14,28 @@ services:
       - key: DB_SSL
         value: "true"
       - key: DB_SYNCHRONIZE
-        value: "true"
+        value: "false"
       - key: JWT_EXPIRATION
         value: 7d
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: CPF_HASH_SALT
+        generateValue: true
       - key: FRONTEND_URL
         sync: false
+      - key: PUBLIC_WEB_URL
+        value: https://sync-2-0-blush.vercel.app
       - key: BACKEND_URL
         sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_KYC_BUCKET
+        value: identity-verification

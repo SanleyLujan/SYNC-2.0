@@ -12,16 +12,10 @@ import {
 import MapView, { Polyline, Marker } from '../../components/map/SyncMap';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
-import { trackingSocket, LivePoint } from '../../services/tracking-socket.service';
+import { trackingSocket, LivePoint, LiveTiming } from '../../services/tracking-socket.service';
+import { API_URL } from '../../services/api';
 
 const ACCENT = '#FF6B35';
-const API_BASE = (() => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:3000/api`;
-  }
-  return 'http://localhost:3000/api';
-})();
-
 type LiveData = {
   activityId: string;
   sport: string;
@@ -29,7 +23,9 @@ type LiveData = {
   isCompleted: boolean;
   distance: number;
   duration: number;
-  points: { latitude: number; longitude: number; timestamp: string }[];
+  pausedAt?: string | null;
+  pausedDuration?: number;
+  points: { latitude: number; longitude: number; timestamp: string; segmentStart?: boolean }[];
   athlete: { name?: string; avatarUrl?: string };
 };
 
@@ -37,24 +33,33 @@ export default function LiveViewScreen({ token }: { token: string }) {
   const [data, setData] = useState<LiveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [livePoints, setLivePoints] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [livePoints, setLivePoints] = useState<{ latitude: number; longitude: number; segmentStart?: boolean }[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [elapsed, setElapsed] = useState(0);
   const [liveDistance, setLiveDistance] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
+  const [pausedDuration, setPausedDuration] = useState(0);
   const mapRef = useRef<any>(null);
 
   // Carga inicial via REST
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`${API_BASE}/activities/live/${token}`);
+        const r = await fetch(`${API_URL}/activities/live/${token}`);
         if (!r.ok) throw new Error('not_found');
         const j: LiveData = await r.json();
         setData(j);
-        setLivePoints(j.points.map((p) => ({ latitude: p.latitude, longitude: p.longitude })));
+        setLivePoints(j.points.map((p) => ({
+          latitude: p.latitude,
+          longitude: p.longitude,
+          segmentStart: p.segmentStart,
+        })));
         setLiveDistance(j.distance);
         setFinished(j.isCompleted);
+        if (j.isCompleted) setElapsed(j.duration || 0);
+        setPausedAt(j.pausedAt ? new Date(j.pausedAt).getTime() : null);
+        setPausedDuration(j.pausedDuration || 0);
       } catch {
         setError('Live não encontrado ou expirado');
       } finally {
@@ -65,23 +70,36 @@ export default function LiveViewScreen({ token }: { token: string }) {
 
   // Tick do timer
   useEffect(() => {
-    if (!data || finished) return;
+    if (!data) return;
+    if (finished) {
+      if (data.isCompleted) setElapsed(data.duration || 0);
+      return;
+    }
     const start = new Date(data.startTime).getTime();
     const t = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - start) / 1000));
+      const now = Date.now();
+      const openPause = pausedAt == null ? 0 : Math.max(0, now - pausedAt) / 1000;
+      setElapsed(Math.max(0, Math.floor((now - start) / 1000 - pausedDuration - openPause)));
     }, 1000);
-    setElapsed(Math.floor((Date.now() - start) / 1000));
+    const now = Date.now();
+    const openPause = pausedAt == null ? 0 : Math.max(0, now - pausedAt) / 1000;
+    setElapsed(Math.max(0, Math.floor((now - start) / 1000 - pausedDuration - openPause)));
     return () => clearInterval(t);
-  }, [data, finished]);
+  }, [data, finished, pausedAt, pausedDuration]);
 
   // Socket: assina novos pontos
   useEffect(() => {
     if (!data) return;
     const off = trackingSocket.follow(
       data.activityId,
+      token,
       (p: LivePoint) => {
         if (p.snapshot) return; // já temos os pontos via REST
-        setLivePoints((prev) => [...prev, { latitude: p.latitude, longitude: p.longitude }]);
+        setLivePoints((prev) => [...prev, {
+          latitude: p.latitude,
+          longitude: p.longitude,
+          segmentStart: p.segmentStart,
+        }]);
         setLiveDistance(p.distance);
         setLastUpdate(new Date());
         mapRef.current?.animateToRegion?.({
@@ -92,6 +110,10 @@ export default function LiveViewScreen({ token }: { token: string }) {
         });
       },
       () => setFinished(true),
+      (timing: LiveTiming) => {
+        setPausedAt(timing.pausedAt ? new Date(timing.pausedAt).getTime() : null);
+        setPausedDuration(timing.pausedDuration || 0);
+      },
     );
     return () => {
       off();
@@ -104,6 +126,15 @@ export default function LiveViewScreen({ token }: { token: string }) {
     if (last) return { latitude: last.latitude, longitude: last.longitude };
     return { latitude: -23.5505, longitude: -46.6333 };
   }, [livePoints]);
+
+  const routeSegments = useMemo(
+    () => livePoints.reduce<Array<typeof livePoints>>((segments, point) => {
+      if (point.segmentStart || segments.length === 0) segments.push([point]);
+      else segments[segments.length - 1].push(point);
+      return segments;
+    }, []),
+    [livePoints],
+  );
 
   if (loading) {
     return (
@@ -142,9 +173,9 @@ export default function LiveViewScreen({ token }: { token: string }) {
           longitudeDelta: 0.01,
         }}
       >
-        {livePoints.length > 1 && (
-          <Polyline coordinates={livePoints} strokeColor={ACCENT} strokeWidth={5} />
-        )}
+        {routeSegments.map((segment, index) => segment.length > 1 ? (
+          <Polyline key={`live-segment-${index}`} coordinates={segment} strokeColor={ACCENT} strokeWidth={5} />
+        ) : null)}
         {livePoints.length > 0 && (
           <Marker coordinate={livePoints[livePoints.length - 1]}>
             <View style={styles.athleteMarker}>

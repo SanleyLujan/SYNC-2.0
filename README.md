@@ -348,7 +348,7 @@ sync/
 │   │   │   ├── Ranking/      # RankingScreen
 │   │   │   └── ...
 │   │   ├── components/       # Logo, Toast, modals, widgets
-│   │   ├── services/         # api, auth, tracking-socket, routing, audio-coach
+│   │   ├── services/         # api, auth, tracking-socket e routing
 │   │   ├── utils/            # haversine, training-plans, daily-quests, xp-system
 │   │   ├── theme/            # colors, spacing, images
 │   │   ├── store/            # authStore, onboardingStore (Zustand)
@@ -411,6 +411,10 @@ BACKEND_URL=https://sync-backend-o2zc.onrender.com
 RESEND_API_KEY=re_...
 EMAIL_FROM=Sync <noreply@syncapp.site>
 RESEND_TIMEOUT_MS=8000
+CPF_HASH_SALT=<32+ caracteres aleatórios, diferente do JWT_SECRET>
+SUPABASE_URL=https://<projeto>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<somente no Render/backend>
+SUPABASE_KYC_BUCKET=identity-verification
 
 # Opcionais
 SWAGGER_USER=admin
@@ -423,6 +427,16 @@ STRIPE_SECRET_KEY=<config>  # Pagamentos (futuro)
 
 Use `DB_SYNCHRONIZE=true` somente no primeiro provisionamento de um banco vazio.
 Depois disso, mantenha `false` para o TypeORM executar as migrations versionadas.
+
+### Preparação do Supabase e do administrador
+
+Em uma instalação nova, siga a ordem documentada em
+[`backend/sql/README.md`](backend/sql/README.md). Execute a parte 1 no SQL Editor
+para preparar o bucket privado. A conta administrativa é cadastrada normalmente no
+app e promovida somente depois, executando a parte 2 com o email exato da conta.
+
+Nenhum `.env` real deve ser commitado. O `.gitignore` bloqueia `.env*` em qualquer
+pasta; apenas os arquivos de exemplo sem segredos são versionados.
 
 ---
 

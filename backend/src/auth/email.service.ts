@@ -32,6 +32,34 @@ export class EmailService {
     throw new Error('Email nao configurado; defina RESEND_API_KEY e EMAIL_FROM');
   }
 
+  async sendPasswordResetEmail(email: string, name: string, token: string): Promise<void> {
+    const firstName = name.trim().split(/\s+/)[0] || 'atleta';
+    const configuredFrontend = (process.env.PUBLIC_WEB_URL || process.env.FRONTEND_URL || '')
+      .split(',')[0]
+      .trim()
+      .replace(/\/$/, '');
+    const frontendUrl = configuredFrontend || 'https://sync-2-0-blush.vercel.app';
+    const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+    const subject = 'Redefina sua senha do Sync';
+    const html = this.passwordResetHtml(firstName, resetUrl);
+    const text = `Oi, ${firstName}! Redefina sua senha do Sync neste link: ${resetUrl}. O link expira em 1 hora.`;
+
+    const apiKey = (process.env.RESEND_API_KEY || '').trim();
+    if (apiKey) {
+      const from = (process.env.EMAIL_FROM || '').trim();
+      if (!from) throw new Error('EMAIL_FROM nao configurado');
+      await this.sendWithResend(apiKey, from, email, subject, html, text);
+      return;
+    }
+
+    if (this.hasSmtpConfig()) {
+      await this.sendWithSmtp(this.getSmtpFrom(), email, subject, html, text);
+      return;
+    }
+
+    throw new Error('Email nao configurado; defina RESEND_API_KEY e EMAIL_FROM');
+  }
+
   private async sendWithResend(apiKey: string, from: string, to: string, subject: string, html: string, text: string): Promise<void> {
     const configuredTimeout = parseInt(process.env.RESEND_TIMEOUT_MS || '8000', 10);
     const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
@@ -92,6 +120,17 @@ export class EmailService {
         <p>Oi, ${this.escapeHtml(firstName)}. Digite este código no Sync:</p>
         <div style="font-size: 32px; font-weight: 700; letter-spacing: 8px; background: #F3F4F6; padding: 16px; border-radius: 8px; text-align: center;">${code}</div>
         <p style="font-size: 13px; color: #6B7280;">O código expira em 10 minutos. Se você não criou uma conta, ignore este email.</p>
+      </div>`;
+  }
+
+  private passwordResetHtml(firstName: string, resetUrl: string): string {
+    const safeUrl = this.escapeHtml(resetUrl);
+    return `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5; max-width: 560px; margin: 0 auto;">
+        <h1 style="font-size: 24px;">Redefina sua senha</h1>
+        <p>Oi, ${this.escapeHtml(firstName)}. Recebemos um pedido para alterar a senha da sua conta Sync.</p>
+        <p><a href="${safeUrl}" style="display:inline-block;background:#FF6B35;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:8px;">Criar nova senha</a></p>
+        <p style="font-size: 13px; color: #6B7280;">O link expira em 1 hora e só pode ser usado uma vez. Se você não fez o pedido, ignore este email.</p>
       </div>`;
   }
 

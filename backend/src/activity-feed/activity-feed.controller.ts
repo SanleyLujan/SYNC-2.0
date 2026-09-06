@@ -5,6 +5,7 @@ import { CreateFeedPostDto } from './dto/create-feed-post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { ReportPostDto } from './dto/report-post.dto';
 
 @ApiTags('Activity Feed')
 @Controller('api/feed')
@@ -44,6 +45,14 @@ export class ActivityFeedController {
     return this.service.like(id, user.id);
   }
 
+  @Post(':id/report')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Denunciar publicação para revisão administrativa' })
+  report(@CurrentUser() user: User, @Param('id') id: string, @Body() dto: ReportPostDto) {
+    return this.service.report(id, user.id, dto.reason, dto.description);
+  }
+
   @Delete(':id/like')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -76,6 +85,19 @@ export class ActivityFeedController {
   @ApiOperation({ summary: 'Comentar em post' })
   addComment(@CurrentUser() user: User, @Param('id') id: string, @Body() body: { text: string }) {
     return this.service.addComment(id, user.id, body.text);
+  }
+
+  @Post(':id/comments/:commentId/reactions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Adicionar ou remover reação em comentário' })
+  reactToComment(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() body: { emoji: string },
+  ) {
+    return this.service.toggleCommentReaction(id, commentId, user.id, body?.emoji);
   }
 
   @Delete(':id/comments/:commentId')

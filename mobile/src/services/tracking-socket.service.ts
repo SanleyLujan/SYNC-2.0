@@ -11,21 +11,28 @@ export type LivePoint = {
   latitude: number;
   longitude: number;
   altitude?: number;
+  segmentStart?: boolean;
   timestamp: string;
   distance: number;
   snapshot?: boolean;
 };
 
+export type LiveTiming = {
+  activityId: string;
+  paused: boolean;
+  pausedAt: string | null;
+  pausedDuration: number;
+};
+
 class TrackingSocketService {
   private socket: Socket | null = null;
-  private token: string | null = null;
 
   private async loadToken(): Promise<string | null> {
-    if (this.token) return this.token;
     try {
-      this.token = await secureStorage.getItem('@sync:token');
-    } catch {}
-    return this.token;
+      return await secureStorage.getItem('@sync:token');
+    } catch {
+      return null;
+    }
   }
 
   connect(): Socket {
@@ -57,18 +64,31 @@ class TrackingSocketService {
   }
 
   // Para seguidor (com token público): entra na sala daquela atividade
-  follow(activityId: string, onPoint: (p: LivePoint) => void, onFinished?: () => void) {
+  follow(
+    activityId: string,
+    liveToken: string,
+    onPoint: (p: LivePoint) => void,
+    onFinished?: () => void,
+    onTiming?: (timing: LiveTiming) => void,
+  ) {
     const s = this.connect();
-    s.emit('joinActivity', { activityId });
     s.off('livePoint');
     s.on('livePoint', onPoint);
     if (onFinished) {
       s.off('activityFinished');
       s.on('activityFinished', onFinished);
     }
+    if (onTiming) {
+      s.off('activityTiming');
+      s.on('activityTiming', onTiming);
+    }
+    // Registra listeners antes do join para não perder o snapshot quando o
+    // socket já está conectado e o servidor responde imediatamente.
+    s.emit('joinActivity', { activityId, liveToken });
     return () => {
       s.off('livePoint', onPoint);
       if (onFinished) s.off('activityFinished', onFinished);
+      if (onTiming) s.off('activityTiming', onTiming);
     };
   }
 
@@ -78,14 +98,18 @@ class TrackingSocketService {
     latitude: number;
     longitude: number;
     altitude?: number;
+    segmentStart?: boolean;
     timestamp?: string;
   }) {
     if (!this.socket) this.connect();
     this.socket?.emit('point', p);
   }
 
-  finish(activityId: string) {
-    this.socket?.emit('finishActivity', { activityId });
+  async finish(activityId: string): Promise<void> {
+    const socket = this.socket;
+    if (!socket?.connected) throw new Error('Tracking socket desconectado');
+    const response = await (socket as any).timeout(10_000).emitWithAck('finishActivity', { activityId });
+    if (!response?.ok) throw new Error(response?.error || 'Não foi possível confirmar os pontos GPS');
   }
 
   disconnect() {

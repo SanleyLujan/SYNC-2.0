@@ -54,6 +54,21 @@ export class NotificationsController {
   }
 
   // === IN-APP NOTIFICATIONS ===
+  @Get('preferences')
+  @ApiOperation({ summary: 'Consultar preferências de notificação' })
+  getPreferences(@CurrentUser() user: User) {
+    return this.notificationsService.getPreferences(user.id);
+  }
+
+  @Put('preferences')
+  @ApiOperation({ summary: 'Salvar preferências de notificação' })
+  updatePreferences(
+    @CurrentUser() user: User,
+    @Body() body: { push?: boolean; email?: boolean; inApp?: boolean },
+  ) {
+    return this.notificationsService.updatePreferences(user.id, body || {});
+  }
+
   @Get()
   @ApiOperation({ summary: 'Listar notificacoes com paginacao' })
   getNotifications(

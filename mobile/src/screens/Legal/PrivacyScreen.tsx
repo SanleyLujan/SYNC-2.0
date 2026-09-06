@@ -28,7 +28,7 @@ export default function PrivacyScreen({ navigation }: any) {
         <View style={{ width: 38 }} />
       </LinearGradient>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.date}>Última atualização: 23/05/2026</Text>
+        <Text style={styles.date}>Última atualização: 05/09/2026</Text>
 
         <Text style={styles.h2}>1. Dados que coletamos</Text>
         <Text style={styles.p}>
@@ -37,6 +37,7 @@ export default function PrivacyScreen({ navigation }: any) {
           {'\n'}• Localização GPS APENAS quando você usa o tracking ou Discovery
           {'\n'}• Atividades esportivas (km, pace, rota) que você cria voluntariamente
           {'\n'}• Avatar e bio (opcional)
+          {'\n'}• Selfie e documento frente/verso somente quando você solicita voluntariamente o selo de perfil verificado
         </Text>
 
         <Text style={styles.h2}>2. Como usamos seus dados</Text>
@@ -44,12 +45,13 @@ export default function PrivacyScreen({ navigation }: any) {
           • Para fazer matching com outros atletas próximos
           {'\n'}• Para calcular suas estatísticas pessoais
           {'\n'}• Para enviar notificações relevantes (você pode desativar)
+          {'\n'}• Para análise manual de pedidos de verificação por administradores autorizados
           {'\n'}• NUNCA vendemos seus dados a terceiros
         </Text>
 
         <Text style={styles.h2}>3. Compartilhamento</Text>
         <Text style={styles.p}>
-          Sua localização precisa só é compartilhada com pessoas com quem você deu match. Atividades públicas são visíveis na feed conforme suas configurações.
+          Sua rota completa de atividade fica disponível somente para você. No Discovery, pessoas com match e permissão de mapa recebem apenas uma posição aproximada. Ao criar voluntariamente um link de acompanhamento, quem possuir esse link temporário poderá acompanhar aquela atividade.
         </Text>
 
         <Text style={styles.h2}>4. Seus direitos (LGPD/GDPR)</Text>
@@ -68,11 +70,13 @@ export default function PrivacyScreen({ navigation }: any) {
           {'\n'}• HSTS + CSP + Helmet
           {'\n'}• IPs mascarados nos logs (LGPD compliant)
           {'\n'}• Account lockout após 5 tentativas erradas
+          {'\n'}• Documentos de verificação sem EXIF/GPS, em bucket privado e com links temporários de 5 minutos
+          {'\n'}• As três imagens de verificação são apagadas do storage após aprovação ou recusa; permanece somente o resultado da análise
         </Text>
 
         <Text style={styles.h2}>6. Cookies</Text>
         <Text style={styles.p}>
-          Não usamos cookies de tracking. Apenas storage seguro local (SecureStore/Keychain) para sessão.
+          Não usamos cookies de publicidade. Em Android/iOS, a sessão usa o armazenamento seguro do sistema. Na versão web, a sessão fica no armazenamento local do navegador e deve ser encerrada ao usar um computador compartilhado.
         </Text>
 
         <Text style={styles.h2}>7. Contato</Text>

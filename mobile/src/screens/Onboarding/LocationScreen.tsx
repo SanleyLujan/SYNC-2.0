@@ -12,7 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ExpoLocation from 'expo-location';
 import { getCurrentLocation, reverseGeocode, searchBrazilianCities } from '../../services/location.service';
 import api from '../../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = {
   navigation: NativeStackNavigationProp<OnboardingStackParamList, 'Location'>;
@@ -38,7 +37,7 @@ const CITIES: { name: string; lat: number; lng: number }[] = [
 
 export default function LocationScreen({ navigation }: Props) {
   const onboardingStore = useOnboardingStore();
-  const { setUser, user } = useAuthStore();
+  const setUser = useAuthStore((state) => state.setUser);
   const [loading, setLoading] = useState(false);
   const [granted, setGranted] = useState(false);
   const [city, setCity] = useState<string | undefined>();
@@ -108,17 +107,12 @@ export default function LocationScreen({ navigation }: Props) {
       setUser(updatedUser);
       onboardingStore.reset();
     } catch (err: any) {
-      const isNet = !err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
-      const isAuth = err.response?.status === 401;
-      if (isNet || isAuth) {
-        const data = onboardingStore.getData();
-        const updatedUser = { ...user, ...data, onboardingCompleted: true };
-        await AsyncStorage.setItem('@sync:user', JSON.stringify(updatedUser));
-        setUser(updatedUser as any);
-        onboardingStore.reset();
-      } else {
-        setError(err.response?.data?.message || 'Erro ao salvar perfil');
-      }
+      const message = err.response?.data?.message;
+      setError(
+        Array.isArray(message)
+          ? message.join(' • ')
+          : message || 'Não foi possível concluir o cadastro. Verifique sua conexão e tente novamente.',
+      );
     } finally {
       setLoading(false);
     }

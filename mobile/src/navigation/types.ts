@@ -61,7 +61,15 @@ export type MapStackParamList = {
 
 export type TrackingStackParamList = {
   TrackingMain: undefined;
-  ActiveTracking: { activityId: string };
+  ActiveTracking: {
+    sport: string;
+    enableLiveShare?: boolean;
+    existingActivityId?: string;
+    existingStartedAt?: string;
+    goalType?: 'distance' | 'duration';
+    goalValue?: number;
+    countLaps?: boolean;
+  };
   ActivitySummary: { activityId: string };
   ActivityHistory: undefined;
 };
@@ -85,12 +93,12 @@ export type ProfileStackParamList = {
   Terms: undefined;
   Help: undefined;
   // New screens
-  Premium: undefined;
   BlockedUsers: undefined;
   Challenges: undefined;
   Accessibility: undefined;
   SafetyCenter: undefined;
   AdminPanel: undefined;
+  ProfileVerification: undefined;
   SupportTickets: undefined;
   SegmentsList: undefined;
   SegmentDetail: { segmentId: string };

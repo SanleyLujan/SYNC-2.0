@@ -227,16 +227,20 @@ export class StatsService {
     since.setDate(1);
     since.setHours(0, 0, 0, 0);
 
+    const databaseType = this.activityRepository.manager.connection.options.type;
+    const monthExpression = databaseType === 'postgres'
+      ? `TO_CHAR(a.startTime, 'YYYY-MM')`
+      : `strftime('%Y-%m', a.startTime)`;
     const rows = await this.activityRepository
       .createQueryBuilder('a')
-      .select("strftime('%Y-%m', a.startTime)", 'yearMonth')
+      .select(monthExpression, 'yearMonth')
       .addSelect('COALESCE(SUM(a.distance), 0)', 'totalDistance')
       .addSelect('COALESCE(SUM(a.duration), 0)', 'totalDuration')
       .addSelect('COUNT(a.id)', 'count')
       .where('a.user_id = :userId', { userId })
       .andWhere('a.isCompleted = :c', { c: true })
       .andWhere('a.startTime >= :since', { since: since.toISOString() })
-      .groupBy("strftime('%Y-%m', a.startTime)")
+      .groupBy(monthExpression)
       .getRawMany<{ yearMonth: string; totalDistance: string; totalDuration: string; count: string }>();
 
     const rowMap = new Map(rows.map((r) => [r.yearMonth, r]));

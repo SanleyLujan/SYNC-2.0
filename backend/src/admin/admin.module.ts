@@ -7,9 +7,11 @@ import { Feedback } from '../feedback/feedback.entity';
 import { Activity } from '../activities/entities/activity.entity';
 import { ActivityFeedPost } from '../activity-feed/activity-feed.entity';
 import { Message } from '../chat/entities/message.entity';
+import { PostReport } from '../activity-feed/post-report.entity';
+import { VerificationModule } from '../verification/verification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, UserReport, Feedback, Activity, ActivityFeedPost, Message])],
+  imports: [TypeOrmModule.forFeature([User, UserReport, Feedback, Activity, ActivityFeedPost, Message, PostReport]), VerificationModule],
   controllers: [AdminController],
 })
 export class AdminModule {}

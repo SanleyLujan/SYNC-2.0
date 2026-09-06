@@ -3,7 +3,7 @@ import api from './api';
 export interface FeedPost {
   id: string;
   user_id: string;
-  user: { id: string; name: string; avatarUrl?: string };
+  user: { id: string; name: string; avatarUrl?: string; isVerified?: boolean };
   activity_id?: string | null;
   caption?: string | null;
   photoUrl?: string | null;
@@ -21,8 +21,10 @@ export interface FeedComment {
   id: string;
   post_id: string;
   user_id: string;
-  user: { id: string; name: string; avatarUrl?: string };
+  user: { id: string; name: string; avatarUrl?: string; isVerified?: boolean };
   text: string;
+  mentioned_user_ids?: string[] | null;
+  reactions?: Array<{ emoji: string; count: number; mine: boolean }>;
   createdAt: string;
 }
 
@@ -52,4 +54,11 @@ export const feedApi = {
     api.post<FeedComment>(`/feed/${postId}/comments`, { text }).then((r) => r.data),
   deleteComment: (postId: string, commentId: string) =>
     api.delete(`/feed/${postId}/comments/${commentId}`).then((r) => r.data),
+  toggleCommentReaction: (postId: string, commentId: string, emoji: string) =>
+    api.post<{ emoji: string; count: number; mine: boolean }>(
+      `/feed/${postId}/comments/${commentId}/reactions`,
+      { emoji },
+    ).then((r) => r.data),
+  report: (postId: string, reason: string, description?: string) =>
+    api.post(`/feed/${postId}/report`, { reason, description }).then((r) => r.data),
 };

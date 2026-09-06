@@ -6,6 +6,7 @@
   "framework": null,
   "rewrites": [
     { "source": "/live/:token", "destination": "/index.html" },
+    { "source": "/reset-password", "destination": "/index.html" },
     { "source": "/((?!api|_next|static|service-worker\\.js|manifest\\.json|.*\\..*).*)", "destination": "/index.html" }
   ],
   "headers": [
@@ -28,7 +29,10 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), payment=(), usb=()" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://sync-backend-o2zc.onrender.com wss://sync-backend-o2zc.onrender.com https://api.open-meteo.com https://air-quality-api.open-meteo.com https://api.sunrise-sunset.org https://nominatim.openstreetmap.org https://ipapi.co https://exp.host; worker-src 'self' blob:; upgrade-insecure-requests" }
       ]
     }
   ]

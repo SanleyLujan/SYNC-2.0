@@ -18,6 +18,7 @@ import { ReportUserDto } from './dto/report-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
+import { VerificationService } from '../verification/verification.service';
 
 /** true se for uma URL de mídia (novo fluxo via /api/media) e não base64 */
 function isMediaUrl(s: string): boolean {
@@ -27,7 +28,10 @@ function isMediaUrl(s: string): boolean {
 @ApiTags('Users')
 @Controller('api/users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly verificationService: VerificationService,
+  ) {}
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
@@ -134,21 +138,6 @@ export class UsersController {
     return this.usersService.updateProfilePhotos(user.id, photos.map((p) => p.trim()));
   }
 
-  @Post('me/verify')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @Throttle({ default: { ttl: 60_000, limit: 3 } })
-  @ApiOperation({ summary: 'Verificação de perfil por selfie' })
-  async verifySelfie(@CurrentUser() user: User, @Body('selfie') selfie: string) {
-    if (typeof selfie !== 'string' || (!isMediaUrl(selfie) && !selfie.startsWith('data:image/'))) {
-      throw new BadRequestException('Envie uma selfie válida (URL ou data:image/...).');
-    }
-    if (selfie.length > 700_000) {
-      throw new BadRequestException('Selfie muito grande. Máximo ~500KB após compressão.');
-    }
-    return this.usersService.verifyWithSelfie(user.id);
-  }
-
   @Put('location')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -230,6 +219,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Deletar minha conta permanentemente (LGPD/GDPR)' })
   async deleteMe(@CurrentUser() user: User) {
     // Soft delete: anonimiza ao invés de remover (preserva integridade de atividades em grupos)
+    await this.verificationService.removeForUser(user.id);
     return this.usersService.anonymizeUser(user.id);
   }
 

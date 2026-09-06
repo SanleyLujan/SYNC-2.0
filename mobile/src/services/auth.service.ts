@@ -2,6 +2,12 @@ import api, { ensureApiAvailable } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { secureStorage } from './secure-storage';
 import { AuthResponse, RegistrationResponse, User, SportLevel } from '../types';
+import { unregisterPushToken } from './push-notifications.service';
+import { stopBackgroundTracking } from './background-tracking.service';
+
+const ACCESS_TOKEN_KEY = '@sync:token';
+const REFRESH_TOKEN_KEY = '@sync:refresh-token';
+const REFRESH_EXPIRES_KEY = '@sync:refresh-expires-at';
 
 function generateSecureId(): string {
   const bytes = new Uint8Array(16);
@@ -98,28 +104,45 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    // Token vai pro SecureStore (criptografado)
-    await secureStorage.removeItem('@sync:token');
+    const refreshToken = await secureStorage.getItem(REFRESH_TOKEN_KEY).catch(() => null);
+    await stopBackgroundTracking({ clearQueue: true }).catch(() => {});
+    await unregisterPushToken().catch(() => {});
+    if (refreshToken) {
+      await api.post('/auth/logout', { refreshToken }).catch(() => {});
+    }
+    await secureStorage.removeItem(ACCESS_TOKEN_KEY);
+    await secureStorage.removeItem(REFRESH_TOKEN_KEY);
+    await secureStorage.removeItem(REFRESH_EXPIRES_KEY);
     // Compat: limpa AsyncStorage caso tenha legacy
-    await AsyncStorage.removeItem('@sync:token').catch(() => {});
+    await AsyncStorage.removeItem(ACCESS_TOKEN_KEY).catch(() => {});
     await AsyncStorage.removeItem('@sync:user').catch(() => {});
   },
 
   async saveAuth(data: AuthResponse): Promise<void> {
     // Token sensível → SecureStore. User não-sensível → AsyncStorage.
-    await secureStorage.setItem('@sync:token', data.accessToken);
+    await secureStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+    if (data.refreshToken) {
+      await secureStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+    } else {
+      await secureStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
+    if (data.refreshExpiresAt) {
+      await secureStorage.setItem(REFRESH_EXPIRES_KEY, data.refreshExpiresAt);
+    } else {
+      await secureStorage.removeItem(REFRESH_EXPIRES_KEY);
+    }
     await AsyncStorage.setItem('@sync:user', JSON.stringify(data.user));
   },
 
   async getStoredUser() {
     const userStr = await AsyncStorage.getItem('@sync:user');
-    let token = await secureStorage.getItem('@sync:token');
+    let token = await secureStorage.getItem(ACCESS_TOKEN_KEY);
     // Fallback: migra de AsyncStorage se token antigo existir
     if (!token) {
-      const legacy = await AsyncStorage.getItem('@sync:token').catch(() => null);
+      const legacy = await AsyncStorage.getItem(ACCESS_TOKEN_KEY).catch(() => null);
       if (legacy) {
-        await secureStorage.setItem('@sync:token', legacy);
-        await AsyncStorage.removeItem('@sync:token').catch(() => {});
+        await secureStorage.setItem(ACCESS_TOKEN_KEY, legacy);
+        await AsyncStorage.removeItem(ACCESS_TOKEN_KEY).catch(() => {});
         token = legacy;
       }
     }

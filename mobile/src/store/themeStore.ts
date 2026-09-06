@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 import { AppTheme, ThemeMode, applyTheme, darkTheme, themeByMode } from '../theme/colors';
 
 const STORAGE_KEY = '@sync:theme-mode';
@@ -17,19 +16,23 @@ const isThemeMode = (value: string | null): value is ThemeMode => (
   value === 'dark' || value === 'light'
 );
 
-export const useThemeStore = create<ThemeState>()(
-  persist(
-    (set) => ({
+export const useThemeStore = create<ThemeState>()((set) => ({
       mode: 'dark',
       theme: darkTheme,
-      isLoading: false,
+      isLoading: true,
 
       loadTheme: async () => {
         try {
           const stored = await AsyncStorage.getItem(STORAGE_KEY);
-          const mode = isThemeMode(stored) ? stored : 'dark';
+          let candidate: string | null = stored;
+          // Migra o JSON gravado pela versão antiga do Zustand persist.
+          if (stored?.startsWith('{')) {
+            try { candidate = JSON.parse(stored)?.state?.mode || null; } catch { candidate = null; }
+          }
+          const mode = isThemeMode(candidate) ? candidate : 'dark';
           const theme = themeByMode(mode);
           applyTheme(theme);
+          await AsyncStorage.setItem(STORAGE_KEY, mode);
           set({ mode, theme, isLoading: false });
         } catch {
           applyTheme(darkTheme);
@@ -41,20 +44,8 @@ export const useThemeStore = create<ThemeState>()(
         const theme = themeByMode(mode);
         applyTheme(theme);
         set({ mode, theme });
+        await AsyncStorage.setItem(STORAGE_KEY, mode);
       },
-    }),
-    {
-      name: STORAGE_KEY,
-      storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ mode: state.mode }),
-      onRehydrateStorage: () => (state) => {
-        const mode = state?.mode && isThemeMode(state.mode) ? state.mode : 'dark';
-        const theme = themeByMode(mode);
-        applyTheme(theme);
-        state?.setMode(mode).catch(() => {});
-      },
-    },
-  ),
-);
+    }));
 
 applyTheme(darkTheme);

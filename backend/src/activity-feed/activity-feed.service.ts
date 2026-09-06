@@ -1,12 +1,19 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, In } from 'typeorm';
+import { Repository, Not, In, ILike } from 'typeorm';
 import { ActivityFeedPost } from './activity-feed.entity';
 import { UserBlock } from '../users/entities/user-block.entity';
 import { Match } from '../matching/entities/match.entity';
 import { FeedComment } from './feed-comment.entity';
 import { FeedLike } from './feed-like.entity';
 import { sanitizeText, sanitizeUrl } from '../common/security/sanitize.util';
+import { PostReport } from './post-report.entity';
+import { ReportReason, ModerationStatus } from '../users/entities/user-report.entity';
+import { FeedCommentReaction } from './feed-comment-reaction.entity';
+import { extractMentions } from '../common/utils/mentions.util';
+import { User } from '../users/entities/user.entity';
+
+const ALLOWED_COMMENT_REACTIONS = new Set(['❤️', '🔥', '💪', '👏', '🎉']);
 
 // Projeta apenas campos públicos do usuário (sem email, lat, long)
 function safeFeedUser(user: any) {
@@ -18,6 +25,7 @@ function safeFeedUser(user: any) {
     city: user.city,
     sports: user.sports,
     level: user.level,
+    isVerified: user.isVerified,
   };
 }
 
@@ -32,6 +40,10 @@ export class ActivityFeedService {
     private readonly likeRepo: Repository<FeedLike>,
     @InjectRepository(Match)
     private readonly matchRepo: Repository<Match>,
+    @InjectRepository(PostReport)
+    private readonly reportRepo: Repository<PostReport>,
+    @InjectRepository(FeedCommentReaction)
+    private readonly commentReactionRepo: Repository<FeedCommentReaction>,
   ) {}
 
   async create(
@@ -162,22 +174,48 @@ export class ActivityFeedService {
       take: safeLimit,
       skip: (safePage - 1) * safeLimit,
     });
-    return comments.map((c) => ({ ...c, user: safeFeedUser(c.user) }));
+    const reactions = comments.length
+      ? await this.commentReactionRepo.find({ where: { comment_id: In(comments.map((comment) => comment.id)) } })
+      : [];
+    return comments.map((comment) => {
+      const counts = new Map<string, { count: number; mine: boolean }>();
+      for (const reaction of reactions.filter((item) => item.comment_id === comment.id)) {
+        const current = counts.get(reaction.emoji) || { count: 0, mine: false };
+        current.count += 1;
+        if (reaction.user_id === viewerId) current.mine = true;
+        counts.set(reaction.emoji, current);
+      }
+      return {
+        ...comment,
+        user: safeFeedUser(comment.user),
+        reactions: [...counts.entries()].map(([emoji, value]) => ({ emoji, ...value })),
+      };
+    });
   }
 
   async addComment(postId: string, userId: string, text: string) {
     if (!text || text.trim().length === 0) throw new BadRequestException('Comentário não pode ser vazio');
     if (text.length > 500) throw new BadRequestException('Comentário muito longo (máx 500 chars)');
     const post = await this.assertPostVisible(postId, userId);
+    const mentionedNames = extractMentions(text).slice(0, 10);
+    const mentionedIds: string[] = [];
+    for (const name of mentionedNames) {
+      const mentioned = await this.repo.manager.findOne(User, {
+        where: { name: ILike(name) },
+        select: ['id'],
+      });
+      if (mentioned && mentioned.id !== userId && !mentionedIds.includes(mentioned.id)) mentionedIds.push(mentioned.id);
+    }
     const comment = this.commentRepo.create({
       post_id: postId,
       user_id: userId,
       text: sanitizeText(text, 500),
+      mentioned_user_ids: mentionedIds,
     });
     const saved = await this.commentRepo.save(comment);
     await this.repo.increment({ id: postId }, 'commentsCount', 1);
     const full = await this.commentRepo.findOne({ where: { id: saved.id }, relations: ['user'] });
-    return full ? { ...full, user: safeFeedUser(full.user) } : saved;
+    return full ? { ...full, user: safeFeedUser(full.user), reactions: [] } : { ...saved, reactions: [] };
   }
 
   async deleteComment(postId: string, commentId: string, userId: string) {
@@ -196,6 +234,34 @@ export class ActivityFeedService {
     if (post.user_id !== userId) throw new BadRequestException('Você não é dono deste post');
     await this.repo.remove(post);
     return { ok: true };
+  }
+
+  async toggleCommentReaction(postId: string, commentId: string, userId: string, emoji: string) {
+    await this.assertPostVisible(postId, userId);
+    const clean = String(emoji || '').trim();
+    if (!ALLOWED_COMMENT_REACTIONS.has(clean)) throw new BadRequestException('Reação não permitida');
+    const comment = await this.commentRepo.findOne({ where: { id: commentId, post_id: postId } });
+    if (!comment) throw new NotFoundException('Comentário não encontrado');
+    const existing = await this.commentReactionRepo.findOne({ where: { comment_id: commentId, user_id: userId, emoji: clean } });
+    if (existing) await this.commentReactionRepo.delete(existing.id);
+    else await this.commentReactionRepo.save(this.commentReactionRepo.create({ comment_id: commentId, user_id: userId, emoji: clean }));
+    const count = await this.commentReactionRepo.count({ where: { comment_id: commentId, emoji: clean } });
+    return { emoji: clean, count, mine: !existing };
+  }
+
+  async report(postId: string, reporterId: string, reason: ReportReason, description?: string) {
+    const post = await this.assertPostVisible(postId, reporterId);
+    if (post.user_id === reporterId) throw new BadRequestException('Você não pode denunciar sua própria publicação');
+    const existing = await this.reportRepo.findOne({ where: { post_id: postId, reporter_id: reporterId } });
+    if (existing) return { ok: true, alreadyReported: true };
+    await this.reportRepo.save(this.reportRepo.create({
+      post_id: postId,
+      reporter_id: reporterId,
+      reason,
+      description: sanitizeText(description, 500) || null,
+      status: ModerationStatus.PENDING,
+    }));
+    return { ok: true, alreadyReported: false };
   }
 
   private async getAllowedFeedUserIds(viewerId: string): Promise<Set<string>> {

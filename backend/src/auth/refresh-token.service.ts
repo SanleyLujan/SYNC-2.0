@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -75,7 +75,23 @@ export class RefreshTokenService {
     const user = await getUser(found.userId);
     if (!user) throw new UnauthorizedException('Usuário não encontrado');
 
-    const pair = await this.rotate(user, found.familyId, req, found.id);
+    // Consumo atômico: duas requests simultâneas não podem rotacionar o mesmo
+    // token e criar dois descendentes válidos na mesma família.
+    const consumed = await this.repo
+      .createQueryBuilder()
+      .update()
+      .set({ used: true })
+      .where('id = :id', { id: found.id })
+      .andWhere('used = :used', { used: false })
+      .andWhere('revoked = :revoked', { revoked: false })
+      .andWhere('"expiresAt" > :now', { now: new Date() })
+      .execute();
+    if (consumed.affected !== 1) {
+      await this.repo.update({ familyId: found.familyId }, { revoked: true });
+      throw new UnauthorizedException('Token reutilizado — sessão revogada por segurança');
+    }
+
+    const pair = await this.rotate(user, found.familyId, req);
     return pair;
   }
 
@@ -90,7 +106,7 @@ export class RefreshTokenService {
   /** Lista sessões ativas do usuário. */
   async listSessions(userId: string) {
     const rows = await this.repo.find({
-      where: { userId, revoked: false },
+      where: { userId, revoked: false, expiresAt: MoreThan(new Date()) },
       order: { createdAt: 'DESC' },
     });
     // Agrupa por família (1 família = 1 sessão)
@@ -126,6 +142,10 @@ export class RefreshTokenService {
       .where('userId = :userId AND familyId != :fam', { userId, fam: keepFamilyId })
       .execute();
     return { ok: true };
+  }
+
+  async revokeAllForUser(userId: string) {
+    await this.repo.update({ userId }, { revoked: true });
   }
 
   private maskIp(req?: Request): string | null {

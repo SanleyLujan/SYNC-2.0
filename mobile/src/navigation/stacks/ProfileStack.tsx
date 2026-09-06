@@ -18,7 +18,6 @@ import UserProfileScreen from '../../screens/Profile/UserProfileScreen';
 import PrivacyScreen from '../../screens/Legal/PrivacyScreen';
 import TermsScreen from '../../screens/Legal/TermsScreen';
 import HelpScreen from '../../screens/Legal/HelpScreen';
-import PremiumScreen from '../../screens/Premium/PremiumScreen';
 import BlockedUsersScreen from '../../screens/Profile/BlockedUsersScreen';
 import ChallengesScreen from '../../screens/Challenges/ChallengesScreen';
 import AccessibilityScreen from '../../screens/Settings/AccessibilityScreen';
@@ -27,6 +26,7 @@ import AdminPanelScreen from '../../screens/Settings/AdminPanelScreen';
 import SupportTicketsScreen from '../../screens/Settings/SupportTicketsScreen';
 import SegmentsListScreen from '../../screens/Segments/SegmentsListScreen';
 import SegmentDetailScreen from '../../screens/Segments/SegmentDetailScreen';
+import ProfileVerificationScreen from '../../screens/Settings/ProfileVerificationScreen';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
@@ -50,12 +50,12 @@ export default function ProfileStack() {
       <Stack.Screen name="Privacy" component={PrivacyScreen as any} />
       <Stack.Screen name="Terms" component={TermsScreen as any} />
       <Stack.Screen name="Help" component={HelpScreen as any} />
-      <Stack.Screen name="Premium" component={PremiumScreen as any} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen as any} />
       <Stack.Screen name="Challenges" component={ChallengesScreen as any} />
       <Stack.Screen name="Accessibility" component={AccessibilityScreen as any} />
       <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen as any} />
       <Stack.Screen name="AdminPanel" component={AdminPanelScreen as any} />
+      <Stack.Screen name="ProfileVerification" component={ProfileVerificationScreen as any} />
       <Stack.Screen name="SupportTickets" component={SupportTicketsScreen as any} />
       <Stack.Screen name="SegmentsList" component={SegmentsListScreen as any} />
       <Stack.Screen name="SegmentDetail" component={SegmentDetailScreen as any} />

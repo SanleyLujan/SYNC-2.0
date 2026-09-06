@@ -1338,7 +1338,7 @@ Versão `sync-v4` com invalidação automática dos caches anteriores.
 - Conexão pelo `DATABASE_URL`
 - SSL habilitado em produção
 - Supabase usado somente como PostgreSQL; autenticação permanece no NestJS
-- O template `render.yaml` usa `DB_SYNCHRONIZE=true` para provisionar um banco vazio; no serviço de produção existente, mantenha `false` para executar migrations automaticamente
+- O template `render.yaml` usa `DB_SYNCHRONIZE=false`. Somente em banco vazio, habilite temporariamente `true` para criar o schema-base e depois retorne a `false` para executar migrations automaticamente.
 
 ## 15.4 CI/CD
 - Push em `main` no GitHub
@@ -1631,12 +1631,14 @@ os pipelines do GitHub são a referência final das verificações obrigatórias
 ## 21.4 Criar a infraestrutura do zero
 
 1. **Supabase:** crie um projeto PostgreSQL, copie a connection string do Session
-   Pooler e mantenha SSL ativo. O Sync usa o Supabase como banco, não Supabase Auth.
+   Pooler, mantenha SSL ativo e execute `backend/sql/01-configurar-admin-e-verificacao.sql`
+   no SQL Editor. O arquivo é seguro mesmo antes de `users` existir e prepara o bucket
+   privado de documentos. O Sync usa o Supabase como banco, não Supabase Auth.
 2. **Render:** conecte o repositório e aplique o Blueprint de `render.yaml`. Defina as
    variáveis da [seção 16](#16-variáveis-de-ambiente), especialmente `DATABASE_URL`,
    `JWT_SECRET`, `FRONTEND_URL`, `BACKEND_URL`, `RESEND_API_KEY` e `EMAIL_FROM`.
 3. **Schema:** em banco realmente vazio, `DB_SYNCHRONIZE=true` pode ser usado apenas
-   no primeiro provisionamento previsto pelo Blueprint. Depois, altere para `false` e
+   no primeiro provisionamento, por configuração temporária explícita. Depois, altere para `false` e
    use migrations como única fonte de evolução do schema.
 4. **Resend:** adicione `syncapp.site`, publique no DNS da Hostinger exatamente os
    registros fornecidos pelo Resend e aguarde o status `Verified`.
@@ -1644,6 +1646,9 @@ os pipelines do GitHub são a referência final das verificações obrigatórias
    `EXPO_PUBLIC_API_URL` com a URL pública do novo backend.
 6. **CORS:** atualize `FRONTEND_URL` no Render com todas as origens autorizadas,
    separadas por vírgula, e faça novo deploy.
+7. **Administrador:** depois que a conta existir, substitua o email placeholder e
+   execute `backend/sql/02-promover-usuario-admin.sql`. Nunca promova contas
+   automaticamente durante o bootstrap.
 
 Configuração mínima de produção do backend:
 
@@ -1653,10 +1658,14 @@ DATABASE_URL=postgresql://...
 DB_SSL=true
 DB_SYNCHRONIZE=false
 JWT_SECRET=uma-chave-longa-forte-e-privada
+CPF_HASH_SALT=outro-segredo-aleatorio-com-32-ou-mais-caracteres
 FRONTEND_URL=https://sync-2-0-blush.vercel.app
 BACKEND_URL=https://sync-backend-o2zc.onrender.com
 RESEND_API_KEY=re_...
 EMAIL_FROM=Sync <noreply@syncapp.site>
+SUPABASE_URL=https://projeto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=manter-somente-no-render
+SUPABASE_KYC_BUCKET=identity-verification
 SUBSCRIPTION_DEMO=false
 ```
 

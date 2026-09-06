@@ -96,7 +96,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Entrar na room do match para receber mensagens em tempo real
   @SubscribeMessage('joinChat')
-  handleJoinChat(
+  async handleJoinChat(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { matchId: string },
   ) {
@@ -105,8 +105,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', { message: 'Não autenticado' });
       return;
     }
-    if (data?.matchId && typeof data.matchId === 'string') {
-      client.join(`match:${data.matchId}`);
+    if (!data?.matchId || typeof data.matchId !== 'string') return { ok: false, error: 'invalid_match' };
+    try {
+      await this.chatService.assertMatchAccess(data.matchId, userId);
+      await client.join(`match:${data.matchId}`);
+      return { ok: true };
+    } catch {
+      client.emit('error', { message: 'Acesso negado a esta conversa' });
+      return { ok: false, error: 'forbidden' };
     }
   }
 
@@ -176,13 +182,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Notificar que está digitando (userId vem do JWT)
   @SubscribeMessage('typing')
-  handleTyping(
+  async handleTyping(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { matchId: string },
   ) {
     const userId = this.socketToUser.get(client.id);
     if (!userId || !data?.matchId) return;
-    client.to(`match:${data.matchId}`).emit('userTyping', { userId });
+    try {
+      await this.chatService.assertMatchAccess(data.matchId, userId);
+      client.to(`match:${data.matchId}`).emit('userTyping', { userId });
+    } catch {
+      client.emit('error', { message: 'Acesso negado a esta conversa' });
+    }
   }
 
   // Reagir a uma mensagem (toggle de emoji). Broadcast pra sala atualizar todos.

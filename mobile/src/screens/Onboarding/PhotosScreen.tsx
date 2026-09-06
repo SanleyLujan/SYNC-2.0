@@ -22,7 +22,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToast } from '../../components/ui/Toast';
 
 type Props = {
@@ -56,7 +55,7 @@ function resizeForWeb(uri: string, size = 400): Promise<string> {
 
 export default function PhotosScreen({ navigation }: Props) {
   const onboardingStore = useOnboardingStore();
-  const { setUser, user } = useAuthStore();
+  const setUser = useAuthStore((state) => state.setUser);
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -168,20 +167,14 @@ export default function PhotosScreen({ navigation }: Props) {
       setUser({ ...userWithPhotos, ...updatedUser });
       onboardingStore.reset();
     } catch (err: any) {
-      const isNet = !err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
-      const isAuth = err.response?.status === 401;
-      if (isNet || isAuth) {
-        // Fallback offline: save locally, complete onboarding
-        const onboardingData = onboardingStore.getData();
-        const updatedUser = { ...user, ...onboardingData, onboardingCompleted: true };
-        await AsyncStorage.setItem('@sync:user', JSON.stringify(updatedUser));
-        setUser(updatedUser as any);
-        onboardingStore.reset();
-      } else {
-        const msg = err.response?.data?.message;
-        showToast(Array.isArray(msg) ? msg.join(' • ') : msg || 'Erro ao salvar. Tente novamente.', 'error');
-        setSaving(false);
-      }
+      const msg = err.response?.data?.message;
+      showToast(
+        Array.isArray(msg)
+          ? msg.join(' • ')
+          : msg || 'Não foi possível concluir o cadastro. Verifique sua conexão e tente novamente.',
+        'error',
+      );
+      setSaving(false);
     }
   };
 

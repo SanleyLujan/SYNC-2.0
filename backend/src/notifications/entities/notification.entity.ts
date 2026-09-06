@@ -22,6 +22,7 @@ export enum NotificationType {
   EVENT_STARTING_SOON = 'event_starting_soon',
   NEW_EVENT_NEARBY = 'new_event_nearby',
   KOM_STOLEN = 'kom_stolen',
+  ACTIVITY_COMPLETED = 'activity_completed',
 }
 
 @Entity('notifications')

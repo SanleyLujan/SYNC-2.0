@@ -27,7 +27,7 @@ export class ChatService {
   ) {}
 
   // Verificar se o usuário faz parte do match (segurança)
-  private async verifyMatchAccess(
+  async assertMatchAccess(
     matchId: string,
     userId: string,
   ): Promise<Match> {
@@ -50,7 +50,7 @@ export class ChatService {
     messageId: string,
     emoji: string,
   ): Promise<Record<string, string[]>> {
-    await this.verifyMatchAccess(matchId, userId);
+    await this.assertMatchAccess(matchId, userId);
     // Só emojis curtos (1-8 chars) — evita texto arbitrário
     const e = String(emoji).slice(0, 8);
     const message = await this.messageRepository.findOne({
@@ -75,7 +75,7 @@ export class ChatService {
 
   // Enviar mensagem - chat só liberado após match
   async sendMessage(userId: string, dto: SendMessageDto): Promise<Message> {
-    const match = await this.verifyMatchAccess(dto.matchId, userId);
+    const match = await this.assertMatchAccess(dto.matchId, userId);
 
     // SEGURANÇA: se há bloqueio entre os dois (qualquer sentido), não deixa enviar.
     const otherId = match.user1_id === userId ? match.user2_id : match.user1_id;
@@ -174,7 +174,7 @@ export class ChatService {
     page: number = 1,
     limit: number = 50,
   ) {
-    await this.verifyMatchAccess(matchId, userId);
+    await this.assertMatchAccess(matchId, userId);
 
     const safePage = Math.max(1, Math.min(page, 1000));
     const safeLimit = Math.max(1, Math.min(limit, 100));
@@ -192,7 +192,7 @@ export class ChatService {
 
   // Marcar mensagens como lidas
   async markAsRead(userId: string, matchId: string): Promise<void> {
-    await this.verifyMatchAccess(matchId, userId);
+    await this.assertMatchAccess(matchId, userId);
 
     await this.messageRepository
       .createQueryBuilder()

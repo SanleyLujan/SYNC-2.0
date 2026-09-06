@@ -28,7 +28,6 @@ function safeDiscoverUser(u: any) {
     objectives: u.objectives,
     hobbies: u.hobbies,
     availability: u.availability,
-    subscriptionTier: u.subscriptionTier,
     totalXP: u.totalXP,
     createdAt: u.createdAt,
   };

@@ -8,7 +8,7 @@ import { BannedCpf } from './entities/banned-cpf.entity';
 import { UserReport } from './entities/user-report.entity';
 import { Match } from '../matching/entities/match.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ReportReason } from './entities/user-report.entity';
+import { ModerationStatus, ReportReason } from './entities/user-report.entity';
 import { sanitizeText } from '../common/security/sanitize.util';
 
 @Injectable()
@@ -57,8 +57,8 @@ export class UsersService {
       city: user.showLocation ? user.city : null,
       showLocation: user.showLocation,
       isActive: user.isActive,
-      subscriptionTier: user.subscriptionTier,
       totalXP: user.totalXP,
+      isVerified: user.isVerified,
       createdAt: user.createdAt,
     };
   }
@@ -259,16 +259,6 @@ export class UsersService {
     return this.findById(userId);
   }
 
-  // Verificação de perfil por selfie.
-  // MVP: ao enviar uma selfie válida, marca o perfil como verificado.
-  // Para verificação real (anti-catfish), aqui entraria um serviço de
-  // liveness + face-match comparando a selfie com as fotos do perfil
-  // (ex.: AWS Rekognition CompareFaces). Mantido simples para a demo.
-  async verifyWithSelfie(userId: string): Promise<User> {
-    await this.userRepository.update(userId, { isVerified: true });
-    return this.findById(userId);
-  }
-
   // Salvar fotos do perfil (array de data URLs base64 ou URLs, máx 5)
   async updateProfilePhotos(userId: string, photos: string[]): Promise<User> {
     if (!Array.isArray(photos) || photos.length < 1) {
@@ -423,26 +413,18 @@ export class UsersService {
     // Sanitiza descrição antes de persistir (evita XSS no painel admin)
     const safeDescription = description ? sanitizeText(description, 500) : undefined;
 
+    const existing = await this.userReportRepository.findOne({
+      where: { reporter_id: reporterId, reported_id: reportedId, status: ModerationStatus.PENDING },
+    });
+    if (existing) return;
+
     await this.userReportRepository.save({
       reporter_id: reporterId,
       reported_id: reportedId,
       reason,
       description: safeDescription,
+      status: ModerationStatus.PENDING,
     });
-
-    // Auto-moderação: se o usuário acumulou denúncias de >= 3 pessoas
-    // DIFERENTES, desativa a conta automaticamente (fica fora do Descobrir,
-    // não loga). Admin pode reverter depois.
-    const AUTO_BAN_THRESHOLD = 3;
-    const reports = await this.userReportRepository.find({
-      where: { reported_id: reportedId },
-      select: ['reporter_id'],
-    });
-    const distinctReporters = new Set(reports.map((r) => r.reporter_id));
-    if (distinctReporters.size >= AUTO_BAN_THRESHOLD) {
-      await this.userRepository.update(reportedId, { isActive: false });
-      await this.addCpfToBanList(reportedId, 'auto-ban: denúncias');
-    }
   }
 
   // Adiciona o hash do CPF do usuário (se houver) à lista de banidos, pra

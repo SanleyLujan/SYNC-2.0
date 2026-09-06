@@ -29,6 +29,7 @@ import api from '../../services/api';
 import { uploadMedia } from '../../services/media.service';
 import { territoryApi } from '../../services/territory.service';
 import { segmentsApi } from '../../services/segments.service';
+import { unwrapActivityHistory } from '../../utils/activity-history';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { showToast } from '../../components/ui/Toast';
@@ -113,7 +114,7 @@ export default function MyProfileScreen({ navigation }: Props) {
     } catch {
       try {
         const { data } = await api.get('/activities/history');
-        const activities = Array.isArray(data) ? data : [];
+        const activities = unwrapActivityHistory(data);
         const now = new Date();
         const weekStart = new Date(now);
         weekStart.setDate(now.getDate() - now.getDay()); // Sunday
@@ -359,21 +360,7 @@ export default function MyProfileScreen({ navigation }: Props) {
           </View>
           <View style={styles.nameRow}>
             <Text style={styles.name}>{user.name}</Text>
-            {(user as any).isVerified && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark" size={11} color="#fff" />
-              </View>
-            )}
-            {(user as any).subscriptionTier === 'atleta_pro' && (
-              <View style={[styles.tierBadge, { backgroundColor: '#7C3AED' }]}>
-                <Ionicons name="trophy" size={10} color="#fff" />
-              </View>
-            )}
-            {(user as any).subscriptionTier === 'premium' && (
-              <View style={[styles.tierBadge, { backgroundColor: theme.primary }]}>
-                <Ionicons name="star" size={10} color="#fff" />
-              </View>
-            )}
+            {user.isVerified && <Ionicons name="checkmark-circle" size={20} color="#2E7BFF" accessibilityLabel="Perfil verificado" />}
           </View>
           {user.city && (
             <View style={styles.locationRow}>
@@ -792,15 +779,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     fontWeight: '700',
     color: colors.white,
-  },
-  verifiedBadge: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  tierBadge: {
-    width: 18, height: 18, borderRadius: 9,
-    justifyContent: 'center', alignItems: 'center',
   },
   locationRow: {
     flexDirection: 'row',

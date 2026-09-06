@@ -44,6 +44,7 @@ export default function CommentsScreen({ navigation, route }: Props) {
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [text, setText] = useState('');
+  const [reactingTo, setReactingTo] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
 
   const load = useCallback(async () => {
@@ -72,6 +73,7 @@ export default function CommentsScreen({ navigation, route }: Props) {
       user_id: user!.id,
       user: { id: user!.id, name: user!.name, avatarUrl: user?.avatarUrl },
       text: text.trim(),
+      reactions: [],
       createdAt: new Date().toISOString(),
     };
     setComments((prev) => [...prev, optimistic]);
@@ -87,6 +89,27 @@ export default function CommentsScreen({ navigation, route }: Props) {
       showToast(e?.response?.data?.message || 'Erro ao comentar', 'error');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleReaction = async (comment: FeedComment, emoji: string) => {
+    if (comment.id.startsWith('temp-') || reactingTo === `${comment.id}:${emoji}`) return;
+    const operation = `${comment.id}:${emoji}`;
+    setReactingTo(operation);
+    try {
+      const result = await feedApi.toggleCommentReaction(postId, comment.id, emoji);
+      setComments((prev) => prev.map((item) => {
+        if (item.id !== comment.id) return item;
+        const others = (item.reactions || []).filter((reaction) => reaction.emoji !== emoji);
+        return {
+          ...item,
+          reactions: result.count > 0 ? [...others, result] : others,
+        };
+      }));
+    } catch (e: any) {
+      showToast(e?.response?.data?.message || 'Não foi possível reagir', 'error');
+    } finally {
+      setReactingTo(null);
     }
   };
 
@@ -120,10 +143,32 @@ export default function CommentsScreen({ navigation, route }: Props) {
       />
       <View style={styles.bubble}>
         <View style={styles.bubbleHeader}>
-          <Text style={styles.commenterName}>{item.user?.name || 'Usuário'}</Text>
+          <View style={styles.commenterRow}>
+            <Text style={styles.commenterName}>{item.user?.name || 'Usuário'}</Text>
+            {item.user?.isVerified && (
+              <Ionicons name="checkmark-circle" size={13} color="#2E7BFF" accessibilityLabel="Perfil verificado" />
+            )}
+          </View>
           <Text style={styles.commentTime}>{timeAgo(item.createdAt)}</Text>
         </View>
         <Text style={styles.commentText}>{item.text}</Text>
+        <View style={styles.reactionsRow}>
+          {['❤️', '🔥', '💪', '👏', '🎉'].map((emoji) => {
+            const reaction = item.reactions?.find((candidate) => candidate.emoji === emoji);
+            return (
+              <TouchableOpacity
+                key={emoji}
+                style={[styles.reactionButton, reaction?.mine && styles.reactionButtonSelected]}
+                onPress={() => handleReaction(item, emoji)}
+                disabled={reactingTo === `${item.id}:${emoji}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${reaction?.mine ? 'Remover' : 'Adicionar'} reação ${emoji}`}
+              >
+                <Text style={styles.reactionText}>{emoji}{reaction?.count ? ` ${reaction.count}` : ''}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
       {item.user_id === user?.id && (
         <TouchableOpacity
@@ -276,9 +321,25 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
   },
   bubbleHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  commenterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   commenterName: { fontSize: fontSize.sm, fontWeight: '700', color: colors.dark.text },
   commentTime: { fontSize: 11, color: colors.dark.secondaryText },
   commentText: { fontSize: fontSize.sm, color: colors.dark.text, lineHeight: 20 },
+  reactionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: spacing.sm },
+  reactionButton: {
+    minHeight: 28,
+    paddingHorizontal: 7,
+    borderRadius: 14,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  reactionButtonSelected: {
+    backgroundColor: 'rgba(255,107,53,0.16)',
+    borderColor: 'rgba(255,107,53,0.55)',
+  },
+  reactionText: { color: colors.dark.text, fontSize: 12 },
   empty: { alignItems: 'center', marginTop: 60, gap: spacing.md },
   emptyText: { color: colors.dark.secondaryText, fontSize: fontSize.md },
   retryBtn: {

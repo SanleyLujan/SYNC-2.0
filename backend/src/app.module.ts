@@ -23,7 +23,6 @@ import { TerritoryModule } from './territory/territory.module';
 import { ActivityFeedModule } from './activity-feed/activity-feed.module';
 import { SecurityModule } from './common/security/security.module';
 import { SeedModule } from './common/seed/seed.module';
-import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { FollowsModule } from './follows/follows.module';
 import { SegmentsModule } from './segments/segments.module';
@@ -32,6 +31,7 @@ import { ChallengesModule } from './challenges/challenges.module';
 import { MediaModule } from './media/media.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
+import { VerificationModule } from './verification/verification.module';
 
 @Module({
   controllers: [HealthController],
@@ -74,7 +74,6 @@ import { HealthController } from './health.controller';
     TerritoryModule,
     ActivityFeedModule,
     SeedModule,
-    SubscriptionsModule,
     FeedbackModule,
     FollowsModule,
     SegmentsModule,
@@ -82,6 +81,7 @@ import { HealthController } from './health.controller';
     ChallengesModule,
     MediaModule,
     AdminModule,
+    VerificationModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

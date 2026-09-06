@@ -33,7 +33,11 @@ export interface User {
   isActive: boolean;
   emailVerified?: boolean;
   isVerified?: boolean;
-  subscriptionTier?: 'free' | 'premium' | 'atleta_pro';
+  isAdmin?: boolean;
+  pushNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
+  inAppNotificationsEnabled?: boolean;
+  themeMode?: 'dark' | 'light';
   onboardingCompleted: boolean;
   createdAt: string;
 }
@@ -101,8 +105,14 @@ export interface Activity {
   endTime?: string;
   distance: number; // metros
   duration: number; // segundos
-  avgPace?: number; // min/km
-  avgSpeed?: number; // km/h
+  avgPace?: number | null; // min/km
+  avgSpeed?: number | null; // km/h
+  goalType?: 'distance' | 'duration' | null;
+  goalValue?: number | null;
+  goalReachedAt?: string | null;
+  calories?: number;
+  elevationGain?: number;
+  laps?: Array<{ number: number; time: number; distance: number }> | null;
   isCompleted: boolean;
   points?: ActivityPoint[];
 }
@@ -112,6 +122,7 @@ export interface ActivityPoint {
   latitude: number;
   longitude: number;
   altitude?: number;
+  segmentStart?: boolean;
   timestamp: string;
 }
 
@@ -129,6 +140,8 @@ export interface RankingItem {
 export interface AuthResponse {
   user: User;
   accessToken: string;
+  refreshToken?: string;
+  refreshExpiresAt?: string;
 }
 
 export interface RegistrationResponse {

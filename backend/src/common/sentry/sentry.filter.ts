@@ -24,20 +24,19 @@ export class SentryExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const resp = exception.getResponse();
       message = typeof resp === 'string' ? resp : (resp as any)?.message || resp;
-    } else if (exception instanceof Error) {
-      message = exception.message;
     }
 
     // Reporta apenas 5xx ou erros não-HTTP ao Sentry
     if (status >= 500 || !(exception instanceof HttpException)) {
       captureException(exception, {
-        url: request.url,
+        // Usa o padrão da rota, não a URL concreta, para não enviar tokens ou
+        // identificadores presentes em parâmetros/caminhos ao provedor.
+        route: `${request.baseUrl || ''}${request.route?.path || ''}` || 'unknown',
         method: request.method,
         userId: (request as any).user?.id,
-        ip: request.ip,
       });
       if (exception instanceof Error) {
-        this.logger.error(`[${request.method} ${request.url}] ${exception.message}`, exception.stack);
+        this.logger.error(`[${request.method} ${request.route?.path || 'unknown'}] ${exception.message}`, exception.stack);
       }
     }
 
@@ -45,7 +44,7 @@ export class SentryExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: request.route?.path || request.path,
     });
   }
 }

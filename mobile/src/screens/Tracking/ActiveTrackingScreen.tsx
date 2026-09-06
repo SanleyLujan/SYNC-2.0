@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   Dimensions,
+  AppState,
 } from 'react-native';
 import MapView, { Polyline, Marker } from '../../components/map/SyncMap';
 import { RouteProp } from '@react-navigation/native';
@@ -15,14 +16,24 @@ import { TrackingStackParamList } from '../../navigation/types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as ExpoLocation from 'expo-location';
-import api from '../../services/api';
+import api, { WEB_APP_URL } from '../../services/api';
 import { territoryApi } from '../../services/territory.service';
 import { trackingSocket } from '../../services/tracking-socket.service';
 import { Share } from 'react-native';
-import { announce, speak, setCoachEnabled, getCoachEnabled } from '../../services/audio-coach.service';
 import { AutoPauseDetector } from '../../utils/auto-pause';
+import { calculateActiveDurationSeconds } from '../../utils/tracking-timing';
+import { calculateLiveCalories, isDistanceActivity } from '../../utils/activity-metrics';
 import { showToast } from '../../components/ui/Toast';
 import { useThemeStore } from '../../store/themeStore';
+import { useAuthStore } from '../../store/authStore';
+import {
+  drainBackgroundPoints,
+  getBackgroundTrackingContext,
+  setBackgroundAppForeground,
+  setBackgroundTrackingManualPause,
+  startBackgroundTracking,
+  stopBackgroundTracking,
+} from '../../services/background-tracking.service';
 // HoldToFinishButton and ConfirmModal replaced by simple tap + Alert
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -32,12 +43,38 @@ type Props = {
   route: RouteProp<TrackingStackParamList, 'ActiveTracking'>;
 };
 
+type TrackingPoint = {
+  latitude: number;
+  longitude: number;
+  altitude?: number;
+  accuracy?: number;
+  speed?: number;
+  timestamp: number;
+  segmentStart: boolean;
+};
+
+type PauseSource = 'manual' | 'auto' | 'confirmation';
+
 export default function ActiveTrackingScreen({ navigation, route }: Props) {
-  const { activityId } = route.params;
+  const {
+    sport,
+    enableLiveShare = false,
+    existingActivityId,
+    existingStartedAt,
+    goalType,
+    goalValue,
+    countLaps = false,
+  } = route.params;
   const theme = useThemeStore((s) => s.theme);
-  const [points, setPoints] = useState<{ latitude: number; longitude: number; altitude?: number; timestamp?: number }[]>([]);
+  const profile = useAuthStore((s) => s.user);
+  const distanceBased = isDistanceActivity(sport);
+  const activityIdRef = useRef<string | null>(existingActivityId || null);
+  const [points, setPoints] = useState<TrackingPoint[]>([]);
+  const pointsRef = useRef<TrackingPoint[]>([]);
+  const knownPointTimesRef = useRef(new Set<number>());
   const [elapsed, setElapsed] = useState(0);
   const [distance, setDistance] = useState(0);
+  const distanceRef = useRef(0);
   const [elevationGain, setElevationGain] = useState(0);
   const [currentAltitude, setCurrentAltitude] = useState<number | null>(null);
   const [region, setRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }>({
@@ -53,28 +90,249 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   const [lapStartDistance, setLapStartDistance] = useState(0);
   const locationSub = useRef<any>(null);
   const timerRef = useRef<any>(null);
+  const backgroundPollRef = useRef<any>(null);
   const mapRef = useRef<any>(null);
-  const userWeightKg = 70; // TODO: pegar do perfil do user
 
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [audioOn, setAudioOn] = useState(getCoachEnabled());
   const [autoPauseOn, setAutoPauseOn] = useState(true);
+  const autoPauseOnRef = useRef(autoPauseOn);
   const autoPauseRef = useRef<AutoPauseDetector>(new AutoPauseDetector());
-  const lastAnnouncedKmRef = useRef(0);
+  const goalAnnouncedRef = useRef(false);
+  const [targetGoal, setTargetGoal] = useState<{ type: 'distance' | 'duration'; value: number } | null>(
+    goalType && goalValue ? { type: goalType, value: goalValue } : null,
+  );
+  const appStateRef = useRef(AppState.currentState);
+  const isPausedRef = useRef(false);
+  const pauseSourceRef = useRef<PauseSource | null>(null);
+  const activityStartedAtRef = useRef<number | null>(
+    existingStartedAt ? new Date(existingStartedAt).getTime() : null,
+  );
+  const totalPausedMsRef = useRef(0);
+  const pauseStartedAtRef = useRef<number | null>(null);
+  const resumeNeedsAnchorRef = useRef(true);
+  const pauseSyncRef = useRef<Promise<void>>(Promise.resolve());
+  const finishingRef = useRef(false);
+  const confirmingFinishRef = useRef(false);
 
   // ── Contagem regressiva de 10s antes de começar (com voz, pulável) ─────────
-  const [countdown, setCountdown] = useState<number | null>(10);
+  const [countdown, setCountdown] = useState<number | null>(existingActivityId ? null : 10);
+  const [initializing, setInitializing] = useState(Boolean(existingActivityId));
   const startedRef = useRef(false);
 
-  const beginWorkout = () => {
+  useEffect(() => { autoPauseOnRef.current = autoPauseOn; }, [autoPauseOn]);
+
+  function calculateActiveElapsed(at = Date.now()) {
+    return calculateActiveDurationSeconds({
+      startedAt: activityStartedAtRef.current,
+      now: at,
+      totalPausedMs: totalPausedMsRef.current,
+      pausedAt: pauseStartedAtRef.current,
+    });
+  }
+
+  function startTimer() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setElapsed(calculateActiveElapsed());
+    if (isPausedRef.current) {
+      timerRef.current = null;
+      return;
+    }
+    timerRef.current = setInterval(() => {
+      setElapsed(calculateActiveElapsed());
+    }, 500);
+  }
+
+  function queuePauseSync(action: 'pause' | 'resume', occurredAt: number) {
+    const id = activityIdRef.current;
+    if (!id) return;
+    pauseSyncRef.current = pauseSyncRef.current
+      .catch(() => undefined)
+      .then(() => api.put(`/activities/${id}/${action}`, {
+        occurredAt: new Date(occurredAt).toISOString(),
+      }).then(() => undefined))
+      .catch((error) => {
+        console.warn(`[tracking] ${action} sync failed:`, error);
+      });
+  }
+
+  function enterPause(source: PauseSource, occurredAt = Date.now()) {
+    if (isPausedRef.current) return;
+    isPausedRef.current = true;
+    pauseSourceRef.current = source;
+    pauseStartedAtRef.current = occurredAt;
+    resumeNeedsAnchorRef.current = true;
+    setIsPaused(true);
+    setElapsed(calculateActiveElapsed(occurredAt));
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    if (source !== 'auto') {
+      autoPauseRef.current.reset();
+      void setBackgroundTrackingManualPause(true);
+    }
+    queuePauseSync('pause', occurredAt);
+  }
+
+  function leavePause(source: PauseSource, occurredAt = Date.now()) {
+    if (!isPausedRef.current) return;
+    if (pauseSourceRef.current === 'manual' && source === 'auto') return;
+    if (pauseStartedAtRef.current != null) {
+      totalPausedMsRef.current += Math.max(0, occurredAt - pauseStartedAtRef.current);
+    }
+    const previousSource = pauseSourceRef.current;
+    pauseStartedAtRef.current = null;
+    pauseSourceRef.current = null;
+    isPausedRef.current = false;
+    resumeNeedsAnchorRef.current = true;
+    setIsPaused(false);
+    if (source !== 'auto' || previousSource !== 'auto') {
+      autoPauseRef.current.reset();
+    }
+    if (previousSource !== 'auto') void setBackgroundTrackingManualPause(false);
+    queuePauseSync('resume', occurredAt);
+    startTimer();
+  }
+
+  async function ensureForegroundLocationPermission(): Promise<boolean> {
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.geolocation) return true;
+      showToast('Seu navegador não suporta geolocalização.', 'error');
+      return false;
+    }
+    const current = await ExpoLocation.getForegroundPermissionsAsync();
+    const permission = current.status === 'granted'
+      ? current
+      : await ExpoLocation.requestForegroundPermissionsAsync();
+    if (permission.status === 'granted') return true;
+    Alert.alert(
+      'Permissão necessária',
+      'O Sync precisa de acesso à sua localização para registrar a atividade.',
+    );
+    return false;
+  }
+
+  async function hydrateExistingActivity(id: string): Promise<boolean> {
+    const { data } = await api.get(`/activities/${id}`);
+    if (data.isCompleted) {
+      await stopBackgroundTracking({ clearQueue: true });
+      navigation.replace('ActivitySummary', { activityId: id });
+      return false;
+    }
+
+    const hydrated: TrackingPoint[] = (Array.isArray(data.points) ? data.points : [])
+      .map((point: any, index: number) => ({
+        latitude: Number(point.latitude),
+        longitude: Number(point.longitude),
+        altitude: point.altitude == null ? undefined : Number(point.altitude),
+        timestamp: new Date(point.timestamp).getTime(),
+        segmentStart: index === 0 || Boolean(point.segmentStart),
+      }))
+      .filter((point: TrackingPoint) => (
+        Number.isFinite(point.latitude) && Number.isFinite(point.longitude) && Number.isFinite(point.timestamp)
+      ))
+      .sort((a: TrackingPoint, b: TrackingPoint) => a.timestamp - b.timestamp);
+
+    pointsRef.current = hydrated;
+    knownPointTimesRef.current = new Set(hydrated.map((point) => point.timestamp));
+    setPoints(hydrated);
+    let restoredDistance = 0;
+    let restoredElevation = 0;
+    for (let i = 1; i < hydrated.length; i++) {
+      if (hydrated[i].segmentStart) continue;
+      restoredDistance += haversine(
+        hydrated[i - 1].latitude,
+        hydrated[i - 1].longitude,
+        hydrated[i].latitude,
+        hydrated[i].longitude,
+      );
+      const previousAltitude = hydrated[i - 1].altitude;
+      const currentAltitude = hydrated[i].altitude;
+      if (previousAltitude != null && currentAltitude != null) {
+        const gain = currentAltitude - previousAltitude;
+        if (gain > 0.5 && gain < 30) restoredElevation += gain;
+      }
+    }
+    distanceRef.current = restoredDistance;
+    setDistance(restoredDistance);
+    setElevationGain(restoredElevation);
+    const last = hydrated[hydrated.length - 1];
+    if (last) {
+      setCurrentAltitude(last.altitude ?? null);
+      setRegion((current) => ({ ...current, latitude: last.latitude, longitude: last.longitude }));
+    }
+
+    const startedAt = new Date(data.startTime || existingStartedAt || Date.now()).getTime();
+    activityStartedAtRef.current = Number.isFinite(startedAt) ? startedAt : Date.now();
+    totalPausedMsRef.current = Math.max(0, Number(data.pausedDuration || 0) * 1000);
+    if (data.goalType && data.goalValue) {
+      setTargetGoal({ type: data.goalType, value: Number(data.goalValue) });
+    }
+    const storedContext = await getBackgroundTrackingContext();
+    if (data.pausedAt) {
+      const pausedAt = new Date(data.pausedAt).getTime();
+      pauseStartedAtRef.current = Number.isFinite(pausedAt) ? pausedAt : Date.now();
+      pauseSourceRef.current = storedContext?.manuallyPaused ? 'manual' : 'auto';
+      isPausedRef.current = true;
+      setIsPaused(true);
+    }
+    resumeNeedsAnchorRef.current = hydrated.length === 0 || isPausedRef.current;
+    setElapsed(calculateActiveElapsed());
+    return true;
+  }
+
+  const beginWorkout = async () => {
     if (startedRef.current) return;
     startedRef.current = true;
-    if (audioOn) speak('Vai!');
-    startTracking();
-    startTimer();
-    trackingSocket.startBroadcasting(activityId);
-    if (audioOn) announce.start();
+    setInitializing(true);
+    try {
+      const locationAllowed = distanceBased ? await ensureForegroundLocationPermission() : false;
+      if (distanceBased && !locationAllowed && !existingActivityId) {
+        startedRef.current = false;
+        setInitializing(false);
+        navigation.goBack();
+        return;
+      }
+
+      let id = existingActivityId || null;
+      if (!id) {
+        // O registro nasce apenas depois do countdown. Isso também evita
+        // atividades vazias quando o usuário abandona a contagem regressiva.
+        const { data } = await api.post('/activities/start', {
+          sport,
+          goalType: targetGoal?.type,
+          goalValue: targetGoal?.value,
+        });
+        id = data.id;
+        activityStartedAtRef.current = new Date(data.startTime || Date.now()).getTime();
+      } else if (!(await hydrateExistingActivity(id))) {
+        return;
+      }
+      if (!id) throw new Error('A API não retornou o identificador da atividade');
+
+      activityIdRef.current = id;
+      if (distanceBased) trackingSocket.startBroadcasting(id);
+      startTimer();
+      setInitializing(false);
+      if (locationAllowed) void startTracking();
+      if (distanceBased) {
+        void startBackgroundTracking({
+          activityId: id,
+          sport,
+          startedAt: new Date(activityStartedAtRef.current || Date.now()).toISOString(),
+          manuallyPaused: pauseSourceRef.current !== null && pauseSourceRef.current !== 'auto',
+        });
+        if (backgroundPollRef.current) clearInterval(backgroundPollRef.current);
+        backgroundPollRef.current = setInterval(() => void drainQueuedPoints(), 1500);
+        await drainQueuedPoints();
+      }
+      if (distanceBased && enableLiveShare && !existingActivityId) void handleShareLive(id);
+    } catch (error: any) {
+      startedRef.current = false;
+      setInitializing(false);
+      const message = error?.response?.data?.message || 'Não foi possível iniciar o treino. Verifique sua conexão.';
+      showToast(Array.isArray(message) ? message.join(' • ') : message, 'error');
+      if (!existingActivityId) navigation.goBack();
+    }
   };
 
   // Driver da contagem regressiva
@@ -82,10 +340,9 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     if (countdown === null) return;
     if (countdown <= 0) {
       setCountdown(null);
-      beginWorkout();
+      void beginWorkout();
       return;
     }
-    if (audioOn) speak(String(countdown));
     const t = setTimeout(() => {
       setCountdown((c) => (c === null ? null : c - 1));
     }, 1000);
@@ -94,42 +351,48 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
 
   const skipCountdown = () => setCountdown(0);
 
+  useEffect(() => {
+    if (existingActivityId) void beginWorkout();
+  }, []);
+
+  useEffect(() => {
+    setBackgroundAppForeground(AppState.currentState === 'active');
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      appStateRef.current = nextState;
+      const foreground = nextState === 'active';
+      setBackgroundAppForeground(foreground);
+      if (foreground) {
+        setElapsed(calculateActiveElapsed());
+        void drainQueuedPoints();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   // Cleanup ao desmontar
   useEffect(() => {
     return () => {
+      setBackgroundAppForeground(false);
       locationSub.current?.remove();
       if (timerRef.current) clearInterval(timerRef.current);
-      trackingSocket.finish(activityId);
+      if (backgroundPollRef.current) clearInterval(backgroundPollRef.current);
       trackingSocket.disconnect();
     };
   }, []);
 
-  // Anuncia cada km cruzado
+  // A meta fica visível e persistida na atividade; o aviso ocorre uma única vez.
   useEffect(() => {
-    const km = Math.floor(distance / 1000);
-    if (audioOn && km > lastAnnouncedKmRef.current && km > 0) {
-      lastAnnouncedKmRef.current = km;
-      const paceRaw = distance > 0 ? (elapsed / 60) / (distance / 1000) : 0;
-      const m = Math.floor(paceRaw);
-      const s = Math.round((paceRaw - m) * 60);
-      announce.km(km, `${m}:${s.toString().padStart(2, '0')}`);
-    }
-  }, [distance, audioOn]);
-
-  const isPausedRef = useRef(false);
-
-  const startTimer = () => {
-    // Prevent duplicate intervals
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      if (!isPausedRef.current) {
-        setElapsed((prev) => prev + 1);
-      }
-    }, 1000);
-  };
+    if (!targetGoal || goalAnnouncedRef.current) return;
+    const reached = targetGoal.type === 'distance' ? distance >= targetGoal.value : elapsed >= targetGoal.value;
+    if (!reached) return;
+    goalAnnouncedRef.current = true;
+    showToast('Meta alcançada! Continue no seu ritmo.', 'success');
+  }, [distance, elapsed, targetGoal]);
 
   const startTracking = async () => {
     try {
+      locationSub.current?.remove();
+      locationSub.current = null;
       // Web: usa navigator.geolocation com throttle de 2s para evitar re-renders excessivos
       if (Platform.OS === 'web') {
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -142,6 +405,9 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
             altitude: pos.coords.altitude ?? undefined,
+            accuracy: pos.coords.accuracy ?? undefined,
+            speed: pos.coords.speed ?? undefined,
+            timestamp: pos.timestamp,
           }),
           () => {},
           { enableHighAccuracy: true, timeout: 10000 },
@@ -157,6 +423,8 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
               longitude: pos.coords.longitude,
               altitude: pos.coords.altitude ?? undefined,
               accuracy: pos.coords.accuracy ?? undefined,
+              speed: pos.coords.speed ?? undefined,
+              timestamp: pos.timestamp,
             });
           },
           (err) => {
@@ -170,7 +438,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
         return;
       }
 
-      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      const { status } = await ExpoLocation.getForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
           'Permissão necessária',
@@ -194,6 +462,8 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
           longitude: location.coords.longitude,
           altitude: location.coords.altitude ?? undefined,
           accuracy: location.coords.accuracy ?? undefined,
+          speed: location.coords.speed ?? undefined,
+          timestamp: location.timestamp,
         }),
       );
     } catch (e) {
@@ -201,7 +471,26 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleNewPoint = (newPoint: { latitude: number; longitude: number; altitude?: number; accuracy?: number }) => {
+  async function drainQueuedPoints() {
+    const id = activityIdRef.current;
+    if (!id || appStateRef.current !== 'active') return;
+    const queued = await drainBackgroundPoints(id);
+    for (const point of queued) handleNewPoint(point, true);
+  }
+
+  const handleNewPoint = (
+    newPoint: {
+      latitude: number;
+      longitude: number;
+      altitude?: number;
+      accuracy?: number;
+      speed?: number;
+      timestamp?: number;
+    },
+    fromBackground = false,
+  ) => {
+    const id = activityIdRef.current;
+    if (!id || (!fromBackground && appStateRef.current !== 'active')) return;
     // ── Filtro de precisão (estilo Strava): descarta fixes ruins do GPS ──
     // accuracy = raio de erro em metros. Acima de ~35m o ponto é lixo e
     // distorce a rota/distância. Descarta ANTES de contar distância ou desenhar.
@@ -209,46 +498,10 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       return;
     }
 
-    const stampedPoint = { latitude: newPoint.latitude, longitude: newPoint.longitude, altitude: newPoint.altitude, timestamp: Date.now() };
+    const timestamp = Number.isFinite(newPoint.timestamp) ? Number(newPoint.timestamp) : Date.now();
+    if (knownPointTimesRef.current.has(timestamp)) return;
 
-    // Auto-pause detector
-    if (autoPauseOn) {
-      const action = autoPauseRef.current.push({ ...newPoint, timestamp: Date.now() });
-      if (action === 'pause' && !isPaused) {
-        setIsPaused(true);
-        if (audioOn) announce.pause();
-      } else if (action === 'resume' && isPaused) {
-        setIsPaused(false);
-        if (audioOn) announce.resume();
-      }
-    }
-
-    let accepted = true;
-    setPoints((prev) => {
-      if (prev.length > 0) {
-        const last = prev[prev.length - 1];
-        const d = haversine(last.latitude, last.longitude, newPoint.latitude, newPoint.longitude);
-        // Anti-jitter: ignora micro-movimentos (<2.5m) — GPS oscila parado e
-        // isso inflava a distância. Anti-salto: ignora teleportes (>60m/tick).
-        if (d < 2.5 || d > 60) {
-          accepted = false;
-          return prev; // não adiciona o ponto (evita serrilhado na rota)
-        }
-        setDistance((prevDist) => prevDist + d);
-        // Ganho de elevação acumulado (suavizado)
-        if (last.altitude != null && newPoint.altitude != null) {
-          const diff = newPoint.altitude - last.altitude;
-          if (diff > 0.5 && diff < 30) {
-            setElevationGain((prevGain) => prevGain + diff);
-          }
-        }
-      }
-      return [...prev, stampedPoint];
-    });
-
-    if (newPoint.altitude != null) setCurrentAltitude(newPoint.altitude);
-
-    // Sempre centraliza o mapa no usuário (mesmo em ponto rejeitado por jitter)
+    // O mapa acompanha a posição mesmo quando o treino está pausado.
     setRegion({
       latitude: newPoint.latitude,
       longitude: newPoint.longitude,
@@ -256,17 +509,59 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       longitudeDelta: 0.005,
     });
 
-    // Só streama pontos aceitos pro servidor (rota limpa)
-    if (!accepted) return;
+    // Auto-pause detector
+    if (autoPauseOnRef.current && pauseSourceRef.current !== 'manual' && pauseSourceRef.current !== 'confirmation') {
+      const action = autoPauseRef.current.push({ ...newPoint, timestamp });
+      if (action === 'pause' && !isPausedRef.current) enterPause('auto', timestamp);
+      else if (action === 'resume' && pauseSourceRef.current === 'auto') leavePause('auto', timestamp);
+    }
+    if (isPausedRef.current) return;
+
+    const previousPoints = pointsRef.current;
+    const segmentStart = resumeNeedsAnchorRef.current || previousPoints.length === 0;
+    const stampedPoint: TrackingPoint = {
+      latitude: newPoint.latitude,
+      longitude: newPoint.longitude,
+      altitude: newPoint.altitude,
+      accuracy: newPoint.accuracy,
+      speed: newPoint.speed,
+      timestamp,
+      segmentStart,
+    };
+    if (previousPoints.length > 0 && !segmentStart) {
+      const last = previousPoints[previousPoints.length - 1];
+      const d = haversine(last.latitude, last.longitude, newPoint.latitude, newPoint.longitude);
+      // Anti-jitter: ignora micro-movimentos (<2.5m) — GPS oscila parado e
+      // isso inflava a distância. Anti-salto: ignora teleportes (>60m/tick).
+      if (d < 2.5 || d > 60) {
+        return; // não adiciona nem transmite o ponto (evita serrilhado na rota)
+      }
+      distanceRef.current += d;
+      setDistance(distanceRef.current);
+      // Ganho de elevação acumulado (suavizado)
+      if (last.altitude != null && newPoint.altitude != null) {
+        const diff = newPoint.altitude - last.altitude;
+        if (diff > 0.5 && diff < 30) {
+          setElevationGain((prevGain) => prevGain + diff);
+        }
+      }
+    }
+    resumeNeedsAnchorRef.current = false;
+    knownPointTimesRef.current.add(timestamp);
+    pointsRef.current = [...previousPoints, stampedPoint];
+    setPoints(pointsRef.current);
+
+    if (newPoint.altitude != null) setCurrentAltitude(newPoint.altitude);
 
     // Streama via WebSocket (não bloqueia se falhar)
     try {
       trackingSocket.sendPoint({
-        activityId,
+        activityId: id,
         latitude: newPoint.latitude,
         longitude: newPoint.longitude,
         altitude: newPoint.altitude,
-        timestamp: new Date().toISOString(),
+        segmentStart,
+        timestamp: new Date(stampedPoint.timestamp).toISOString(),
       });
     } catch {}
   };
@@ -280,71 +575,94 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   };
 
   const togglePause = () => {
-    const newPaused = !isPaused;
-    isPausedRef.current = newPaused;
-    if (!newPaused) {
-      // Resuming: remove any stale subscription before creating a new one
-      locationSub.current?.remove();
-      locationSub.current = null;
-      startTracking();
-      startTimer();
-      if (audioOn) announce.resume();
-    } else {
-      // Pausing
-      locationSub.current?.remove();
-      locationSub.current = null;
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = null;
-      if (audioOn) announce.pause();
-    }
-    setIsPaused(newPaused);
+    if (isPausedRef.current) leavePause('manual');
+    else enterPause('manual');
   };
 
   const [finishing, setFinishing] = useState(false);
 
   const doFinish = async () => {
-    if (finishing) return;
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     setFinishing(true);
-    isPausedRef.current = true;
+    const pauseSourceAtFinish = pauseSourceRef.current;
     locationSub.current?.remove();
     locationSub.current = null;
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    if (audioOn) announce.finish(distance / 1000, elapsed / 60);
     try {
-      await api.put(`/activities/${activityId}/finish`);
+      await stopBackgroundTracking();
+      // Pode existir um último lote entregue pelo SO durante a parada da task.
+      await drainQueuedPoints();
+      const activeDurationSeconds = calculateActiveElapsed();
+      setElapsed(activeDurationSeconds);
+      await pauseSyncRef.current.catch(() => undefined);
+      const id = activityIdRef.current;
+      if (!id) throw new Error('Atividade não iniciada');
+      // Aguarda o backend persistir o buffer WebSocket antes de calcular métricas.
+      // O endpoint REST também força um flush como segunda camada de garantia.
+      await trackingSocket.finish(id).catch(() => {});
+      // O backend reconcilia esta cópia local com o buffer do socket. Assim,
+      // uma queda de conexão no último segundo não elimina o fim da rota.
+      await api.put(`/activities/${id}/finish`, {
+        activeDurationSeconds,
+        points: pointsRef.current.map((point) => ({
+          latitude: point.latitude,
+          longitude: point.longitude,
+          altitude: point.altitude,
+          segmentStart: point.segmentStart,
+          timestamp: new Date(point.timestamp).toISOString(),
+        })),
+        laps,
+      });
+      trackingSocket.disconnect();
       // Jogo de territórios: conquista as células da rota percorrida (fire-and-forget)
-      if (points.length > 0) {
+      if (pointsRef.current.length > 0) {
         territoryApi
-          .claim(points.map((p) => ({ lat: p.latitude, lng: p.longitude })))
+          .claim(pointsRef.current.map((p) => ({ lat: p.latitude, lng: p.longitude })))
           .catch(() => {});
       }
-      navigation.replace('ActivitySummary', { activityId });
+      navigation.replace('ActivitySummary', { activityId: id });
     } catch (e: any) {
+      finishingRef.current = false;
+      confirmingFinishRef.current = false;
       setFinishing(false);
-      // Resume timer since finish failed
-      isPausedRef.current = false;
-      startTimer();
+      if (pauseSourceAtFinish === 'confirmation' && pauseSourceRef.current === 'confirmation') {
+        leavePause('confirmation');
+      }
+      const id = activityIdRef.current;
+      if (id) {
+        void startBackgroundTracking({
+          activityId: id,
+          sport,
+          startedAt: new Date(activityStartedAtRef.current || Date.now()).toISOString(),
+          manuallyPaused: isPausedRef.current && pauseSourceRef.current !== 'auto',
+        });
+      }
+      void startTracking();
+      if (!isPausedRef.current) startTimer();
       const msg = e?.response?.data?.message || 'Não foi possível finalizar. Tente novamente.';
       showToast(Array.isArray(msg) ? msg.join(' • ') : msg, 'error');
     }
   };
 
-  const requestFinish = () => {
+  const requestFinish = async () => {
+    if (confirmingFinishRef.current || finishingRef.current) return;
+    confirmingFinishRef.current = true;
+    // Incorpora primeiro qualquer lote que o sistema operacional acabou de
+    // devolver; assim, abrir a confirmação não elimina os últimos pontos.
+    await drainQueuedPoints();
     // Pause timer while user decides
     const wasRunning = !isPausedRef.current;
-    if (wasRunning) {
-      isPausedRef.current = true;
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    }
+    if (wasRunning) enterPause('confirmation');
 
     const resume = () => {
-      if (wasRunning) {
-        isPausedRef.current = false;
-        startTimer();
-      }
+      confirmingFinishRef.current = false;
+      if (wasRunning) leavePause('confirmation');
     };
 
-    const message = `Você percorreu ${(distance / 1000).toFixed(2)} km em ${Math.floor(elapsed / 60)}min. Deseja encerrar?`;
+    const message = distanceBased
+      ? `Você percorreu ${(distance / 1000).toFixed(2)} km em ${Math.floor(elapsed / 60)}min. Deseja encerrar?`
+      : `Você treinou por ${Math.floor(elapsed / 60)}min. Deseja encerrar?`;
 
     // No WEB o Alert.alert do RN ignora os botões (vira window.alert), então o
     // callback nunca dispara. Usamos window.confirm, que funciona de verdade.
@@ -367,16 +685,17 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
 
   const handleFinish = requestFinish;
 
-  const handleShareLive = async () => {
+  async function handleShareLive(targetActivityId = activityIdRef.current) {
+    if (!targetActivityId) return;
     if (sharing) return;
     setSharing(true);
     try {
-      const { data } = await api.post(`/activities/${activityId}/share`);
+      const { data } = await api.post(`/activities/${targetActivityId}/share`);
       // Constrói URL pública baseado no host atual (web) ou domínio fixo (mobile)
-      const base = Platform.OS === 'web' && typeof window !== 'undefined'
-        ? `${window.location.origin}`
-        : 'https://sync.app';
-      const url = `${base}/live/${data.liveToken}`;
+      const returnedUrl = typeof data.url === 'string' ? data.url : '';
+      const url = returnedUrl.startsWith('http')
+        ? returnedUrl
+        : `${WEB_APP_URL}/live/${data.liveToken}`;
       setLiveUrl(url);
       try {
         await Share.share({
@@ -391,7 +710,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     } finally {
       setSharing(false);
     }
-  };
+  }
 
   const handleLap = () => {
     const lapTime = elapsed - lapStartTime;
@@ -422,14 +741,30 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     : '--:--';
   const speedKmh = elapsed > 0 ? (distance / 1000) / (elapsed / 3600) : 0;
   const speed = speedKmh.toFixed(1);
-  // Calorias precisas via MET (running ≈ 9.8, cycling ≈ 7.5, walking ≈ 3.5)
-  // kcal = MET * weight(kg) * hours
-  const speedMs = elapsed > 0 ? distance / elapsed : 0;
-  const met = speedMs >= 4.0 ? 11.5 : speedMs >= 3.0 ? 9.8 : speedMs >= 2.5 ? 8.0 : speedMs >= 1.5 ? 6.0 : 3.5;
-  const calories = Math.round((met * userWeightKg * elapsed) / 3600);
+  const calories = calculateLiveCalories({
+    sport,
+    elapsedSeconds: elapsed,
+    distanceMeters: distance,
+    weightKg: profile?.weightKg,
+    heightCm: profile?.heightCm,
+  });
   const altitudeM = currentAltitude != null ? Math.round(currentAltitude) : '--';
   const elevationGainStr = elevationGain > 0 ? `+${Math.round(elevationGain)}` : '0';
   const accent = theme.primary;
+  const routeSegments = points.reduce<TrackingPoint[][]>((segments, point) => {
+    if (point.segmentStart || segments.length === 0) segments.push([point]);
+    else segments[segments.length - 1].push(point);
+    return segments;
+  }, []);
+
+  if (initializing) {
+    return (
+      <View style={[styles.countdownOverlay, { backgroundColor: theme.background }]}>
+        <Ionicons name="locate" size={52} color={accent} />
+        <Text style={[styles.countdownLabel, { color: theme.textSecondary }]}>Iniciando treino…</Text>
+      </View>
+    );
+  }
 
   // Overlay de contagem regressiva — cobre tudo até começar
   if (countdown !== null && countdown > 0) {
@@ -453,32 +788,39 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Full-screen map */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        showsUserLocation
-        followsUserLocation
-        userInterfaceStyle="dark"
-        customMapStyle={darkMapStyle}
-        region={region}
-        initialRegion={region}
-      >
-        {points.length > 1 && (
-          <Polyline
-            coordinates={points}
-            strokeColor={colors.dark.accent}
-            strokeWidth={5}
-          />
-        )}
-        {points.length > 0 && (
-          <Marker coordinate={points[0]}>
-            <View style={styles.startMarker}>
-              <Ionicons name="flag" size={12} color={colors.white} />
-            </View>
-          </Marker>
-        )}
-      </MapView>
+      {/* O mapa só aparece em esportes cuja medida principal é distância. */}
+      {distanceBased ? (
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          showsUserLocation
+          followsUserLocation
+          userInterfaceStyle="dark"
+          customMapStyle={darkMapStyle}
+          region={region}
+          initialRegion={region}
+        >
+          {routeSegments.map((segment, index) => segment.length > 1 ? (
+            <Polyline
+              key={`route-segment-${index}`}
+              coordinates={segment}
+              strokeColor={colors.dark.accent}
+              strokeWidth={5}
+            />
+          ) : null)}
+          {points.length > 0 && (
+            <Marker coordinate={points[0]}>
+              <View style={styles.startMarker}>
+                <Ionicons name="flag" size={12} color={colors.white} />
+              </View>
+            </Marker>
+          )}
+        </MapView>
+      ) : (
+        <View style={[styles.map, { backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' }]}>
+          <Ionicons name="barbell-outline" size={72} color={theme.primarySoft} />
+        </View>
+      )}
 
       {/* Top status bar */}
       <View style={styles.topOverlay}>
@@ -489,15 +831,6 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             </View>
           )}
           <TouchableOpacity
-            style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }, audioOn && { backgroundColor: accent }]}
-            onPress={() => { const next = !audioOn; setAudioOn(next); setCoachEnabled(next); }}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: audioOn }}
-            accessibilityLabel={audioOn ? 'Narração por voz ligada' : 'Narração por voz desligada'}
-          >
-            <Ionicons name={audioOn ? 'volume-high' : 'volume-mute'} size={18} color={audioOn ? '#fff' : theme.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }, autoPauseOn && { backgroundColor: accent }]}
             onPress={() => setAutoPauseOn((v) => !v)}
             accessibilityRole="switch"
@@ -506,19 +839,21 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
           >
             <Ionicons name={autoPauseOn ? 'pause-circle' : 'pause-circle-outline'} size={18} color={autoPauseOn ? '#fff' : theme.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }, liveUrl && { backgroundColor: accent }]}
-            onPress={handleShareLive}
-            disabled={sharing}
-            accessibilityRole="button"
-            accessibilityLabel={liveUrl ? 'Treino sendo transmitido ao vivo' : 'Transmitir treino ao vivo'}
-          >
-            <Ionicons
-              name={liveUrl ? 'radio' : 'share-social-outline'}
-              size={18}
-              color={liveUrl ? colors.white : theme.textPrimary}
-            />
-          </TouchableOpacity>
+          {distanceBased && (
+            <TouchableOpacity
+              style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }, liveUrl && { backgroundColor: accent }]}
+              onPress={() => void handleShareLive()}
+              disabled={sharing}
+              accessibilityRole="button"
+              accessibilityLabel={liveUrl ? 'Treino sendo transmitido ao vivo' : 'Transmitir treino ao vivo'}
+            >
+              <Ionicons
+                name={liveUrl ? 'radio' : 'share-social-outline'}
+                size={18}
+                color={liveUrl ? colors.white : theme.textPrimary}
+              />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.lockBtn, { backgroundColor: theme.mapOverlay }]}
             onPress={() => setIsLocked(!isLocked)}
@@ -544,15 +879,15 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
 
       {/* Bottom metrics panel — Strava-style hero stats */}
       <View style={[styles.bottomPanel, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-        {/* HERO: Distância grande (foco principal) */}
+        {/* A métrica principal acompanha o tipo do esporte. */}
         <View
           style={styles.heroBlock}
           accessible
           accessibilityRole="text"
-          accessibilityLabel={`Distância: ${distanceKm} quilômetros`}
+          accessibilityLabel={distanceBased ? `Distância: ${distanceKm} quilômetros` : `Tempo: ${formatTime(elapsed)}`}
         >
-          <Text style={[styles.heroValue, { color: theme.textPrimary }]}>{distanceKm}</Text>
-          <Text style={[styles.heroLabel, { color: theme.textSecondary }]}>QUILÔMETROS</Text>
+          <Text style={[styles.heroValue, { color: theme.textPrimary }]}>{distanceBased ? distanceKm : formatTime(elapsed)}</Text>
+          <Text style={[styles.heroLabel, { color: theme.textSecondary }]}>{distanceBased ? 'QUILÔMETROS' : 'TEMPO DE TREINO'}</Text>
         </View>
 
         {/* Secondary row: Tempo + Pace */}
@@ -562,22 +897,22 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             accessible
             accessibilityLabel={`Tempo: ${formatTime(elapsed)}`}
           >
-            <Text style={[styles.secondaryValue, { color: theme.textPrimary }]}>{formatTime(elapsed)}</Text>
-            <Text style={[styles.secondaryLabel, { color: theme.textSecondary }]}>Tempo</Text>
+            <Text style={[styles.secondaryValue, { color: theme.textPrimary }]}>{distanceBased ? formatTime(elapsed) : calories}</Text>
+            <Text style={[styles.secondaryLabel, { color: theme.textSecondary }]}>{distanceBased ? 'Tempo' : 'kcal estimadas'}</Text>
           </View>
           <View style={[styles.secondaryDivider, { backgroundColor: theme.border }]} />
           <View
             style={styles.secondaryBox}
             accessible
-            accessibilityLabel={`Ritmo: ${pace} por quilômetro`}
+            accessibilityLabel={distanceBased ? `Ritmo: ${pace} por quilômetro` : `${laps.length} voltas`}
           >
-            <Text style={[styles.secondaryValue, { color: theme.textPrimary }]}>{pace}</Text>
-            <Text style={[styles.secondaryLabel, { color: theme.textSecondary }]}>Pace /km</Text>
+            <Text style={[styles.secondaryValue, { color: theme.textPrimary }]}>{distanceBased ? pace : laps.length}</Text>
+            <Text style={[styles.secondaryLabel, { color: theme.textSecondary }]}>{distanceBased ? 'Pace /km' : 'Voltas'}</Text>
           </View>
         </View>
 
-        {/* Tertiary row: calorias, BPM-like, altitude */}
-        <View style={styles.tertiaryRow}>
+        {/* Métricas GPS não são exibidas na academia para evitar zeros enganosos. */}
+        {distanceBased && <View style={styles.tertiaryRow}>
           <View style={[styles.tertiaryBox, { backgroundColor: theme.surfaceSecondary }]}>
             <Ionicons name="flame" size={14} color={accent} />
             <Text style={[styles.tertiaryValue, { color: theme.textPrimary }]}>{calories}</Text>
@@ -598,7 +933,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             <Text style={[styles.tertiaryValue, { color: theme.textPrimary }]}>{altitudeM}</Text>
             <Text style={[styles.tertiaryLabel, { color: theme.textSecondary }]}>altitude</Text>
           </View>
-        </View>
+        </View>}
 
         {/* Voltas inline (apenas última) */}
         {laps.length > 0 && (
@@ -613,16 +948,18 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
         {/* Control buttons fixos no rodapé */}
         <View style={styles.controlsBar}>
           {/* ESQUERDA: Lap (running) ou placeholder (paused) */}
-          <TouchableOpacity
-            style={[styles.sideBtn, isPaused && { opacity: 0.4 }]}
-            onPress={handleLap}
-            disabled={isPaused}
-            accessibilityRole="button"
-            accessibilityLabel={`Marcar volta ${laps.length + 1}`}
-          >
-            <Ionicons name="flag-outline" size={22} color={theme.textPrimary} />
-            <Text style={[styles.sideBtnLabel, { color: theme.textPrimary }]}>{isPaused ? `${laps.length} voltas` : `Volta ${laps.length + 1}`}</Text>
-          </TouchableOpacity>
+          {countLaps ? (
+            <TouchableOpacity
+              style={[styles.sideBtn, isPaused && { opacity: 0.4 }]}
+              onPress={handleLap}
+              disabled={isPaused}
+              accessibilityRole="button"
+              accessibilityLabel={`Marcar volta ${laps.length + 1}`}
+            >
+              <Ionicons name="flag-outline" size={22} color={theme.textPrimary} />
+              <Text style={[styles.sideBtnLabel, { color: theme.textPrimary }]}>{isPaused ? `${laps.length} voltas` : `Volta ${laps.length + 1}`}</Text>
+            </TouchableOpacity>
+          ) : <View style={styles.sideBtn} />}
 
           {/* CENTRO: Pause/Resume (sempre principal) */}
           <TouchableOpacity

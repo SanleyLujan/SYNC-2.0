@@ -30,6 +30,11 @@ export class ActivityPoint {
   @Column({ type: 'real', nullable: true })
   altitude: number;
 
+  // Primeiro ponto de um novo trecho (início ou retomada após pausa).
+  // A distância entre o ponto anterior e este não entra nas métricas.
+  @Column({ default: false })
+  segmentStart: boolean;
+
   @Column()
   timestamp: Date;
 }

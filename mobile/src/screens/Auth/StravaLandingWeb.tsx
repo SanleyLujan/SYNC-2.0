@@ -76,33 +76,6 @@ const STEPS = [
   { title: 'Supere', desc: 'Compartilhe no feed, ganhe XP, mantenha sequencia e suba no ranking.' },
 ];
 
-const PLANS = [
-  {
-    name: 'Free',
-    price: 'Gratis',
-    desc: 'Para comecar hoje',
-    perks: ['Feed e perfil esportivo', 'Tracking GPS', 'Descobrir atletas', 'Grupos e chat'],
-    cta: 'Comecar gratis',
-    active: true,
-  },
-  {
-    name: 'Premium',
-    price: 'Em breve',
-    desc: 'Para evoluir com mais dados',
-    perks: ['Metas avancadas', 'Heatmaps pessoais', 'Relatorios melhores', 'Coach inteligente'],
-    cta: 'Em breve',
-    active: false,
-  },
-  {
-    name: 'Pro',
-    price: 'Em breve',
-    desc: 'Para atletas e treinadores',
-    perks: ['Painel de performance', 'Turmas e desafios', 'Analises anuais', 'Recursos de equipe'],
-    cta: 'Em breve',
-    active: false,
-  },
-];
-
 const TESTIMONIALS = [
   {
     name: 'Ana Ferreira',
@@ -292,37 +265,6 @@ export default function StravaLandingWeb({ onStart, onLogin, onDemo }: Props) {
               </View>
               <Text style={styles.stepTitle}>{step.title}</Text>
               <Text style={styles.stepDesc}>{step.desc}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionEyebrow}>PLANOS</Text>
-        <Text style={styles.sectionTitle}>Comece gratis. Evolua quando fizer sentido.</Text>
-        <View style={styles.planGrid}>
-          {PLANS.map((plan) => (
-            <View key={plan.name} style={[styles.planCard, plan.active && styles.planCardActive, { width: cardWidth }]}>
-              <Text style={styles.planName}>{plan.name}</Text>
-              <Text style={styles.planPrice}>{plan.price}</Text>
-              <Text style={styles.planDesc}>{plan.desc}</Text>
-              <View style={styles.perks}>
-                {plan.perks.map((perk) => (
-                  <View key={perk} style={styles.perkRow}>
-                    <Ionicons name="checkmark-circle" size={17} color={plan.active ? CYAN : MUTED} />
-                    <Text style={styles.perkText}>{perk}</Text>
-                  </View>
-                ))}
-              </View>
-              <TouchableOpacity
-                style={[styles.planButton, plan.active && styles.planButtonActive]}
-                onPress={onStart}
-                disabled={!plan.active}
-              >
-                <Text style={[styles.planButtonText, plan.active && styles.planButtonActiveText]}>
-                  {plan.cta}
-                </Text>
-              </TouchableOpacity>
             </View>
           ))}
         </View>

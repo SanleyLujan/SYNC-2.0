@@ -2,12 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { Notification, NotificationType } from './entities/notification.entity';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async create(
@@ -16,7 +19,12 @@ export class NotificationsService {
     title: string,
     body: string,
     data?: string,
-  ): Promise<Notification> {
+  ): Promise<Notification | null> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'isActive', 'inAppNotificationsEnabled'],
+    });
+    if (!user || !user.isActive || !user.inAppNotificationsEnabled) return null;
     const notification = this.notificationRepository.create({
       user_id: userId,
       type,
@@ -89,5 +97,37 @@ export class NotificationsService {
       createdAt: LessThan(thirtyDaysAgo),
     });
     return { deleted: result.affected ?? 0 };
+  }
+
+  async getPreferences(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: [
+        'id',
+        'pushNotificationsEnabled',
+        'emailNotificationsEnabled',
+        'inAppNotificationsEnabled',
+        'themeMode',
+      ],
+    });
+    if (!user) throw new NotFoundException('Usuário não encontrado');
+    return {
+      push: user.pushNotificationsEnabled,
+      email: user.emailNotificationsEnabled,
+      inApp: user.inAppNotificationsEnabled,
+      themeMode: user.themeMode,
+    };
+  }
+
+  async updatePreferences(
+    userId: string,
+    preferences: { push?: boolean; email?: boolean; inApp?: boolean },
+  ) {
+    const update: Partial<User> = {};
+    if (typeof preferences.push === 'boolean') update.pushNotificationsEnabled = preferences.push;
+    if (typeof preferences.email === 'boolean') update.emailNotificationsEnabled = preferences.email;
+    if (typeof preferences.inApp === 'boolean') update.inAppNotificationsEnabled = preferences.inApp;
+    if (Object.keys(update).length) await this.userRepository.update(userId, update);
+    return this.getPreferences(userId);
   }
 }

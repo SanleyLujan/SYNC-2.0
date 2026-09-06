@@ -20,6 +20,7 @@ import { feedApi, FeedPost } from '../../services/feed.service';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 import { confirmAsync } from '../../utils/confirm';
+import { isDistanceActivity } from '../../utils/activity-metrics';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { showToast } from '../../components/ui/Toast';
 import { useHaptic } from '../../hooks/useHaptic';
@@ -107,10 +108,13 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
   const sportLabel = SPORT_LABELS[sportKey] || post.sport || 'Atividade';
   const distanceValue = post.distanceKm || 0;
   const distanceKm = distanceValue >= 10 ? distanceValue.toFixed(0) : distanceValue.toFixed(1);
+  const primaryResult = isDistanceActivity(sportKey)
+    ? `${distanceKm}km`
+    : `${Math.max(0, Math.round((post.durationSeconds || 0) / 60))}min`;
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      {/* Orange gradient accent line — premium marker */}
+      {/* Orange gradient accent line */}
       <LinearGradient
         colors={theme.gradientPrimary}
         start={{ x: 0, y: 0 }}
@@ -135,7 +139,10 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
             />
           </View>
           <View style={{ flex: 1, marginLeft: spacing.sm }}>
-            <Text style={[styles.userName, { color: theme.textPrimary }]}>{post.user?.name || 'Atleta'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={[styles.userName, { color: theme.textPrimary }]}>{post.user?.name || 'Atleta'}</Text>
+              {post.user?.isVerified && <Ionicons name="checkmark-circle" size={15} color="#2E7BFF" accessibilityLabel="Perfil verificado" />}
+            </View>
             <View style={styles.metaRow}>
               <Ionicons name={icon} size={12} color={theme.primary} />
               <Text style={[styles.metaText, { color: theme.textSecondary }]}>
@@ -156,7 +163,7 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
         {post.caption && <Text style={[styles.caption, { color: theme.textPrimary }]}>{post.caption}</Text>}
 
         <View style={[styles.distanceChip, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '45' }]}>
-          <Text style={[styles.distanceChipText, { color: theme.primary }]}>{distanceKm}km</Text>
+          <Text style={[styles.distanceChipText, { color: theme.primary }]}>{primaryResult}</Text>
         </View>
 
         {post.photoUrl && (
@@ -361,7 +368,14 @@ export default function FeedScreen() {
       const ok = await confirmAsync('Denunciar publicação?', `Reportar o post de ${post.user?.name || 'usuário'}?`, {
         confirmText: 'Denunciar', destructive: true,
       });
-      if (ok) showToast('Denúncia enviada. Obrigado!', 'success');
+       if (ok) {
+         try {
+           await feedApi.report(post.id, 'inappropriate');
+           showToast('Denúncia enviada para análise.', 'success');
+         } catch (error: any) {
+           showToast(error?.response?.data?.message || 'Não foi possível enviar a denúncia.', 'error');
+         }
+       }
     }
   };
 

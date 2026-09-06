@@ -25,6 +25,9 @@ export class FeedComment {
   @Column({ type: 'text' })
   text: string;
 
+  @Column({ type: 'simple-json', nullable: true })
+  mentioned_user_ids: string[] | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

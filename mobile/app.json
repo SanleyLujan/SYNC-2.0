@@ -48,7 +48,10 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Sync usa sua localização para registrar atividades e encontrar pessoas."
+          "locationAlwaysAndWhenInUsePermission": "Sync usa sua localização para registrar atividades e encontrar pessoas.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

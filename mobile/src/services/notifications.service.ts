@@ -4,7 +4,7 @@ import { AppNotification } from '../types';
 export const notificationsService = {
   getNotifications: async (page = 1, limit = 20): Promise<AppNotification[]> => {
     const response = await api.get(`/notifications?page=${page}&limit=${limit}`);
-    return response.data;
+    return Array.isArray(response.data) ? response.data : response.data?.data || [];
   },
 
   getUnreadCount: async (): Promise<number> => {

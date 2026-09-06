@@ -3,6 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { secureStorage } from './secure-storage';
 
+const ACCESS_TOKEN_KEY = '@sync:token';
+const REFRESH_TOKEN_KEY = '@sync:refresh-token';
+const REFRESH_EXPIRES_KEY = '@sync:refresh-expires-at';
+
 // URL do backend de produção (Render). É o DEFAULT quando não há env var,
 // pra garantir que o app funcione em qualquer lugar (deploy, celular, preview)
 // sem depender de configuração extra.
@@ -37,6 +41,9 @@ const getApiBase = () => {
 export const API_URL = getApiBase();
 // Base sem o /api — usado por sockets e static (avatars)
 export const API_HOST = API_URL.replace(/\/api$/, '');
+export const WEB_APP_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://sync-2-0-blush.vercel.app')
+  .trim()
+  .replace(/\/$/, '');
 
 // O Render pode levar cerca de um minuto para iniciar o serviço após um
 // período ocioso. Esta chamada GET acorda a API antes de operações POST que
@@ -55,16 +62,16 @@ const api = axios.create({
 // SECURITY: lê APENAS do SecureStore (Keychain/EncryptedSharedPreferences).
 // Em web, secureStorage usa um wrapper sobre localStorage com prefixo.
 api.interceptors.request.use(async (config) => {
-  const token = await secureStorage.getItem('@sync:token');
+  const token = await secureStorage.getItem(ACCESS_TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   // Migração: se ainda houver token em AsyncStorage (legacy), move pro SecureStore e remove
   if (!token) {
-    const legacy = await AsyncStorage.getItem('@sync:token').catch(() => null);
+    const legacy = await AsyncStorage.getItem(ACCESS_TOKEN_KEY).catch(() => null);
     if (legacy) {
-      await secureStorage.setItem('@sync:token', legacy).catch(() => {});
-      await AsyncStorage.removeItem('@sync:token').catch(() => {});
+      await secureStorage.setItem(ACCESS_TOKEN_KEY, legacy).catch(() => {});
+      await AsyncStorage.removeItem(ACCESS_TOKEN_KEY).catch(() => {});
       config.headers.Authorization = `Bearer ${legacy}`;
     }
   }
@@ -77,6 +84,48 @@ api.interceptors.request.use(async (config) => {
 let sessionExpiredHandler: (() => void) | null = null;
 export function setSessionExpiredHandler(fn: (() => void) | null) {
   sessionExpiredHandler = fn;
+}
+
+async function clearStoredSession() {
+  await Promise.all([
+    secureStorage.removeItem(ACCESS_TOKEN_KEY),
+    secureStorage.removeItem(REFRESH_TOKEN_KEY),
+    secureStorage.removeItem(REFRESH_EXPIRES_KEY),
+    AsyncStorage.removeItem(ACCESS_TOKEN_KEY).catch(() => {}),
+    AsyncStorage.removeItem('@sync:user').catch(() => {}),
+  ]);
+  sessionExpiredHandler?.();
+}
+
+let refreshPromise: Promise<string> | null = null;
+
+async function refreshAccessToken(): Promise<string> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const refreshToken = await secureStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refreshToken) throw new Error('Refresh token ausente');
+
+    const { data } = await axios.post(
+      `${API_URL}/auth/refresh`,
+      { refreshToken },
+      { timeout: 30_000, headers: { 'Content-Type': 'application/json' } },
+    );
+    if (!data?.accessToken || !data?.refreshToken) {
+      throw new Error('Resposta de renovação inválida');
+    }
+    await secureStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+    await secureStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+    if (data.refreshExpiresAt) {
+      await secureStorage.setItem(REFRESH_EXPIRES_KEY, String(data.refreshExpiresAt));
+    }
+    return data.accessToken as string;
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 
 // Interceptor: trata erros globalmente.
@@ -101,13 +150,30 @@ api.interceptors.response.use(
       return api(config);
     }
 
-    const isSessionCheck = url.includes('/users/me') || url.includes('/auth/');
-    if (error.response?.status === 401 && isSessionCheck) {
-      await secureStorage.removeItem('@sync:token');
-      await AsyncStorage.removeItem('@sync:token').catch(() => {});
-      await AsyncStorage.removeItem('@sync:user').catch(() => {});
-      // Atualiza o estado em memória → RootNavigator volta pro login
-      sessionExpiredHandler?.();
+    const publicAuthPaths = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/google',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/auth/refresh',
+      '/auth/logout',
+      '/auth/verify-email',
+      '/auth/verify-email-code',
+      '/auth/request-verification',
+    ];
+    const isPublicAuthRequest = publicAuthPaths.some((path) => url.includes(path));
+
+    if (error.response?.status === 401 && !isPublicAuthRequest && !config._authRetried) {
+      config._authRetried = true;
+      try {
+        const accessToken = await refreshAccessToken();
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${accessToken}`;
+        return api(config);
+      } catch {
+        await clearStoredSession();
+      }
     }
     return Promise.reject(error);
   },

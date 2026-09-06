@@ -21,7 +21,7 @@ interface Notification {
   id: string;
   type: string;
   title: string;
-  content: string;
+  body: string;
   data?: string;
   isRead: boolean;
   createdAt: string;
@@ -40,6 +40,7 @@ const TYPE_CONFIG: Record<string, { icon: any; color: string }> = {
   hydration: { icon: 'water', color: '#3B82F6' },
   training_daily: { icon: 'sunny', color: '#FCD34D' },
   kom_stolen: { icon: 'flag', color: '#FFD700' },
+  activity_completed: { icon: 'fitness', color: '#FF6B35' },
   default: { icon: 'notifications', color: '#8E8EA0' },
 };
 
@@ -91,6 +92,22 @@ export default function NotificationsScreen({ navigation }: any) {
     api.put(`/notifications/${id}/read`).catch(() => {});
   };
 
+  const openNotification = (item: Notification) => {
+    void markAsRead(item.id);
+    let payload: any = {};
+    try { payload = typeof item.data === 'string' ? JSON.parse(item.data) : (item.data || {}); } catch {}
+    const tabs = navigation?.getParent?.();
+    if (payload.activityId) {
+      tabs?.navigate?.('TrackingTab', { screen: 'ActivitySummary', params: { activityId: payload.activityId } });
+    } else if (payload.eventId) {
+      tabs?.navigate?.('MapTab', { screen: 'EventDetail', params: { eventId: payload.eventId } });
+    } else if (payload.postId) {
+      navigation?.navigate?.('Comments', { postId: payload.postId, postAuthorName: 'Publicação' });
+    } else if (payload.matchId) {
+      tabs?.navigate?.('ChatTab', { screen: 'ConversationList' });
+    }
+  };
+
   const markAllAsRead = async () => {
     const unread = list.filter((n) => !n.isRead);
     setList((l) => l.map((n) => ({ ...n, isRead: true })));
@@ -112,7 +129,7 @@ export default function NotificationsScreen({ navigation }: any) {
             borderLeftColor: theme.primary,
           },
         ]}
-        onPress={() => markAsRead(item.id)}
+        onPress={() => openNotification(item)}
         activeOpacity={0.7}
       >
         <View style={[styles.iconCircle, { backgroundColor: cfg.color + '22', borderColor: theme.border }]}>
@@ -120,7 +137,7 @@ export default function NotificationsScreen({ navigation }: any) {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.notifTitle, { color: theme.textPrimary }]}>{item.title}</Text>
-          <Text style={[styles.notifContent, { color: theme.textSecondary }]} numberOfLines={2}>{item.content}</Text>
+          <Text style={[styles.notifContent, { color: theme.textSecondary }]} numberOfLines={2}>{item.body}</Text>
           <Text style={[styles.notifTime, { color: theme.textSecondary }]}>{timeAgo(item.createdAt)}</Text>
         </View>
         {!item.isRead && <View style={[styles.dot, { backgroundColor: theme.primary, shadowColor: theme.primary }]} />}

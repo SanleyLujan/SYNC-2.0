@@ -38,7 +38,7 @@ export default function VerifyEmailCodeScreen({ route, navigation }: Props) {
     setLoading(true);
     try {
       const result = await authService.verifyEmailCode(email, code);
-      await setAuth(result.user, result.accessToken);
+      await setAuth(result.user, result.accessToken, result.refreshToken, result.refreshExpiresAt);
       showToast('Email confirmado com sucesso.', 'success');
     } catch (error: any) {
       const message = error.response?.data?.message;

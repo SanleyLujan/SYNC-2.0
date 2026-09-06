@@ -8,7 +8,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { useAccessibilityStore } from '../../store/accessibilityStore';
-import { speak } from '../../services/audio-coach.service';
 import { showToast } from '../../components/ui/Toast';
 
 const ACCENT = '#FF6B35';
@@ -41,10 +40,9 @@ const SECTIONS: { title: string; icon: keyof typeof Ionicons.glyphMap; rows: Row
     ],
   },
   {
-    title: 'Áudio & Tato',
-    icon: 'volume-high',
+    title: 'Tato',
+    icon: 'phone-portrait',
     rows: [
-      { key: 'audioCues', icon: 'megaphone', title: 'Narração por voz', desc: 'Anuncia eventos (km, fim de treino, match) em voz alta.', color: '#FF6B35' },
       { key: 'hapticsEnabled', icon: 'phone-portrait', title: 'Vibração (háptico)', desc: 'Feedback por vibração ao tocar e em conquistas.', color: '#F59E0B' },
     ],
   },
@@ -71,14 +69,6 @@ export default function AccessibilityScreen({ navigation }: any) {
     }
   };
 
-  const readScreen = () => {
-    speak(
-      'Central de Acessibilidade do Sync. Aqui você ajusta alto contraste, tamanho do texto, ' +
-      'redução de movimento, narração por voz, vibração e tradução em Libras. ' +
-      'Use os botões para ativar cada recurso.',
-    );
-  };
-
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -94,14 +84,7 @@ export default function AccessibilityScreen({ navigation }: any) {
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.title} accessibilityRole="header">Acessibilidade</Text>
-        <TouchableOpacity
-          onPress={readScreen}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Ler esta tela em voz alta"
-        >
-          <Ionicons name="volume-high" size={20} color={ACCENT} />
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
       </LinearGradient>
 
       <ScrollView

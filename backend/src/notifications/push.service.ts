@@ -4,6 +4,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PushToken } from './entities/push-token.entity';
+import { User } from '../users/entities/user.entity';
 
 interface ExpoPushMessage {
   to: string;
@@ -23,6 +24,8 @@ export class PushService {
   constructor(
     @InjectRepository(PushToken)
     private readonly tokenRepo: Repository<PushToken>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   // Registra/atualiza token de um device
@@ -72,6 +75,11 @@ export class PushService {
     body: string,
     data?: Record<string, any>,
   ): Promise<{ sent: number; failed: number }> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'isActive', 'pushNotificationsEnabled'],
+    });
+    if (!user?.isActive || !user.pushNotificationsEnabled) return { sent: 0, failed: 0 };
     const tokens = await this.tokenRepo.find({ where: { user_id: userId } });
     if (tokens.length === 0) return { sent: 0, failed: 0 };
 
@@ -95,9 +103,18 @@ export class PushService {
     data?: Record<string, any>,
   ): Promise<{ sent: number; failed: number }> {
     if (userIds.length === 0) return { sent: 0, failed: 0 };
+    const enabledUsers = await this.userRepo
+      .createQueryBuilder('user')
+      .select('user.id', 'id')
+      .where('user.id IN (:...ids)', { ids: userIds })
+      .andWhere('user.isActive = :active', { active: true })
+      .andWhere('user.pushNotificationsEnabled = :enabled', { enabled: true })
+      .getRawMany<{ id: string }>();
+    const enabledIds = enabledUsers.map((user) => user.id);
+    if (enabledIds.length === 0) return { sent: 0, failed: 0 };
     const tokens = await this.tokenRepo
       .createQueryBuilder('t')
-      .where('t.user_id IN (:...ids)', { ids: userIds })
+      .where('t.user_id IN (:...ids)', { ids: enabledIds })
       .getMany();
     if (tokens.length === 0) return { sent: 0, failed: 0 };
 

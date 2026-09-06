@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
+import { unwrapActivityHistory } from '../../utils/activity-history';
+import { isDistanceActivity } from '../../utils/activity-metrics';
 
 type Props = {
   navigation: NativeStackNavigationProp<TrackingStackParamList, 'ActivityHistory'>;
@@ -38,8 +40,8 @@ const sportLabels: Record<string, string> = {
 };
 
 // Map activityId → { isPRDistance: boolean; isPRPace: boolean }
-function computePRMap(acts: Activity[]): Map<string, { distPR: boolean; pacePR: boolean }> {
-  const map = new Map<string, { distPR: boolean; pacePR: boolean }>();
+function computePRMap(acts: Activity[]): Map<string, { distPR: boolean; durationPR: boolean; pacePR: boolean }> {
+  const map = new Map<string, { distPR: boolean; durationPR: boolean; pacePR: boolean }>();
   // Group by sport
   const bySport = new Map<string, Activity[]>();
   for (const a of acts) {
@@ -49,11 +51,13 @@ function computePRMap(acts: Activity[]): Map<string, { distPR: boolean; pacePR: 
   // For each sport find max distance and best (lowest) pace
   bySport.forEach((sportActs) => {
     const maxDist = Math.max(...sportActs.map((a) => a.distance ?? 0));
+    const maxDuration = Math.max(...sportActs.map((a) => a.duration ?? 0));
     const paced = sportActs.filter((a) => a.avgPace);
     const bestPace = paced.length ? Math.min(...paced.map((a) => a.avgPace!)) : null;
     for (const a of sportActs) {
       map.set(a.id, {
         distPR: (a.distance ?? 0) === maxDist && maxDist > 0,
+        durationPR: (a.duration ?? 0) === maxDuration && maxDuration > 0,
         pacePR: !!(a.avgPace && bestPace && a.avgPace === bestPace),
       });
     }
@@ -67,7 +71,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
-  const [prMap, setPrMap] = useState<Map<string, { distPR: boolean; pacePR: boolean }>>(new Map());
+  const [prMap, setPrMap] = useState<Map<string, { distPR: boolean; durationPR: boolean; pacePR: boolean }>>(new Map());
 
   useEffect(() => {
     loadActivities();
@@ -84,7 +88,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
     setError(false);
     try {
       const { data } = await api.get('/activities/history');
-      const list: Activity[] = Array.isArray(data) ? (Array.isArray(data[0]) ? data[0] : data) : [];
+      const list = unwrapActivityHistory(data);
       setActivities(list);
       setPrMap(computePRMap(list));
     } catch (err) {
@@ -104,7 +108,8 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
 
   const renderItem = ({ item }: { item: Activity }) => {
     const pr = prMap.get(item.id);
-    const hasPR = pr?.distPR || pr?.pacePR;
+    const distanceBased = isDistanceActivity(item.sport);
+    const hasPR = distanceBased ? (pr?.distPR || pr?.pacePR) : pr?.durationPR;
 
     return (
     <TouchableOpacity
@@ -137,6 +142,12 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
                 <Text style={styles.prBadgeText}>⚡ Pace PR</Text>
               </View>
             )}
+            {!distanceBased && pr?.durationPR && (
+              <View style={styles.prBadge}>
+                <Ionicons name="time" size={10} color="#FCD34D" />
+                <Text style={styles.prBadgeText}>🏅 Tempo PR</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.dateText}>
             {new Date(item.startTime).toLocaleDateString('pt-BR', {
@@ -155,30 +166,30 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
       <View style={styles.cardMetrics}>
         <View style={styles.metric}>
           <Text style={styles.metricValue}>
-            {(item.distance / 1000).toFixed(2)}
+            {distanceBased ? (item.distance / 1000).toFixed(2) : formatDuration(item.duration)}
           </Text>
-          <Text style={styles.metricLabel}>km</Text>
+          <Text style={styles.metricLabel}>{distanceBased ? 'km' : 'tempo'}</Text>
         </View>
         <View style={styles.metricDivider} />
         <View style={styles.metric}>
           <Text style={styles.metricValue}>
-            {formatDuration(item.duration)}
+            {distanceBased ? formatDuration(item.duration) : (item.calories ?? 0)}
           </Text>
-          <Text style={styles.metricLabel}>tempo</Text>
+          <Text style={styles.metricLabel}>{distanceBased ? 'tempo' : 'kcal'}</Text>
         </View>
         <View style={styles.metricDivider} />
         <View style={styles.metric}>
           <Text style={styles.metricValue}>
-            {item.avgPace?.toFixed(1) || '--'}
+            {distanceBased ? (item.avgPace?.toFixed(1) || '--') : (item.laps?.length ?? 0)}
           </Text>
-          <Text style={styles.metricLabel}>min/km</Text>
+          <Text style={styles.metricLabel}>{distanceBased ? 'min/km' : 'voltas'}</Text>
         </View>
         <View style={styles.metricDivider} />
         <View style={styles.metric}>
           <Text style={styles.metricValue}>
-            {item.avgSpeed?.toFixed(1) || '--'}
+            {distanceBased ? (item.avgSpeed?.toFixed(1) || '--') : (item.goalReachedAt ? 'sim' : '--')}
           </Text>
-          <Text style={styles.metricLabel}>km/h</Text>
+          <Text style={styles.metricLabel}>{distanceBased ? 'km/h' : 'meta'}</Text>
         </View>
       </View>
     </TouchableOpacity>

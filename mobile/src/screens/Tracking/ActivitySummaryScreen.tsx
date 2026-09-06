@@ -41,6 +41,7 @@ import PostWorkoutRatingModal from '../../components/PostWorkoutRatingModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { confirmAsync } from '../../utils/confirm';
 import { useThemeStore } from '../../store/themeStore';
+import { isDistanceActivity } from '../../utils/activity-metrics';
 
 type Props = {
   navigation: NativeStackNavigationProp<TrackingStackParamList, 'ActivitySummary'>;
@@ -66,7 +67,7 @@ const SPORT_LABELS: Record<string, string> = {
 };
 
 interface PRResult {
-  type: 'distance' | 'pace';
+  type: 'distance' | 'duration' | 'pace';
   label: string;
   value: string;
 }
@@ -190,27 +191,33 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
   const detectPRs = async (current: Activity) => {
     try {
-      const { data } = await api.get(`/activities?limit=100&sport=${current.sport}`);
-      const history: Activity[] = (data.activities || data || []).filter(
-        (a: Activity) => a.id !== current.id && a.isCompleted,
-      );
-      if (history.length === 0) return; // first activity of this sport — no PR to compare
-
+      const { data } = await api.get('/activities/records', {
+        params: { sport: current.sport, excludeId: current.id },
+      });
+      const previous = data?.bySport?.[current.sport] || {
+        longestDistance: 0,
+        longestDuration: 0,
+        bestPace: null,
+      };
       const prs: PRResult[] = [];
-      const maxDist = Math.max(...history.map((a) => a.distance ?? 0));
-      const bestPace = Math.min(...history.filter((a) => a.avgPace).map((a) => a.avgPace!));
-
-      if ((current.distance ?? 0) > maxDist) {
+      if (isDistanceActivity(current.sport) && (current.distance ?? 0) > previous.longestDistance) {
         prs.push({
           type: 'distance',
-          label: '🏅 Novo recorde de distância!',
+          label: previous.longestDistance > 0 ? '🏅 Novo recorde de distância!' : '🏅 Primeiro recorde de distância!',
           value: `${((current.distance ?? 0) / 1000).toFixed(2)} km`,
         });
       }
-      if (current.avgPace && bestPace && current.avgPace < bestPace) {
+      if (!isDistanceActivity(current.sport) && (current.duration ?? 0) > previous.longestDuration) {
+        prs.push({
+          type: 'duration',
+          label: previous.longestDuration > 0 ? '🏅 Novo recorde de duração!' : '🏅 Primeiro recorde de duração!',
+          value: formatDuration(current.duration ?? 0),
+        });
+      }
+      if (current.avgPace && (previous.bestPace == null || current.avgPace < previous.bestPace)) {
         prs.push({
           type: 'pace',
-          label: '⚡ Novo recorde de pace!',
+          label: previous.bestPace != null ? '⚡ Novo recorde de pace!' : '⚡ Primeiro recorde de pace!',
           value: `${current.avgPace.toFixed(1)} min/km`,
         });
       }
@@ -229,9 +236,11 @@ function ActivitySummaryInner({ navigation, route }: Props) {
   const handleShare = async () => {
     if (!activity) return;
     try {
-      const distKm = ((activity.distance ?? 0) / 1000).toFixed(2);
+      const result = isDistanceActivity(activity.sport)
+        ? `${((activity.distance ?? 0) / 1000).toFixed(2)} km em ${formatDuration(activity.duration ?? 0)}`
+        : `${formatDuration(activity.duration ?? 0)} de atividade`;
       await Share.share({
-        message: `Completei ${distKm}km em ${formatDuration(activity.duration ?? 0)} no Sync! 🔥 #Sync #${activity.sport}`,
+        message: `Completei ${result} no Sync! 🔥 #Sync #${activity.sport}`,
       });
     } catch {}
   };
@@ -374,8 +383,8 @@ function ActivitySummaryInner({ navigation, route }: Props) {
         photoUrl: photoUrl || undefined,
         distanceKm: activity.distance / 1000,
         durationSeconds: activity.duration,
-        avgPace: activity.avgPace,
-        calories: estimateCalories(activity),
+        avgPace: activity.avgPace ?? undefined,
+        calories: activity.calories ?? 0,
         sport: activity.sport,
       });
       setPosted(true);
@@ -443,8 +452,9 @@ function ActivitySummaryInner({ navigation, route }: Props) {
   }
 
   const coordinates = activity.points?.map((p) => ({ latitude: p.latitude, longitude: p.longitude })) || [];
-  const calories = estimateCalories(activity);
-  const elevGain = estimateElevation(activity);
+  const calories = activity.calories ?? 0;
+  const elevGain = Math.round(activity.elevationGain ?? 0);
+  const distanceBased = isDistanceActivity(activity.sport);
   const sportIcon = SPORT_ICONS[activity.sport] || 'fitness';
   const sportLabel = SPORT_LABELS[activity.sport] || activity.sport;
   const accent = theme.primary;
@@ -496,10 +506,12 @@ function ActivitySummaryInner({ navigation, route }: Props) {
           </Animated.Text>
         </LinearGradient>
 
-        {/* ── Hero Stat (distance) ── */}
+        {/* ── Métrica principal conforme o esporte ── */}
         <Animated.View style={[styles.heroStat, { opacity: headerFade, transform: [{ translateY: statsSlide }] }]}>
-          <Text style={[styles.heroValue, { color: theme.textPrimary }]}>{((activity.distance ?? 0) / 1000).toFixed(2)}</Text>
-          <Text style={[styles.heroUnit, { color: theme.textSecondary }]}>km</Text>
+          <Text style={[styles.heroValue, { color: theme.textPrimary }]}>
+            {distanceBased ? ((activity.distance ?? 0) / 1000).toFixed(2) : formatDuration(activity.duration ?? 0)}
+          </Text>
+          <Text style={[styles.heroUnit, { color: theme.textSecondary }]}>{distanceBased ? 'km' : 'tempo'}</Text>
         </Animated.View>
 
         {/* ── Map (envolto em ErrorBoundary: no web o Leaflet pode falhar e
@@ -546,17 +558,20 @@ function ActivitySummaryInner({ navigation, route }: Props) {
         <Animated.View style={[styles.statsSection, { opacity: headerFade, transform: [{ translateY: statsSlide }] }]}>
           <View style={styles.statsGrid}>
             <StatCard icon="time-outline" value={formatDuration(activity.duration ?? 0)} label="Tempo" />
-            <StatCard
+            {distanceBased && <StatCard
               icon="speedometer-outline"
               value={activity.avgPace ? `${activity.avgPace.toFixed(1)}'` : '--'}
               label="Ritmo /km"
-            />
-            <StatCard
+            />}
+            {distanceBased && <StatCard
               icon="flash-outline"
               value={activity.avgSpeed ? `${activity.avgSpeed.toFixed(1)}` : '--'}
               label="km/h"
-            />
+            />}
             <StatCard icon="flame-outline" value={`${calories}`} label="kcal" accent />
+            {(activity.laps?.length ?? 0) > 0 && (
+              <StatCard icon="flag-outline" value={`${activity.laps?.length ?? 0}`} label="Voltas" />
+            )}
             {elevGain > 0 && (
               <StatCard icon="trending-up-outline" value={`+${elevGain}m`} label="Ganho alt." />
             )}
@@ -774,24 +789,6 @@ function formatDuration(seconds: number): string {
   const s = seconds % 60;
   if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}m`;
   return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function estimateCalories(activity: Activity): number {
-  // MET × weight(70kg) × duration(h) — rough approximation
-  const metMap: Record<string, number> = { running: 9, cycling: 7, swimming: 8, hiking: 6, gym: 5 };
-  const met = metMap[activity.sport] || 6;
-  const hours = (activity.duration ?? 0) / 3600;
-  return Math.round(met * 70 * hours);
-}
-
-function estimateElevation(activity: Activity): number {
-  if (!activity.points?.length) return 0;
-  let gain = 0;
-  for (let i = 1; i < activity.points.length; i++) {
-    const diff = (activity.points[i].altitude ?? 0) - (activity.points[i - 1].altitude ?? 0);
-    if (diff > 0) gain += diff;
-  }
-  return Math.round(gain);
 }
 
 // ─────────────────────── StatCard ───────────────────────
