@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   Res,
+  Header,
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -32,6 +33,8 @@ export class ActivitiesController {
 
   // ====== ROTAS PÚBLICAS (sem auth) ======
   @Get('live/:token')
+  @Header('Cache-Control', 'no-store, private')
+  @Header('Referrer-Policy', 'no-referrer')
   @ApiOperation({ summary: 'Ver atividade ao vivo via token público' })
   getLive(@Param('token') token: string) {
     return this.activitiesService.getLiveByToken(token);
@@ -78,7 +81,7 @@ export class ActivitiesController {
     @Body() dto: ActivityTimingEventDto,
   ) {
     const result = await this.activitiesService.pause(id, user.id, dto?.occurredAt);
-    this.activitiesGateway.broadcastTiming(id, result);
+    await this.activitiesGateway.broadcastTiming(id, result);
     return result;
   }
 
@@ -92,7 +95,7 @@ export class ActivitiesController {
     @Body() dto: ActivityTimingEventDto,
   ) {
     const result = await this.activitiesService.resume(id, user.id, dto?.occurredAt);
-    this.activitiesGateway.broadcastTiming(id, result);
+    await this.activitiesGateway.broadcastTiming(id, result);
     return result;
   }
 
@@ -109,7 +112,9 @@ export class ActivitiesController {
     if (dto?.points?.length) {
       await this.activitiesService.reconcilePoints(id, user.id, dto.points);
     }
-    return this.activitiesService.finish(id, user.id, dto?.activeDurationSeconds, dto?.laps);
+    const result = await this.activitiesService.finish(id, user.id, dto?.activeDurationSeconds, dto?.laps);
+    await this.activitiesGateway.broadcastFinished(id);
+    return result;
   }
 
   @Post(':id/share')

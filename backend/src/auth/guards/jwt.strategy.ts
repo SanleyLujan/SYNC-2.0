@@ -2,11 +2,12 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from '../auth.service';
+import { RefreshTokenService } from '../refresh-token.service';
 
 // Estratégia JWT para Passport - valida o token em cada requisição protegida
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly authService: AuthService) {
+  constructor(private readonly authService: AuthService, private readonly sessions: RefreshTokenService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -16,11 +17,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
+  async validate(payload: { sub: string; email: string; sid?: string }) {
     const user = await this.authService.validateUser(payload.sub);
     if (!user || !user.emailVerified) {
       throw new UnauthorizedException();
     }
+    await this.sessions.assertSessionActive(user.id, payload.sid);
     return user;
   }
 }

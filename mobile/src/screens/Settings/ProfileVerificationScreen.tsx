@@ -24,8 +24,16 @@ export default function ProfileVerificationScreen({ navigation }: any) {
   const [assets, setAssets] = useState<Partial<Record<Slot, Asset>>>({});
   const [status, setStatus] = useState<any>(null);
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [statusError, setStatusError] = useState(false);
 
-  const loadStatus = () => api.get('/verification/status').then((r) => setStatus(r.data)).catch(() => undefined);
+  const loadStatus = async () => {
+    setLoading(true);
+    setStatusError(false);
+    try { setStatus((await api.get('/verification/status')).data); }
+    catch { setStatus(null); setStatusError(true); }
+    finally { setLoading(false); }
+  };
   useEffect(() => { void loadStatus(); }, []);
 
   const pick = async (slot: Slot) => {
@@ -55,6 +63,7 @@ export default function ProfileVerificationScreen({ navigation }: any) {
   };
 
   const submit = async () => {
+    if (sending || loading || status?.canSubmit !== true) return;
     if (!assets.selfie || !assets.documentFront || !assets.documentBack) {
       showToast('Adicione as três imagens antes de enviar.', 'error');
       return;
@@ -67,6 +76,7 @@ export default function ProfileVerificationScreen({ navigation }: any) {
       appendAsset(form, 'documentBack', assets.documentBack);
       await api.post('/verification/requests', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60_000 });
       setAssets({});
+      setStatus({ status: 'pending', canSubmit: false });
       await loadStatus();
       showToast('Pedido enviado para análise.', 'success');
     } catch (error: any) {
@@ -77,7 +87,7 @@ export default function ProfileVerificationScreen({ navigation }: any) {
     }
   };
 
-  const locked = status?.status === 'pending' || status?.isVerified;
+  const locked = loading || statusError || status?.canSubmit !== true || status?.status === 'pending' || status?.isVerified;
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
@@ -96,17 +106,23 @@ export default function ProfileVerificationScreen({ navigation }: any) {
           <Ionicons name={status?.isVerified ? 'checkmark-circle' : 'shield-checkmark-outline'} size={24} color={theme.primary} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.infoTitle, { color: theme.textPrimary }]}>
-              {status?.isVerified ? 'Perfil verificado' : status?.status === 'pending' ? 'Em análise' : status?.status === 'rejected' ? 'Pedido não aprovado' : 'Análise manual e privada'}
+              {loading ? 'Verificando disponibilidade…' : statusError ? 'Não foi possível consultar' : status?.isVerified ? 'Perfil verificado' : status?.status === 'pending' ? 'Em análise' : !status?.canSubmit ? 'Verificação indisponível no momento' : status?.status === 'rejected' ? 'Pedido não aprovado' : 'Análise manual e privada'}
             </Text>
             <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-              {status?.isVerified
+              {loading ? 'Aguarde antes de selecionar documentos.' : statusError || (!status?.canSubmit && !status?.isVerified && status?.status !== 'pending') ? 'Não selecione documentos agora. Tente novamente mais tarde.' : status?.isVerified
                 ? 'Seu selo já aparece para outras pessoas.'
                 : status?.status === 'pending'
-                  ? 'Você receberá o resultado depois da revisão administrativa.'
+                  ? 'Consulte o resultado nesta tela depois da revisão administrativa.'
                   : status?.rejectionReason || 'As imagens são acessíveis somente por administradores autorizados e são apagadas após a decisão.'}
             </Text>
           </View>
         </View>
+
+        {!loading && (statusError || (!status?.canSubmit && !status?.isVerified && status?.status !== 'pending')) && (
+          <TouchableOpacity onPress={() => void loadStatus()} accessibilityRole="button" style={styles.slot}>
+            <Text style={{ color: theme.primary }}>Tentar novamente</Text>
+          </TouchableOpacity>
+        )}
 
         {!locked && (Object.keys(COPY) as Slot[]).map((slot) => {
           const asset = assets[slot];

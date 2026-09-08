@@ -116,13 +116,13 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
       data.liveToken &&
       activity.liveToken &&
       data.liveToken === activity.liveToken &&
-      (!activity.liveTokenExpiresAt || activity.liveTokenExpiresAt > new Date()),
+      activity.liveTokenExpiresAt && activity.liveTokenExpiresAt > new Date(),
     );
     if (!isOwner && !hasValidPublicToken) {
       return { ok: false, error: 'forbidden' };
     }
 
-    const room = `activity:${data.activityId}`;
+    const room = isOwner ? `activity:${data.activityId}` : `live:${data.activityId}:${activity.liveToken}`;
     await client.join(room);
 
     // Envia snapshot dos pontos já existentes ao novo seguidor
@@ -137,7 +137,7 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
         snapshot: true,
       });
     }
-    return { ok: true, room };
+    return { ok: true, room: `activity:${data.activityId}` };
   }
 
   @SubscribeMessage('point')
@@ -167,7 +167,7 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
         owned = new Set();
         this.socketActivities.set(client.id, owned);
       }
-      if (!owned.has(data.activityId)) {
+      {
         const activity = await this.activityRepository.findOne({
           where: { id: data.activityId },
           select: ['id', 'user_id', 'isCompleted'],
@@ -215,7 +215,7 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
       this.pointBuffer.set(data.activityId, buf);
 
       // Broadcast pra seguidores na sala
-      this.server.to(`activity:${data.activityId}`).emit('livePoint', {
+      await this.broadcastLive(data.activityId, 'livePoint', {
         activityId: data.activityId,
         latitude: data.latitude,
         longitude: data.longitude,
@@ -253,22 +253,36 @@ export class ActivitiesGateway implements OnGatewayConnection, OnGatewayDisconne
     } catch {
       return { ok: false, error: 'flush_failed' };
     }
-    this.server.to(`activity:${data.activityId}`).emit('activityFinished', {
-      activityId: data.activityId,
-    });
-    this.lastPoint.delete(data.activityId);
+    // Confirma apenas o flush; o treino só terminou quando o REST persistiu.
     return { ok: true };
   }
 
   /** Atualiza observadores públicos quando o cronômetro pausa ou retoma. */
-  broadcastTiming(
+  async broadcastTiming(
     activityId: string,
     timing: { paused: boolean; pausedAt: string | null; pausedDuration: number },
   ) {
-    this.server.to(`activity:${activityId}`).emit('activityTiming', {
+    await this.broadcastLive(activityId, 'activityTiming', {
       activityId,
       ...timing,
     });
+  }
+
+  async broadcastFinished(activityId: string) {
+    await this.broadcastLive(activityId, 'activityFinished', { activityId });
+    this.lastPoint.delete(activityId);
+  }
+
+  private async broadcastLive(activityId: string, event: string, payload: unknown) {
+    this.server.to(`activity:${activityId}`).emit(event, payload);
+    const activity = await this.activityRepository.findOne({
+      where: { id: activityId }, select: ['id', 'liveToken', 'liveTokenExpiresAt'],
+    });
+    // Sala por token: revogação/expiração impede novos dados até mesmo para
+    // observadores já conectados. Um novo link não reautoriza o link antigo.
+    if (activity?.liveToken && activity.liveTokenExpiresAt && +activity.liveTokenExpiresAt > Date.now()) {
+      this.server.to(`live:${activityId}:${activity.liveToken}`).emit(event, payload);
+    }
   }
 
   /** Garante que o endpoint REST finalize somente depois do buffer WebSocket. */

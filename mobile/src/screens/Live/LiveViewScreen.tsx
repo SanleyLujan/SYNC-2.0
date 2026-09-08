@@ -12,7 +12,8 @@ import {
 import MapView, { Polyline, Marker } from '../../components/map/SyncMap';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
-import { trackingSocket, LivePoint, LiveTiming } from '../../services/tracking-socket.service';
+import { liveTrackingSocket, LivePoint, LiveTiming } from '../../services/tracking-socket.service';
+import { LiveRoutePoint, mergeLivePoints } from '../../utils/live-points';
 import { API_URL } from '../../services/api';
 
 const ACCENT = '#FF6B35';
@@ -33,8 +34,10 @@ export default function LiveViewScreen({ token }: { token: string }) {
   const [data, setData] = useState<LiveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [livePoints, setLivePoints] = useState<{ latitude: number; longitude: number; segmentStart?: boolean }[]>([]);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [livePoints, setLivePoints] = useState<LiveRoutePoint[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [clock, setClock] = useState(Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [liveDistance, setLiveDistance] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -44,28 +47,48 @@ export default function LiveViewScreen({ token }: { token: string }) {
 
   // Carga inicial via REST
   useEffect(() => {
-    (async () => {
+    let active = true;
+    let fetching = false;
+    let controller: AbortController | null = null;
+    setData(null); setLivePoints([]); setLoading(true); setError(null); setConnected(false); setLastUpdate(null);
+    const reload = async () => {
+      if (fetching) return;
+      fetching = true;
+      controller = new AbortController();
+      const timeout = setTimeout(() => controller?.abort(), 30_000);
       try {
-        const r = await fetch(`${API_URL}/activities/live/${token}`);
-        if (!r.ok) throw new Error('not_found');
+        const r = await fetch(`${API_URL}/activities/live/${encodeURIComponent(token)}`, { signal: controller.signal, cache: 'no-store' });
+        if (!active) return;
+        if (r.status === 404 || r.status === 403) {
+          setError('O compartilhamento foi encerrado ou o link expirou.');
+          setData(null); setLivePoints([]); liveTrackingSocket.disconnect();
+          return;
+        }
+        if (!r.ok) throw new Error('network');
         const j: LiveData = await r.json();
+        if (!active) return;
+        setError(null);
         setData(j);
-        setLivePoints(j.points.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-          segmentStart: p.segmentStart,
-        })));
-        setLiveDistance(j.distance);
+        setLivePoints(prev => mergeLivePoints(prev, j.points));
+        const last = j.points[j.points.length - 1];
+        if (last) setLastUpdate(prev => !prev || +prev < Date.parse(last.timestamp) ? new Date(last.timestamp) : prev);
+        setLiveDistance(prev => j.isCompleted ? j.distance : Math.max(prev, j.distance));
         setFinished(j.isCompleted);
         if (j.isCompleted) setElapsed(j.duration || 0);
         setPausedAt(j.pausedAt ? new Date(j.pausedAt).getTime() : null);
         setPausedDuration(j.pausedDuration || 0);
       } catch {
-        setError('Live não encontrado ou expirado');
+        if (active) setConnected(false);
       } finally {
-        setLoading(false);
+        clearTimeout(timeout);
+        fetching = false;
+        if (active) setLoading(false);
       }
-    })();
+    };
+    void reload();
+    const interval = setInterval(() => void reload(), 15_000);
+    const tick = setInterval(() => setClock(Date.now()), 1000);
+    return () => { active = false; controller?.abort(); clearInterval(interval); clearInterval(tick); };
   }, [token]);
 
   // Tick do timer
@@ -90,18 +113,19 @@ export default function LiveViewScreen({ token }: { token: string }) {
   // Socket: assina novos pontos
   useEffect(() => {
     if (!data) return;
-    const off = trackingSocket.follow(
+    const off = liveTrackingSocket.follow(
       data.activityId,
       token,
       (p: LivePoint) => {
-        if (p.snapshot) return; // já temos os pontos via REST
-        setLivePoints((prev) => [...prev, {
+        if (p.activityId !== data.activityId) return;
+        setLivePoints((prev) => mergeLivePoints(prev, [{
           latitude: p.latitude,
           longitude: p.longitude,
           segmentStart: p.segmentStart,
-        }]);
-        setLiveDistance(p.distance);
-        setLastUpdate(new Date());
+          timestamp: p.timestamp,
+        }]));
+        setLiveDistance(prev => Math.max(prev, p.distance));
+        setLastUpdate(new Date(p.timestamp));
         mapRef.current?.animateToRegion?.({
           latitude: p.latitude,
           longitude: p.longitude,
@@ -114,12 +138,13 @@ export default function LiveViewScreen({ token }: { token: string }) {
         setPausedAt(timing.pausedAt ? new Date(timing.pausedAt).getTime() : null);
         setPausedDuration(timing.pausedDuration || 0);
       },
+      setConnected,
     );
     return () => {
       off();
-      trackingSocket.disconnect();
+      liveTrackingSocket.disconnect();
     };
-  }, [data?.activityId]);
+  }, [data?.activityId, token]);
 
   const center = useMemo(() => {
     const last = livePoints[livePoints.length - 1];
@@ -150,7 +175,7 @@ export default function LiveViewScreen({ token }: { token: string }) {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Ionicons name="alert-circle-outline" size={64} color={colors.secondaryText} />
         <Text style={styles.errorTitle}>Live indisponível</Text>
-        <Text style={styles.errorText}>O atleta pode ter encerrado o compartilhamento.</Text>
+        <Text style={styles.errorText}>{error || 'Sem conexão com a transmissão. Tentando novamente…'}</Text>
       </View>
     );
   }
@@ -205,7 +230,7 @@ export default function LiveViewScreen({ token }: { token: string }) {
               <View style={styles.liveRow}>
                 <View style={[styles.liveDot, finished && { backgroundColor: '#888' }]} />
                 <Text style={styles.liveLabel}>
-                  {finished ? 'TREINO ENCERRADO' : 'AO VIVO'}
+                  {finished ? 'TREINO ENCERRADO' : !connected ? 'RECONECTANDO' : !lastUpdate || clock - +lastUpdate > 30_000 ? 'AGUARDANDO GPS' : 'AO VIVO'}
                 </Text>
               </View>
             </View>
@@ -235,7 +260,7 @@ export default function LiveViewScreen({ token }: { token: string }) {
           </View>
         </View>
         <Text style={styles.poweredBy}>
-          {finished ? 'Encerrado' : `Atualizado às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}  •  SYNC
+          {finished ? 'Encerrado' : lastUpdate ? `Último GPS às ${lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Aguardando a primeira localização'}  •  SYNC
         </Text>
       </View>
     </View>

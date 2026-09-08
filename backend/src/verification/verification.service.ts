@@ -19,6 +19,7 @@ export class VerificationService {
     const request = await this.requests.findOne({ where: { user_id: userId }, order: { createdAt: 'DESC' } });
     const user = await this.users.findOne({ where: { id: userId }, select: ['id', 'isVerified'] });
     return {
+      canSubmit: Boolean(user) && !user?.isVerified && request?.status !== VerificationStatus.PENDING && await this.storage.isAvailable(),
       isVerified: Boolean(user?.isVerified),
       status: user?.isVerified ? VerificationStatus.APPROVED : request?.status || 'not_requested',
       rejectionReason: request?.status === VerificationStatus.REJECTED ? request.rejectionReason : null,
@@ -28,6 +29,7 @@ export class VerificationService {
 
   async submit(userId: string, files: { selfie?: Express.Multer.File[]; documentFront?: Express.Multer.File[]; documentBack?: Express.Multer.File[] }) {
     const user = await this.users.findOne({ where: { id: userId }, select: ['id', 'isVerified'] });
+    if (!user) throw new NotFoundException('Conta não encontrada');
     if (user?.isVerified) throw new BadRequestException('Este perfil já está verificado');
     const pending = await this.requests.findOne({ where: { user_id: userId, status: VerificationStatus.PENDING } });
     if (pending) throw new BadRequestException('Já existe um pedido de verificação em análise');
@@ -102,18 +104,20 @@ export class VerificationService {
   }
 
   async review(id: string, adminId: string, decision: 'approve' | 'reject', reason?: string) {
-    const request = await this.requests.createQueryBuilder('request')
-      .addSelect(['request.selfieKey', 'request.documentFrontKey', 'request.documentBackKey'])
-      .where('request.id = :id', { id })
-      .getOne();
-    if (!request) throw new NotFoundException('Pedido de verificação não encontrado');
-    if (request.status !== VerificationStatus.PENDING) throw new BadRequestException('Pedido já analisado');
+    if (!['approve', 'reject'].includes(decision)) throw new BadRequestException('Decisão inválida');
     if (decision === 'reject' && !sanitizeText(reason, 300)) throw new BadRequestException('Informe o motivo da recusa');
-    const approved = decision === 'approve';
-    // Apaga primeiro. Se o storage falhar, as chaves permanecem no banco para
-    // uma nova tentativa e nenhum pedido é marcado como concluído indevidamente.
-    await this.storage.remove([request.selfieKey, request.documentFrontKey, request.documentBackKey].filter(Boolean) as string[]);
-    await this.requests.manager.transaction(async (manager) => {
+    return this.requests.manager.transaction(async (manager) => {
+      const query = manager.getRepository(VerificationRequest).createQueryBuilder('request')
+        .addSelect(['request.selfieKey', 'request.documentFrontKey', 'request.documentBackKey'])
+        .where('request.id = :id', { id });
+      if (manager.connection.options.type === 'postgres') query.setLock('pessimistic_write');
+      const request = await query.getOne();
+      if (!request) throw new NotFoundException('Pedido de verificação não encontrado');
+      if (request.status !== VerificationStatus.PENDING) throw new BadRequestException('Pedido já analisado');
+      const approved = decision === 'approve';
+      // Apaga primeiro. Se o storage falhar, as chaves permanecem no banco para
+      // uma nova tentativa e nenhum pedido é marcado como concluído indevidamente.
+      await this.storage.remove([request.selfieKey, request.documentFrontKey, request.documentBackKey].filter(Boolean) as string[]);
       await manager.getRepository(User).update(request.user_id, { isVerified: approved });
       await manager.getRepository(VerificationRequest).update(request.id, {
         status: approved ? VerificationStatus.APPROVED : VerificationStatus.REJECTED,
@@ -124,7 +128,7 @@ export class VerificationService {
         documentFrontKey: null,
         documentBackKey: null,
       });
+      return { ok: true, status: approved ? VerificationStatus.APPROVED : VerificationStatus.REJECTED };
     });
-    return { ok: true, status: approved ? VerificationStatus.APPROVED : VerificationStatus.REJECTED };
   }
 }

@@ -98,12 +98,25 @@ async function clearStoredSession() {
 }
 
 let refreshPromise: Promise<string> | null = null;
+let sessionGeneration = 0;
+export function invalidatePendingRefresh() { sessionGeneration++; }
+let sessionWriteQueue: Promise<unknown> = Promise.resolve();
+export function withSessionWriteLock<T>(write: () => Promise<T>): Promise<T> {
+  const operation = sessionWriteQueue.then(write);
+  sessionWriteQueue = operation.then(() => undefined, () => undefined);
+  return operation;
+}
 
-async function refreshAccessToken(): Promise<string> {
+class InvalidSessionError extends Error {}
+
+async function refreshAccessToken(expectedAccess: string | null): Promise<string> {
   if (refreshPromise) return refreshPromise;
-  refreshPromise = (async () => {
+  const renew = async () => {
+    const generation = sessionGeneration;
+    const latestAccess = await secureStorage.getItem(ACCESS_TOKEN_KEY);
+    if (latestAccess && expectedAccess && latestAccess !== expectedAccess) return latestAccess;
     const refreshToken = await secureStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refreshToken) throw new Error('Refresh token ausente');
+    if (!refreshToken) throw new InvalidSessionError('Refresh token ausente');
 
     const { data } = await axios.post(
       `${API_URL}/auth/refresh`,
@@ -113,26 +126,38 @@ async function refreshAccessToken(): Promise<string> {
     if (!data?.accessToken || !data?.refreshToken) {
       throw new Error('Resposta de renovação inválida');
     }
-    await secureStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-    await secureStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
-    if (data.refreshExpiresAt) {
-      await secureStorage.setItem(REFRESH_EXPIRES_KEY, String(data.refreshExpiresAt));
-    }
+    await withSessionWriteLock(async () => {
+      if (generation !== sessionGeneration || await secureStorage.getItem(REFRESH_TOKEN_KEY) !== refreshToken) {
+        throw new Error('Sessão alterada durante a renovação');
+      }
+      await secureStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+      await secureStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+      if (data.refreshExpiresAt) {
+        await secureStorage.setItem(REFRESH_EXPIRES_KEY, String(data.refreshExpiresAt));
+      }
+    });
     return data.accessToken as string;
+  };
+  // PWA/abas da mesma origem compartilham storage. Web Locks evita que duas
+  // abas consumam simultaneamente o mesmo refresh; cada uma relê após o lock.
+  const pending = (async () => {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.locks) {
+      return await navigator.locks.request('sync-session-refresh', renew);
+    }
+    return await renew();
   })();
+  refreshPromise = pending;
 
   try {
-    return await refreshPromise;
+    return await pending;
   } finally {
     refreshPromise = null;
   }
 }
 
 // Interceptor: trata erros globalmente.
-// IMPORTANTE: só limpamos a sessão quando o 401 vem da validação de sessão
-// (/users/me ou /auth/*). Um 401 de um recurso isolado (upload, feed, etc.)
-// NÃO deve deslogar o usuário de tudo — antes, um único upload com falha
-// derrubava a sessão inteira.
+// Qualquer recurso protegido pode renovar o access token. Só uma recusa
+// definitiva do refresh encerra a sessão; timeout/5xx preservam o login local.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -166,13 +191,25 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !isPublicAuthRequest && !config._authRetried) {
       config._authRetried = true;
+      const generation = sessionGeneration;
       try {
-        const accessToken = await refreshAccessToken();
+        const current = await secureStorage.getItem(ACCESS_TOKEN_KEY);
+        const sent = config.headers?.Authorization;
+        // Um 401 atrasado pode pertencer ao access anterior, já renovado.
+        const accessToken = current && sent && sent !== `Bearer ${current}`
+          ? current : await refreshAccessToken(current);
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${accessToken}`;
         return api(config);
-      } catch {
-        await clearStoredSession();
+      } catch (refreshError: any) {
+        if (refreshError instanceof InvalidSessionError || refreshError?.response?.status === 401) {
+          await withSessionWriteLock(async () => {
+            if (generation !== sessionGeneration) return;
+            invalidatePendingRefresh();
+            await clearStoredSession();
+          });
+        }
+        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);

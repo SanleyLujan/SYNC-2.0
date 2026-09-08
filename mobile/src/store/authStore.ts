@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthResponse, RegistrationResponse, User } from '../types';
 import { authService } from '../services/auth.service';
-import { setSessionExpiredHandler } from '../services/api';
+import api, { setSessionExpiredHandler } from '../services/api';
 import { useThemeStore } from './themeStore';
+import { stopBackgroundTracking } from '../services/background-tracking.service';
+import { trackingSocket } from '../services/tracking-socket.service';
 
 interface AuthState {
   user: User | null;
@@ -20,7 +22,7 @@ interface AuthState {
   setAuth: (user: User, token: string, refreshToken?: string, refreshExpiresAt?: string) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isLoading: true,
@@ -61,6 +63,14 @@ export const useAuthStore = create<AuthState>((set) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+        // Atualiza onboarding/perfil no retorno ao app, sem apagar a sessão
+        // local em falha de rede. O interceptor trata revogação definitiva.
+        try {
+          const { data: current } = await api.get('/users/me');
+          if (current?.id === stored.user.id && get().user?.id === stored.user.id) {
+            get().setUser(current);
+          }
+        } catch {}
       } else {
         set({ isLoading: false });
       }
@@ -87,6 +97,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 setSessionExpiredHandler(() => {
   const state = useAuthStore.getState();
   if (state.isAuthenticated) {
+    trackingSocket.disconnect();
+    void stopBackgroundTracking({ clearQueue: true }).catch(() => {});
     useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
   }
 });

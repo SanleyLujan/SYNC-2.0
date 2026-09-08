@@ -4,13 +4,12 @@
 //   - assets versionados (JS, CSS, fontes): cache-first
 //   - imagens (Unsplash, avatares): stale-while-revalidate
 //   - tiles (OSM): cache-first até 7 dias
-//   - API (/api/*): network-first com cache de 5min
+//   - API, documentos privados e requisições autenticadas: somente rede
 
-const VERSION = 'sync-v6-carto-20260906';
+const VERSION = 'sync-v7-privacy-20260908';
 const SHELL = `sync-shell-${VERSION}`;
 const IMAGES = `sync-images-${VERSION}`;
 const TILES = `sync-tiles-${VERSION}`;
-const API = `sync-api-${VERSION}`;
 
 const SHELL_URLS = [
   '/',
@@ -44,6 +43,11 @@ self.addEventListener('fetch', (event) => {
   // Apenas GET é cacheado
   if (req.method !== 'GET') return;
 
+  // Nunca reutilizar dados de outra conta, uma live revogada ou documentos
+  // privados. Precisa vir ANTES da regra genérica de imagens (inclusive .jpg).
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/storage/v1/') ||
+      req.headers.has('Authorization') || req.cache === 'no-store') return;
+
   // O manifesto pode mudar a cada deploy; não deve ficar preso no cache-first.
   if (url.origin === self.location.origin && url.pathname === '/manifest.json') {
     event.respondWith(networkFirst(req, SHELL, 0));
@@ -70,12 +74,6 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/uploads/')
   ) {
     event.respondWith(staleWhileRevalidate(req, IMAGES));
-    return;
-  }
-
-  // API calls → network-first (5min cache)
-  if (url.pathname.startsWith('/api/') && !url.pathname.includes('/auth/')) {
-    event.respondWith(networkFirst(req, API, 5 * 60 * 1000));
     return;
   }
 

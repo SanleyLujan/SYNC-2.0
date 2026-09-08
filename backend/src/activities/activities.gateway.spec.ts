@@ -54,7 +54,24 @@ describe('ActivitiesGateway privacy and flush', () => {
       liveToken: 'valid_token-1',
     });
     expect(allowed).toEqual({ ok: true, room: 'activity:activity-1' });
-    expect(client.join).toHaveBeenCalledWith('activity:activity-1');
+    expect(client.join).toHaveBeenCalledWith('live:activity-1:valid_token-1');
+  });
+
+  it('não transmite ao observador após revogação ou expiração', async () => {
+    activityRepository.findOne.mockResolvedValue({ liveToken: null });
+    await gateway.broadcastTiming('activity-1', { paused: true, pausedAt: new Date().toISOString(), pausedDuration: 0 });
+    expect(gateway.server.to).toHaveBeenCalledTimes(1);
+    expect(gateway.server.to).toHaveBeenCalledWith('activity:activity-1');
+    activityRepository.findOne.mockResolvedValue({ liveToken: 'expired', liveTokenExpiresAt: new Date(0) });
+    await gateway.broadcastFinished('activity-1');
+    expect(gateway.server.to).not.toHaveBeenCalledWith('live:activity-1:expired');
+  });
+
+  it('transmite somente à sala do token atualmente autorizado', async () => {
+    activityRepository.findOne.mockResolvedValue({ liveToken: 'new', liveTokenExpiresAt: new Date(Date.now() + 60_000) });
+    await gateway.broadcastFinished('activity-1');
+    expect(gateway.server.to).toHaveBeenCalledWith('live:activity-1:new');
+    expect(gateway.server.to).not.toHaveBeenCalledWith('live:activity-1:old');
   });
 
   it('persists the final buffered point before REST finalization continues', async () => {

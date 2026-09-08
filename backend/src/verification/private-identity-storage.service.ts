@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import sharp from 'sharp';
+import sharp = require('sharp');
 
 @Injectable()
 export class PrivateIdentityStorageService {
@@ -26,6 +26,7 @@ export class PrivateIdentityStorageService {
     const { url, bucket } = this.config;
     const response = await fetch(`${url}/storage/v1/bucket/${encodeURIComponent(bucket)}`, {
       headers: this.headers(),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new ServiceUnavailableException('Bucket privado de verificação indisponível');
     const data: any = await response.json();
@@ -34,8 +35,17 @@ export class PrivateIdentityStorageService {
     }
   }
 
+  async isAvailable(): Promise<boolean> {
+    try {
+      await this.assertPrivateBucket();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async sanitizeImage(file: Express.Multer.File): Promise<Buffer> {
-    if (!file?.buffer || !/^image\/(jpeg|png|webp)$/i.test(file.mimetype || '')) {
+    if (!file?.buffer || file.buffer.length > 6 * 1024 * 1024 || !/^image\/(jpeg|png|webp)$/i.test(file.mimetype || '')) {
       throw new BadRequestException('Envie apenas imagens JPEG, PNG ou WebP');
     }
     try {
@@ -57,6 +67,7 @@ export class PrivateIdentityStorageService {
       method: 'POST',
       headers: this.headers({ 'Content-Type': 'image/jpeg', 'x-upsert': 'false' }),
       body: contents as any,
+      signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) throw new ServiceUnavailableException('Falha ao guardar documento no armazenamento privado');
   }
@@ -66,7 +77,8 @@ export class PrivateIdentityStorageService {
     const response = await fetch(`${url}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${this.objectPath(path)}`, {
       method: 'POST',
       headers: this.headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ expiresIn: Math.max(60, Math.min(expiresIn, 600)) }),
+      body: JSON.stringify({ expiresIn: Math.max(60, Math.min(expiresIn, 300)) }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new ServiceUnavailableException('Não foi possível abrir o documento privado');
     const data: any = await response.json();
@@ -82,6 +94,7 @@ export class PrivateIdentityStorageService {
       method: 'DELETE',
       headers: this.headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ prefixes: paths }),
+      signal: AbortSignal.timeout(15_000),
     }).catch(() => null);
     if (!response?.ok) {
       // Nunca silencie a falha: perder as chaves antes de apagar os documentos

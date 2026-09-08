@@ -25,24 +25,29 @@ export default function RootNavigator() {
   // Sincroniza GPS real + registra push token quando user loga
   useEffect(() => {
     if (!isAuthenticated || !user) return;
+    let active = true;
     (async () => {
       try {
         const coords = await getCurrentLocation();
+        if (!active || useAuthStore.getState().user?.id !== user.id) return;
         await api.put('/users/location', {
           latitude: coords.latitude,
           longitude: coords.longitude,
         });
-        setUser({ ...user, latitude: coords.latitude, longitude: coords.longitude } as any);
+        const current = useAuthStore.getState().user;
+        if (active && current?.id === user.id) setUser({ ...current, latitude: coords.latitude, longitude: coords.longitude });
       } catch {
         // silencioso
       }
       // Push notifications — pede permissão e registra token
       try {
+        if (!active) return;
         await registerForPushNotifications();
       } catch {
         // silencioso
       }
     })();
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.id]);
 

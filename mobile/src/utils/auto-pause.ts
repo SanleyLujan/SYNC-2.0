@@ -6,19 +6,34 @@ export interface GpsPoint {
   longitude: number;
   timestamp: number; // ms
   speed?: number; // m/s, se disponível do dispositivo
+  accuracy?: number;
 }
 
 const STOP_SPEED_MS = 0.5; // < 0.5 m/s = parado (1.8 km/h)
 const STOP_WINDOW_MS = 5000; // 5 seg parado dispara pause
-const RESUME_SPEED_MS = 1.5; // > 1.5 m/s = movendo de novo (5.4 km/h)
+export function supportsAutoPause(sport: string) {
+  return ['walking', 'running', 'cycling', 'hiking'].includes(sport);
+}
 
 export class AutoPauseDetector {
   private points: GpsPoint[] = [];
   private isPaused = false;
   private stopStartedAt: number | null = null;
+  constructor(private readonly sport = 'running') {}
 
   /** Adiciona ponto. Retorna ação se houve mudança ('pause' | 'resume' | null). */
   push(point: GpsPoint): 'pause' | 'resume' | null {
+    if (!supportsAutoPause(this.sport) || !Number.isFinite(point.timestamp) ||
+        !Number.isFinite(point.latitude) || Math.abs(point.latitude) > 90 ||
+        !Number.isFinite(point.longitude) || Math.abs(point.longitude) > 180 ||
+        (point.accuracy != null && (!Number.isFinite(point.accuracy) || point.accuracy < 0 || point.accuracy > 35))) return null;
+    const previous = this.points[this.points.length - 1];
+    if (previous && point.timestamp <= previous.timestamp) return null;
+    // Falta de GPS não é evidência de que a pessoa ficou parada.
+    if (previous && point.timestamp - previous.timestamp > 10_000) {
+      this.points = [];
+      this.stopStartedAt = null;
+    }
     this.points.push(point);
     // Mantém só últimos 30s
     const cutoff = point.timestamp - 30000;
@@ -40,7 +55,8 @@ export class AutoPauseDetector {
         this.stopStartedAt = null;
       }
     } else {
-      if (speed > RESUME_SPEED_MS) {
+      const resumeSpeed = this.sport === 'cycling' ? 1.2 : this.sport === 'running' ? 0.8 : 0.6;
+      if (speed > resumeSpeed) {
         this.isPaused = false;
         return 'resume';
       }

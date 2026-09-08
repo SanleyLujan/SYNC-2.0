@@ -1,7 +1,7 @@
 // Socket dedicado para streaming GPS em tempo real (namespace /tracking).
 // Separado do chat para isolar reconnects e não competir por bandwidth.
 import { io, Socket } from 'socket.io-client';
-import { API_HOST } from './api';
+import api, { API_HOST } from './api';
 import { secureStorage } from './secure-storage';
 
 const TRACKING_URL = `${API_HOST}/tracking`;
@@ -24,11 +24,15 @@ export type LiveTiming = {
   pausedDuration: number;
 };
 
-class TrackingSocketService {
+export class TrackingSocketService {
   private socket: Socket | null = null;
+  constructor(private readonly publicObserver = false) {}
 
   private async loadToken(): Promise<string | null> {
     try {
+      if (this.publicObserver) return null;
+      // Permite ao interceptor renovar um JWT vencido antes do handshake.
+      await api.get('/users/me');
       return await secureStorage.getItem('@sync:token');
     } catch {
       return null;
@@ -36,11 +40,7 @@ class TrackingSocketService {
   }
 
   connect(): Socket {
-    if (this.socket?.connected) return this.socket;
-    if (this.socket) {
-      this.socket.removeAllListeners();
-      this.socket.disconnect();
-    }
+    if (this.socket) return this.socket;
     this.socket = io(TRACKING_URL, {
       transports: ['websocket'],
       reconnection: true,
@@ -60,7 +60,9 @@ class TrackingSocketService {
   // Para o atleta: começa a streamar pontos da sua própria atividade
   startBroadcasting(activityId: string) {
     const s = this.connect();
-    s.emit('joinActivity', { activityId });
+    const join = () => s.emit('joinActivity', { activityId });
+    s.on('connect', join);
+    if (s.connected) join();
   }
 
   // Para seguidor (com token público): entra na sala daquela atividade
@@ -70,6 +72,7 @@ class TrackingSocketService {
     onPoint: (p: LivePoint) => void,
     onFinished?: () => void,
     onTiming?: (timing: LiveTiming) => void,
+    onConnection?: (connected: boolean) => void,
   ) {
     const s = this.connect();
     s.off('livePoint');
@@ -84,8 +87,18 @@ class TrackingSocketService {
     }
     // Registra listeners antes do join para não perder o snapshot quando o
     // socket já está conectado e o servidor responde imediatamente.
-    s.emit('joinActivity', { activityId, liveToken });
+    const join = () => {
+      s.emit('joinActivity', { activityId, liveToken }, (reply: { ok?: boolean }) => onConnection?.(reply?.ok === true));
+    };
+    const disconnected = () => onConnection?.(false);
+    s.on('connect', join);
+    s.on('disconnect', disconnected);
+    s.on('connect_error', disconnected);
+    if (s.connected) join();
     return () => {
+      s.off('connect', join);
+      s.off('disconnect', disconnected);
+      s.off('connect_error', disconnected);
       s.off('livePoint', onPoint);
       if (onFinished) s.off('activityFinished', onFinished);
       if (onTiming) s.off('activityTiming', onTiming);
@@ -120,3 +133,5 @@ class TrackingSocketService {
 }
 
 export const trackingSocket = new TrackingSocketService();
+// Observador nunca envia JWT de uma conta armazenada nem divide o socket do atleta.
+export const liveTrackingSocket = new TrackingSocketService(true);

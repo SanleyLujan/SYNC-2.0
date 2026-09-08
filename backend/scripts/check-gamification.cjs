@@ -19,6 +19,11 @@ const { GamificationService } = require('../src/gamification/gamification.servic
 const { ChallengesService } = require('../src/challenges/challenges.service');
 const { Gamification1788900000000 } = require('../src/migrations/1788900000000-Gamification');
 const { dayKey } = require('../src/gamification/rules');
+const { RefreshToken } = require('../src/auth/entities/refresh-token.entity');
+const { RefreshTokenService } = require('../src/auth/refresh-token.service');
+const { VerificationRequest } = require('../src/verification/verification-request.entity');
+const { VerificationService } = require('../src/verification/verification.service');
+const { JwtService } = require('@nestjs/jwt');
 const pg = new PGlite();
 // PGlite has one connection: serialize acquisition, preserving transaction boundaries.
 let tail = Promise.resolve();
@@ -45,7 +50,9 @@ const schema = (target, name, columns) => new EntitySchema({ target, name: targe
 const id = { type: 'uuid', primary: true, generated: 'uuid' };
 const db = new DataSource({ type: 'postgres', driver: { Pool }, uuidExtension: 'pgcrypto', installExtensions: false,
   entities: [
-    schema(User, 'users', { id, totalXP: { type: Number, default: 0 }, name: {type:String}, avatarUrl: {type:String,nullable:true}, isActive: {type:Boolean,default:true}, sports: {type:'simple-array',nullable:true}, createdAt:{type:Date}, gamificationStartedAt:{type:Date} }),
+    schema(User, 'users', { id, totalXP: { type: Number, default: 0 }, name: {type:String}, email:{type:String,default:'test@example.invalid'}, emailVerified:{type:Boolean,default:true},isVerified:{type:Boolean,default:false}, avatarUrl: {type:String,nullable:true}, isActive: {type:Boolean,default:true}, sports: {type:'simple-array',nullable:true}, createdAt:{type:Date}, gamificationStartedAt:{type:Date} }),
+    schema(RefreshToken, 'refresh_tokens', { id, userId:{type:'uuid',name:'user_id'},familyId:{type:String,length:36},tokenHash:{type:String,length:64,unique:true},expiresAt:{type:Date},used:{type:Boolean,default:false},revoked:{type:Boolean,default:false},userAgent:{type:String,nullable:true},ipMasked:{type:String,nullable:true},createdAt:{type:Date,createDate:true} }),
+    schema(VerificationRequest, 'verification_requests', { id,user_id:{type:'uuid'},status:{type:String,default:'pending'},selfieKey:{type:String,nullable:true,select:false},documentFrontKey:{type:String,nullable:true,select:false},documentBackKey:{type:String,nullable:true,select:false},reviewed_by:{type:String,nullable:true},reviewedAt:{type:Date,nullable:true},rejectionReason:{type:String,nullable:true},createdAt:{type:Date,createDate:true},updatedAt:{type:Date,updateDate:true} }),
     schema(Activity, 'activities', { id, user_id:{type:'uuid'}, sport:{type:String}, startTime:{type:Date}, endTime:{type:Date}, duration:{type:Number}, pausedDuration:{type:Number,default:0}, distance:{type:'real',default:0}, isCompleted:{type:Boolean,default:true} }),
     schema(Match, 'matches', {id,user1_id:{type:'uuid'},user2_id:{type:'uuid'}}),
     schema(UserBlock, 'user_blocks', {id,blocker_id:{type:'uuid'},blocked_id:{type:'uuid'}}),
@@ -111,6 +118,35 @@ async function run() {
   // Profile changes do not reshuffle today's persisted plan.
   await db.getRepository(User).update(a,{sports:['cycling']});
   assert.deepEqual((await gamification.summary(a)).missions.map(m=>m.id),results[0].missions.map(m=>m.id));
+  // Batch 1 partials: real session SQL and KYC transaction, fictitious storage only.
+  const jwt = new JwtService({secret:'isolated-test-only-not-a-production-secret'});
+  const sessions = new RefreshTokenService(db.getRepository(RefreshToken),jwt);
+  const getUser = uid => db.getRepository(User).findOneBy({id:uid});
+  const user = await getUser(a);
+  const pair = await sessions.issueTokenPair(user);
+  const sid = jwt.verify(pair.accessToken).sid;
+  await sessions.assertSessionActive(a,sid);
+  const rotated = await sessions.refresh(pair.refreshToken,getUser);
+  await assert.rejects(sessions.refresh(pair.refreshToken,getUser),'reuse must fail');
+  await assert.rejects(sessions.assertSessionActive(a,sid),'reuse must COMMIT family revocation');
+  await assert.rejects(sessions.refresh(rotated.refreshToken,getUser));
+  const second = await sessions.issueTokenPair(user);
+  const secondSid = jwt.verify(second.accessToken).sid;
+  await sessions.revokeSession(b,secondSid);
+  await sessions.assertSessionActive(a,secondSid);
+  await Promise.allSettled([sessions.refresh(second.refreshToken,getUser),sessions.revokeFamily(second.refreshToken)]);
+  await assert.rejects(sessions.assertSessionActive(a,secondSid),'logout race must leave no active descendant');
+  const concurrent = await sessions.issueTokenPair(user);
+  const attempts = await Promise.allSettled([sessions.refresh(concurrent.refreshToken,getUser),sessions.refresh(concurrent.refreshToken,getUser)]);
+  assert.equal(attempts.filter(r=>r.status==='fulfilled').length,1);
+  await assert.rejects(sessions.assertSessionActive(a,jwt.verify(concurrent.accessToken).sid));
+  const requests = db.getRepository(VerificationRequest);
+  const request = await requests.save({user_id:a,status:'pending',selfieKey:'fictitious/a',documentFrontKey:'fictitious/b',documentBackKey:'fictitious/c'});
+  const kyc = new VerificationService(requests,db.getRepository(User),{remove:async()=>{},isAvailable:async()=>true});
+  const reviews = await Promise.allSettled([kyc.review(request.id,b,'approve'),kyc.review(request.id,b,'reject','fictitious reason')]);
+  assert.equal(reviews.filter(r=>r.status==='fulfilled').length,1,'review may only be decided once');
+  assert.equal((await requests.findOneBy({id:request.id})).status,'approved');
+  assert.equal((await getUser(a)).isVerified,true);
   // Direct anonymous clients cannot award/read the reward ledger under RLS.
   await db.query('CREATE ROLE gamification_test_anon');
   await db.query('GRANT SELECT, INSERT ON gamification_rewards TO gamification_test_anon');
@@ -121,7 +157,7 @@ async function run() {
   // Verify metadata for the real full entity graph separately (no schema writes).
   const full = new DataSource({type:'postgres',driver:{Pool},uuidExtension:'pgcrypto',installExtensions:false,entities:[require('node:path').join(__dirname,'../src/**/*.entity.ts')],synchronize:false});
   await full.initialize(); await full.destroy();
-  console.log('PASS: migration twice; PostgreSQL transactions; cap/retry; missions; challenge acceptance, auto-completion, expiry; outsiders/blocks; minimal profiles; RLS.');
+  console.log('PASS: migration twice; PostgreSQL transactions; cap/retry; missions; challenges; RLS; session rotation/reuse/logout race/access revocation; one-time KYC review (fictitious storage). Single-connection PostgreSQL/WASM, not a multi-process load test.');
   await db.destroy(); await pg.close();
 }
 run().catch(async e => { console.error(e); process.exitCode=1; try { await pg.close(); } catch {} });

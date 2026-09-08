@@ -29,6 +29,7 @@ type LocationTaskData = { locations?: Location.LocationObject[] };
 
 let appIsForeground = false;
 let queueMutation: Promise<unknown> = Promise.resolve();
+let lifecycleGeneration = 0;
 
 function parseArray(value: string | null): BackgroundTrackingPoint[] {
   if (!value) return [];
@@ -58,8 +59,8 @@ async function appendBackgroundLocations(locations: Location.LocationObject[]) {
     .filter(({ coords, timestamp }) => (
       Number.isFinite(coords.latitude) && coords.latitude >= -90 && coords.latitude <= 90 &&
       Number.isFinite(coords.longitude) && coords.longitude >= -180 && coords.longitude <= 180 &&
-      Number.isFinite(timestamp) &&
-      (coords.accuracy == null || coords.accuracy <= 35)
+      Number.isFinite(timestamp) && timestamp >= Date.parse(context.startedAt) && timestamp <= Date.now() + 5000 &&
+      (coords.accuracy == null || (Number.isFinite(coords.accuracy) && coords.accuracy >= 0 && coords.accuracy <= 35))
     ))
     .map(({ coords, timestamp }) => ({
       activityId: context.activityId,
@@ -73,7 +74,10 @@ async function appendBackgroundLocations(locations: Location.LocationObject[]) {
 
   if (!validPoints.length) return;
   await mutateQueue(async (queue) => {
-    const merged = [...queue, ...validPoints].slice(-MAX_QUEUED_POINTS);
+    const current = await getBackgroundTrackingContext();
+    if (!current || current.activityId !== context.activityId || current.manuallyPaused) return;
+    const unique = new Map([...queue, ...validPoints].map(p => [`${p.activityId}:${p.timestamp}`, p]));
+    const merged = [...unique.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-MAX_QUEUED_POINTS);
     await AsyncStorage.setItem(TRACKING_QUEUE_KEY, JSON.stringify(merged));
   });
 }
@@ -111,12 +115,16 @@ export async function getBackgroundTrackingContext(): Promise<BackgroundTracking
 export async function startBackgroundTracking(
   context: Omit<BackgroundTrackingContext, 'manuallyPaused'> & { manuallyPaused?: boolean },
 ): Promise<boolean> {
-  if (Platform.OS === 'web') return false;
+  const generation = ++lifecycleGeneration;
   const stored: BackgroundTrackingContext = {
     ...context,
     manuallyPaused: Boolean(context.manuallyPaused),
   };
-  await AsyncStorage.setItem(TRACKING_CONTEXT_KEY, JSON.stringify(stored));
+  await mutateQueue(async () => {
+    if (generation === lifecycleGeneration) await AsyncStorage.setItem(TRACKING_CONTEXT_KEY, JSON.stringify(stored));
+  });
+  // Web não tem task, mas preserva o identificador para restaurar o treino.
+  if (Platform.OS === 'web') return false;
 
   try {
     if (!(await TaskManager.isAvailableAsync())) return false;
@@ -124,11 +132,12 @@ export async function startBackgroundTracking(
     if (foreground.status !== 'granted') return false;
     const background = await Location.requestBackgroundPermissionsAsync();
     if (background.status !== 'granted') return false;
+    if (generation !== lifecycleGeneration) return false;
 
     if (!(await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK))) {
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
         accuracy: Location.Accuracy.BestForNavigation,
-        distanceInterval: 3,
+        distanceInterval: 0,
         timeInterval: 2_000,
         deferredUpdatesDistance: 10,
         deferredUpdatesInterval: 5_000,
@@ -143,6 +152,10 @@ export async function startBackgroundTracking(
         },
       });
     }
+    if (generation !== lifecycleGeneration) {
+      await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+      return false;
+    }
     return true;
   } catch (error) {
     console.warn('[tracking] background location unavailable:', error);
@@ -151,28 +164,36 @@ export async function startBackgroundTracking(
 }
 
 export async function setBackgroundTrackingManualPause(manuallyPaused: boolean): Promise<void> {
-  const context = await getBackgroundTrackingContext();
-  if (!context) return;
-  await AsyncStorage.setItem(
-    TRACKING_CONTEXT_KEY,
-    JSON.stringify({ ...context, manuallyPaused }),
-  );
+  await mutateQueue(async () => {
+    const context = await getBackgroundTrackingContext();
+    if (!context) return;
+    await AsyncStorage.setItem(
+      TRACKING_CONTEXT_KEY,
+      JSON.stringify({ ...context, manuallyPaused }),
+    );
+  });
 }
 
 export function drainBackgroundPoints(activityId: string): Promise<BackgroundTrackingPoint[]> {
   return mutateQueue(async (queue) => {
     const matching: BackgroundTrackingPoint[] = [];
-    const remaining: BackgroundTrackingPoint[] = [];
     for (const point of queue) {
       if (point.activityId === activityId) matching.push(point);
-      else remaining.push(point);
     }
-    await AsyncStorage.setItem(TRACKING_QUEUE_KEY, JSON.stringify(remaining));
-    return matching.sort((a, b) => a.timestamp - b.timestamp);
+    return matching.sort((a, b) => a.timestamp - b.timestamp).slice(0, 500);
   });
 }
 
-export async function stopBackgroundTracking(options: { clearQueue?: boolean } = {}): Promise<void> {
+export function acknowledgeBackgroundPoints(activityId: string, timestamps: number[]): Promise<void> {
+  const acknowledged = new Set(timestamps);
+  return mutateQueue(async queue => {
+    const remaining = queue.filter(p => p.activityId !== activityId || !acknowledged.has(p.timestamp));
+    await AsyncStorage.setItem(TRACKING_QUEUE_KEY, JSON.stringify(remaining));
+  });
+}
+
+export async function stopBackgroundTracking(options: { clearQueue?: boolean; preserveContext?: boolean } = {}): Promise<void> {
+  lifecycleGeneration++;
   if (Platform.OS !== 'web') {
     try {
       if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)) {
@@ -180,10 +201,10 @@ export async function stopBackgroundTracking(options: { clearQueue?: boolean } =
       }
     } catch {}
   }
-  await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
-  if (options.clearQueue) {
-    await mutateQueue(async () => {
+  await mutateQueue(async () => {
+    if (!options.preserveContext) await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
+    if (options.clearQueue) {
       await AsyncStorage.removeItem(TRACKING_QUEUE_KEY);
-    });
-  }
+    }
+  });
 }

@@ -1,4 +1,4 @@
-import api, { ensureApiAvailable } from './api';
+import api, { ensureApiAvailable, invalidatePendingRefresh, withSessionWriteLock } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { secureStorage } from './secure-storage';
 import { AuthResponse, RegistrationResponse, User, SportLevel } from '../types';
@@ -104,34 +104,41 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
+    invalidatePendingRefresh();
     const refreshToken = await secureStorage.getItem(REFRESH_TOKEN_KEY).catch(() => null);
     await stopBackgroundTracking({ clearQueue: true }).catch(() => {});
     await unregisterPushToken().catch(() => {});
     if (refreshToken) {
       await api.post('/auth/logout', { refreshToken }).catch(() => {});
     }
-    await secureStorage.removeItem(ACCESS_TOKEN_KEY);
-    await secureStorage.removeItem(REFRESH_TOKEN_KEY);
-    await secureStorage.removeItem(REFRESH_EXPIRES_KEY);
-    // Compat: limpa AsyncStorage caso tenha legacy
-    await AsyncStorage.removeItem(ACCESS_TOKEN_KEY).catch(() => {});
-    await AsyncStorage.removeItem('@sync:user').catch(() => {});
+    await withSessionWriteLock(async () => {
+      invalidatePendingRefresh();
+      await secureStorage.removeItem(ACCESS_TOKEN_KEY);
+      await secureStorage.removeItem(REFRESH_TOKEN_KEY);
+      await secureStorage.removeItem(REFRESH_EXPIRES_KEY);
+      // Compat: limpa AsyncStorage caso tenha legacy
+      await AsyncStorage.removeItem(ACCESS_TOKEN_KEY).catch(() => {});
+      await AsyncStorage.removeItem('@sync:user').catch(() => {});
+    });
   },
 
   async saveAuth(data: AuthResponse): Promise<void> {
-    // Token sensível → SecureStore. User não-sensível → AsyncStorage.
-    await secureStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-    if (data.refreshToken) {
-      await secureStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
-    } else {
-      await secureStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
-    if (data.refreshExpiresAt) {
-      await secureStorage.setItem(REFRESH_EXPIRES_KEY, data.refreshExpiresAt);
-    } else {
-      await secureStorage.removeItem(REFRESH_EXPIRES_KEY);
-    }
-    await AsyncStorage.setItem('@sync:user', JSON.stringify(data.user));
+    invalidatePendingRefresh();
+    await withSessionWriteLock(async () => {
+      // Token sensível → SecureStore. Perfil → AsyncStorage.
+      await secureStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+      if (data.refreshToken) {
+        await secureStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+      } else {
+        await secureStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
+      if (data.refreshExpiresAt) {
+        await secureStorage.setItem(REFRESH_EXPIRES_KEY, data.refreshExpiresAt);
+      } else {
+        await secureStorage.removeItem(REFRESH_EXPIRES_KEY);
+      }
+      await AsyncStorage.setItem('@sync:user', JSON.stringify(data.user));
+    });
   },
 
   async getStoredUser() {
