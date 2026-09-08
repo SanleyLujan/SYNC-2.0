@@ -25,6 +25,8 @@ import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DailyProgress from '../../components/DailyProgress';
+import api from '../../services/api';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -36,13 +38,13 @@ const STATUS_META: Record<string, { label: string; color: string; icon: string }
 };
 
 const SPORTS = [
-  'Corrida', 'Ciclismo', 'Natação', 'Caminhada', 'Trilha',
-  'Futebol', 'Tênis', 'Musculação', 'CrossFit', 'Yoga',
+  'running', 'cycling', 'swimming', 'walking', 'hiking',
+  'football', 'tennis', 'gym', 'crossfit', 'yoga',
 ];
+const SPORT_NAMES: Record<string,string> = { running: 'Corrida', cycling: 'Ciclismo', swimming: 'Natação', walking: 'Caminhada', hiking: 'Trilha', football: 'Futebol', tennis: 'Tênis', gym: 'Academia', crossfit: 'CrossFit', yoga: 'Yoga' };
 
 const METRICS: { id: 'distance' | 'pace' | 'duration'; label: string; unit: string }[] = [
   { id: 'distance', label: 'Distância', unit: 'km' },
-  { id: 'pace',     label: 'Pace',      unit: 'min/km' },
   { id: 'duration', label: 'Duração',   unit: 'min' },
 ];
 
@@ -82,14 +84,23 @@ export default function ChallengesScreen({ navigation }: any) {
   const [responding, setResponding] = useState<string | null>(null);
   const [completing, setCompleting] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [peers, setPeers] = useState<Array<{id:string;name:string}>>([]);
+  const [peersError, setPeersError] = useState(false);
+  useEffect(() => {
+    if (!showCreate) return;
+    let active = true;
+    setPeers([]); setPeersError(false);
+    api.get('/challenges/peers').then(r => { if (active) setPeers(r.data); }).catch(() => { if (active) setPeersError(true); });
+    return () => { active = false; };
+  }, [showCreate]);
 
   // ── Create form state ──────────────────────────────────────────────────────
   const [form, setForm] = useState({
     challengedId: '',
     sport: SPORTS[0],
-    metric: 'distance' as 'distance' | 'pace' | 'duration',
-    target: '',
-    expiresInDays: '7',
+    metric: 'duration' as 'distance' | 'pace' | 'duration',
+    target: '10',
+    expiresInDays: '3',
   });
   const [creating, setCreating] = useState(false);
 
@@ -136,28 +147,10 @@ export default function ChallengesScreen({ navigation }: any) {
     }
   };
 
-  // ── Complete a challenge ───────────────────────────────────────────────────
-  const handleComplete = async (challenge: Challenge) => {
-    const ok = await confirmAsync('Marcar como concluído?', `Confirmar conclusão do desafio de ${challenge.sport}?`, {
-      confirmText: 'Concluído ✓',
-    });
-    if (!ok) return;
-    setCompleting(challenge.id);
-    try {
-      await challengesService.complete(challenge.id);
-      showToast('Desafio concluído! 🏆', 'success');
-      await load(true);
-    } catch {
-      showToast('Erro ao concluir', 'error');
-    } finally {
-      setCompleting(null);
-    }
-  };
-
   // ── Create challenge ───────────────────────────────────────────────────────
   const handleCreate = async () => {
     if (!form.challengedId.trim()) {
-      showToast('Informe o ID do usuário', 'error'); return;
+      showToast('Selecione uma conexão', 'error'); return;
     }
     const target = parseFloat(form.target);
     if (!target || target <= 0) {
@@ -175,10 +168,10 @@ export default function ChallengesScreen({ navigation }: any) {
       });
       showToast('Desafio enviado! ⚡', 'success');
       setShowCreate(false);
-      setForm({ challengedId: '', sport: SPORTS[0], metric: 'distance', target: '', expiresInDays: '7' });
+      setForm({ challengedId: '', sport: SPORTS[0], metric: 'duration', target: '10', expiresInDays: '3' });
       await load(true);
-    } catch {
-      showToast('Erro ao criar desafio', 'error');
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Erro ao criar desafio', 'error');
     } finally {
       setCreating(false);
     }
@@ -224,7 +217,7 @@ export default function ChallengesScreen({ navigation }: any) {
         <View style={styles.challengeDetails}>
           <View style={styles.detailChip}>
             <Ionicons name="fitness-outline" size={13} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.detailText}>{item.sport}</Text>
+            <Text style={styles.detailText}>{SPORT_NAMES[item.sport] || item.sport}</Text>
           </View>
           <View style={styles.detailChip}>
             <Ionicons name="trending-up-outline" size={13} color="rgba(255,255,255,0.5)" />
@@ -241,6 +234,11 @@ export default function ChallengesScreen({ navigation }: any) {
         </View>
 
         {/* Direction label */}
+        {item.progress && <Text style={styles.directionLabel}>
+          Você: {(isMine ? item.progress.challenger.progress : item.progress.challenged.progress).toFixed(1)}/{item.target} {item.metric === 'duration' ? 'min' : 'km'}
+          {'\n'}Conexão: {(isMine ? item.progress.challenged.progress : item.progress.challenger.progress).toFixed(1)}/{item.target} {item.metric === 'duration' ? 'min' : 'km'}
+          {'\n'}{(isMine ? item.progress.challenger.completed : item.progress.challenged.completed) ? 'Sua meta foi concluída! XP sujeito ao teto do dia.' : 'Conte atividades iniciadas após o aceite e concluídas dentro do prazo.'}
+        </Text>}
         <Text style={styles.directionLabel}>
           {isMine ? '📤 Você desafiou' : '📥 Te desafiou'}
         </Text>
@@ -291,7 +289,7 @@ export default function ChallengesScreen({ navigation }: any) {
         {item.status === 'accepted' && (
           <TouchableOpacity
             style={[styles.completeBtn, isCompleting && { opacity: 0.6 }]}
-            onPress={() => handleComplete(item)}
+            onPress={() => load(true)}
             disabled={isCompleting}
             activeOpacity={0.7}
           >
@@ -300,7 +298,7 @@ export default function ChallengesScreen({ navigation }: any) {
             ) : (
               <>
                 <Ionicons name="flag-outline" size={15} color="#10B981" />
-                <Text style={styles.completeBtnText}>Marcar como concluído</Text>
+                <Text style={styles.completeBtnText}>Atualizar progresso automático</Text>
               </>
             )}
           </TouchableOpacity>
@@ -369,6 +367,7 @@ export default function ChallengesScreen({ navigation }: any) {
         </View>
       ) : (
         <FlatList
+          ListHeaderComponent={<DailyProgress />}
           data={filteredChallenges}
           keyExtractor={(item) => item.id}
           renderItem={renderChallenge}
@@ -439,16 +438,10 @@ export default function ChallengesScreen({ navigation }: any) {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* User ID */}
-              <Text style={styles.formLabel}>ID do usuário desafiado</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Cole o ID do usuário aqui"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={form.challengedId}
-                onChangeText={(v) => setForm((f) => ({ ...f, challengedId: v }))}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <Text style={styles.formLabel}>Escolha uma conexão</Text>
+              {peers.map(peer => <TouchableOpacity key={peer.id} style={[styles.chip, form.challengedId === peer.id && styles.chipActive]} onPress={() => setForm(f => ({...f, challengedId: peer.id}))}><Text style={styles.chipText}>{peer.name}</Text></TouchableOpacity>)}
+              {!peers.length && <Text style={styles.formLabel}>{peersError ? 'Não foi possível carregar. Feche e tente novamente.' : 'Conexões disponíveis aparecem aqui. É necessário um match sem bloqueio.'}</Text>}
+              <Text style={styles.formLabel}>Cada pessoa ganha até 20 XP ao cumprir sua meta, dentro do limite de 100 XP/dia. Não é uma corrida: ambos podem concluir. Até 3 desafios ativos por pessoa.</Text>
 
               {/* Sport */}
               <Text style={styles.formLabel}>Esporte</Text>
@@ -458,10 +451,10 @@ export default function ChallengesScreen({ navigation }: any) {
                     <TouchableOpacity
                       key={sport}
                       style={[styles.chip, form.sport === sport && styles.chipActive]}
-                      onPress={() => setForm((f) => ({ ...f, sport }))}
+                      onPress={() => setForm((f) => ({ ...f, sport, metric: 'duration', target: '10' }))}
                     >
                       <Text style={[styles.chipText, form.sport === sport && styles.chipTextActive]}>
-                        {sport}
+                        {SPORT_NAMES[sport]}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -471,11 +464,11 @@ export default function ChallengesScreen({ navigation }: any) {
               {/* Metric */}
               <Text style={styles.formLabel}>Tipo de meta</Text>
               <View style={styles.metricRow}>
-                {METRICS.map((m) => (
+                {METRICS.filter(m => m.id === 'duration' || ['walking','running','cycling','hiking'].includes(form.sport)).map((m) => (
                   <TouchableOpacity
                     key={m.id}
                     style={[styles.metricBtn, form.metric === m.id && styles.metricBtnActive]}
-                    onPress={() => setForm((f) => ({ ...f, metric: m.id }))}
+                    onPress={() => setForm((f) => ({ ...f, metric: m.id, target: m.id === 'duration' ? '10' : '1' }))}
                   >
                     <Text style={[styles.metricBtnText, form.metric === m.id && styles.metricBtnTextActive]}>
                       {m.label}
@@ -489,19 +482,12 @@ export default function ChallengesScreen({ navigation }: any) {
               <Text style={styles.formLabel}>
                 Meta ({METRICS.find((m) => m.id === form.metric)?.unit || ''})
               </Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Ex: 5"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={form.target}
-                onChangeText={(v) => setForm((f) => ({ ...f, target: v }))}
-                keyboardType="numeric"
-              />
+              <View style={styles.chipsRow}>{(form.metric === 'duration' ? ['5','10','15'] : form.sport === 'cycling' ? ['1','2','3'] : ['0.5','1','1.5','2']).map(target => <TouchableOpacity key={target} style={[styles.chip, form.target === target && styles.chipActive]} onPress={() => setForm(f => ({...f, target}))}><Text style={styles.chipText}>{target}</Text></TouchableOpacity>)}</View>
 
               {/* Expiry */}
               <Text style={styles.formLabel}>Prazo (dias)</Text>
               <View style={styles.expiryRow}>
-                {['3', '7', '14', '30'].map((d) => (
+                {['1', '3', '7'].map((d) => (
                   <TouchableOpacity
                     key={d}
                     style={[styles.chip, form.expiresInDays === d && styles.chipActive]}

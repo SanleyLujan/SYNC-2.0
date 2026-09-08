@@ -164,6 +164,7 @@ export interface OnboardingData {
 
 // Opções de esportes disponíveis
 export const SPORTS = [
+  { id: 'walking', label: 'Caminhada', icon: 'walk' },
   { id: 'running', label: 'Corrida', icon: 'run' },
   { id: 'cycling', label: 'Ciclismo', icon: 'bike' },
   { id: 'swimming', label: 'Natação', icon: 'swim' },

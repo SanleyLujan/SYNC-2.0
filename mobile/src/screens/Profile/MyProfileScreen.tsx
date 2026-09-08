@@ -33,6 +33,7 @@ import { unwrapActivityHistory } from '../../utils/activity-history';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { showToast } from '../../components/ui/Toast';
+import DailyProgress from '../../components/DailyProgress';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'MyProfile'>;
@@ -444,6 +445,7 @@ export default function MyProfileScreen({ navigation }: Props) {
       )}
 
       {/* Stats cards */}
+      <DailyProgress />
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="flash" size={18} color={theme.primary} />

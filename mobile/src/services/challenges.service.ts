@@ -13,6 +13,7 @@ export interface Challenge {
   winner_id: string | null;
   expiresAt: string | null;
   createdAt: string;
+  progress?: { challenger: { progress: number; completed: boolean }; challenged: { progress: number; completed: boolean } } | null;
 }
 
 export const challengesService = {

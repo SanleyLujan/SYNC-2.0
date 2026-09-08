@@ -2,7 +2,7 @@
 
 **Data de criação do acompanhamento:** 02/09/2026
 
-**Última atualização:** 06/09/2026
+**Última atualização:** 08/09/2026
 
 **Escopo:** auditoria funcional, correções solicitadas, transparência das funções mostradas ao usuário e segurança do aplicativo Sync.
 
@@ -24,8 +24,8 @@
 | 3 | 🟢 | Entrada não autorizada em salas de chat | `joinChat` e `typing` consultam o match e recusam um terceiro usuário antes de entrar ou emitir eventos na sala. Há teste automatizado do bloqueio. | Repetir o cenário E2E contra o deploy. |
 | 4 | ⚫ | Stripe apresentado sem pagamento real | Tela, navegação, publicidade e módulo ativo de assinatura foram removidos. | Só restaurar depois de checkout, webhook assinado, idempotência e confirmação server-side reais. |
 | 5 | ⚫ | Premium sem controle de acesso | Planos, badges e chamadas de upgrade foram retirados; o app não promete Premium enquanto não existe entitlement real. | Criar autorização de entitlement no backend antes de reativar qualquer plano. |
-| 6 | 🟡 | Recuperação de senha sem entrega do token | Existe link de uso único, expiração de uma hora, tela web de nova senha e revogação de todas as sessões após redefinição. A entrega depende do Resend configurado no ambiente publicado. | Configurar `RESEND_API_KEY`, `EMAIL_FROM` e domínio remetente; executar teste real de entrega e expiração. |
-| 7 | 🟡 | Sessões, refresh token, logout e onboarding | Access token curto, refresh rotativo por família, detecção de reutilização, renovação automática no cliente, revogação no logout e correção do falso sucesso do onboarding foram implementados. | Aplicar migrations e validar expiração, reutilização e logout em dois aparelhos/navegadores. |
+| 6 | 🟢 | Recuperação de senha sem entrega do token | Fluxo funcional confirmado pelo usuário em 08/09/2026: recuperação/redefinição de senha e retorno à conta. Validação relatada pelo usuário, não teste remoto realizado pelo agente. | Manter testes de regressão; expiração, reutilização do link e revogação em outros dispositivos ainda exigem testes específicos. |
+| 7 | 🟡 | Sessões, refresh token, logout e onboarding | Implementações de sessão existentes. Em 08/09/2026, usuário confirmou sair e entrar novamente na conta durante o teste de recuperação de senha. Login/logout básico validado por relato; isso não comprova renovação automática, revogação ou onboarding. | Validar expiração, reutilização de refresh, revogação em dois aparelhos/navegadores e onboarding; confirmar migrations aplicadas. |
 | 8 | 🔵 | Mídias em disco efêmero | Mantido por decisão de continuar nas hospedagens gratuitas atuais. Stories e mídias ainda podem desaparecer após restart/redeploy. | Migrar para storage externo com faixa gratuita quando possível. |
 | 9 | 🟡 | Live tracking quebrado | API e endereço público configuráveis, token enviado pelo observador no WebSocket e preferência de compartilhamento repassada ao tracking. | Definir `PUBLIC_WEB_URL`/`FRONTEND_URL` e testar em duas redes após deploy. |
 | 10 | 🟢 | Perda dos últimos pontos GPS | A finalização aguarda o flush, envia a cópia local, reconcilia por timestamp sem duplicar e restaura o buffer se a persistência falhar. Coberto por teste. | Fazer teste de campo com sinal instável. |
@@ -44,11 +44,11 @@
 | 23 | 🟡 | Denúncias, administração, verificação e comentários do Feed | Denúncia de post deixou de simular sucesso; denúncias de conta não causam banimento automático; painel exclusivo de `isAdmin` lista contas/posts/pedidos e permite descartar, desativar/remover e aprovar/recusar. Documentos são reencodados sem EXIF/GPS, ficam em bucket privado, usam URL assinada de 5 minutos sem cache e são apagados após decisão. Ações admin são auditadas. O feed mostra selo real; comentários estão montados e agora aceitam menções registradas e reações persistentes. | Executar o SQL de configuração, preencher as variáveis somente no backend, aplicar `1782500000000`, testar o fluxo completo e realizar revisão operacional/LGPD antes da liberação. |
 | 24 | 🟡 | Chat com presença falsa e entrega não confiável | Mensagens e autorização de salas funcionam, mas “online agora”, acknowledgements e outbox/retry completo para mídia ainda não representam garantia real de entrega. | Implementar presença com TTL, ack idempotente e fila durável. |
 | 25 | 🔴 | Conquistas praticamente inoperantes | Parte das regras não existe e a verificação não é acionada de forma confiável, apesar de a função aparecer ao usuário. | Processar conquistas por eventos do backend e testar cada regra. |
-| 26 | ⚪ | Missões diárias desconectadas | Existe código de componente, mas não há integração completa de montagem, persistência ou recompensa confirmada. | Definir modelo de missão/progresso e só então expor na navegação. |
-| 27 | 🟡 | XP e níveis inconsistentes | Há cálculos funcionais, mas backend e mobile ainda podem divergir e produzir níveis distintos. | Tornar o backend a única fonte de verdade e versionar a regra. |
+| 26 | 🟡 | Missões diárias desconectadas | Implementadas em 08/09/2026: catálogo de 45 objetivos curtos; seleção determinística por conta/dia, até três missões compatíveis com esportes, sempre uma universal. Plano persistido, progresso por atividades concluídas e recompensa única. Cartão no perfil e na tela de desafios. | Aplicar migration no deploy e testar no celular, incluindo renovação diária e modalidades. Não há simulação nem botão para declarar conclusão. |
+| 27 | 🟡 | XP e níveis inconsistentes | Backend unificado: 2 XP/minuto elegível, até 40 por atividade; missões 20 e desafios 20, todos sob teto único de 100 XP/dia. Nível a cada 500 XP. Ledger único por origem e lock por usuário em transação PostgreSQL. XP legado preservado uma vez; estimativa por estatísticas removida. | Validar após migration no deploy e em duas sessões simultâneas. Teto é incentivo de produto, não limite médico nem garantia de atividade física real. |
 | 28 | 🔴 | Territórios e prêmios manipuláveis | Coordenadas ainda podem ser confiadas ao cliente e prêmios são decorativos, embora o módulo sugira competição real. | Aceitar apenas atividades GPS validadas e implementar temporada/premiação server-side. |
 | 29 | 🔴 | Segmentos e KOM manipuláveis | Tempos manuais/geometria insuficiente permitem ranking não confiável. | Gerar esforços apenas de rotas GPS elegíveis, com detecção de anomalia. |
-| 30 | 🔴 | Desafios sem validação esportiva | Resultado pode ser autodeclarado e expiração não é concluída de forma confiável. | Apurar atividades elegíveis no servidor e criar job idempotente de encerramento. |
+| 30 | 🟡 | Desafios sem validação esportiva | Objetivos permitidos de 5/10/15 min ou distâncias curtas por modalidade; prazo 1/3/7 dias; só entre matches sem bloqueio, até três ativos por pessoa. Aceite obrigatório; progresso automático após aceite e antes do prazo; ambos podem concluir e ganhar até 20 XP cada. Conclusão manual bloqueada, expiração reconciliada por job e leitura. | Deploy e teste de envio/aceite/treino nas duas contas. Migration expira desafios antigos abertos; não há corrida por vencedor. GPS do cliente ainda pode ser falsificado. |
 | 31 | 🟡 | Locais esportivos fictícios no mapa | Em 06/09/2026, substituídos por consulta autenticada de academias cadastradas no OpenStreetMap via Overpass. Até 100 resultados em 5 km, nome/endereço disponível, fonte e rota; estados de carregamento, vazio e falha sem locais inventados. | Publicar backend e frontend e conferir no celular. Cobertura depende dos cadastros OSM; demais tipos de locais continuam ocultos. |
 | 32 | 🔴 | Planejador descarta a rota ao iniciar | A rota planejada não acompanha o tracking, apesar de a interface sugerir que será seguida. | Persistir e repassar geometria, orientação e estado de desvio. |
 | 33 | 🟡 | Planos de treino são calendário estático | O calendário aparece, mas ainda não registra conclusão, vínculo com atividade ou adaptação. | Criar sessões de treino e progresso sincronizado. |
@@ -64,16 +64,31 @@
 
 ## Resumo por cor
 
-- 🟢 **10 resolvidos no código:** 2, 3, 10, 11, 14, 17, 18, 19, 20 e 22.
-- 🟡 **18 parciais/condicionados:** 1, 6, 7, 9, 12, 13, 23, 24, 27, 31, 33, 34, 36, 37, 39, 40, 41 e 42.
-- 🔴 **8 ainda não funcionam como prometido:** 21, 25, 28, 29, 30, 32, 35 e 38.
-- ⚪ **1 não iniciado e não deve ser anunciado:** 26.
+- 🟢 **11 resolvidos no código/fluxo funcional validado:** 2, 3, 6, 10, 11, 14, 17, 18, 19, 20 e 22.
+- 🟡 **19 parciais/condicionados:** 1, 7, 9, 12, 13, 23, 24, 26, 27, 30, 31, 33, 34, 36, 37, 39, 40, 41 e 42.
+- 🔴 **7 ainda não funcionam como prometido:** 21, 25, 28, 29, 32, 35 e 38.
+- ⚪ **0 não iniciados nesta classificação.**
 - ⚫ **4 removidos/ocultos:** 4, 5, 15 e 16.
 - 🔵 **1 adiado conscientemente:** 8.
 
 Os itens 14–23 solicitados nesta etapa foram tratados. Os itens 14, 17, 18, 19, 20 e 22 estão concluídos no código; 15 e 16 foram ocultados; 21 permanece incompleto na web por decisão pendente; 23 está implementado, mas fica amarelo até receber infraestrutura privada, migration, deploy e teste operacional. O item 1 foi substituído — não reativado como simulação — pelo fluxo seguro do item 23.
 
 ## Segurança — avaliação honesta
+
+### Entrega dos itens 26/27/30 — 08/09/2026
+
+- Implementação e instruções de implantação/teste em `backend/GAMIFICACAO.md`. Migration `1788900000000` cria ledger com RLS, campo de início da progressão e versão/aceite dos desafios. Sem chave nova ou serviço pago.
+- 54 testes backend e 28 mobile passaram. Compilação NestJS, TypeScript mobile e exportação Expo Web aprovadas. Integração PostgreSQL/WASM isolada aprovou a migration aplicada duas vezes, transações, teto, reenvio sem duplicação, missões, aceite, conclusão dos dois participantes, expiração, bloqueios, perfis mínimos, saldo legado preservado e RLS; metadados reais das entidades também carregados.
+- Revisão adicional: finalidade de atividade agora usa update condicional para não executar crédito/notificações duas vezes em finais concorrentes; schemas recusam campos públicos de XP/nível de recompensa e conclusão manual. Cálculo não permite que tempo ativo informado ultrapasse o tempo observado descontadas as pausas.
+- Os testes PostgreSQL/WASM usam conexão única, não equivalem a teste multi-processo de carga em staging. Não foi feito pentest de todo o site, inspeção da configuração remota do Supabase nem validação visual em aparelho físico. Esses limites continuam explícitos: segurança absoluta e prova de exercício real não são garantidas.
+- Próximo passo após deploy: roteiro manual do documento de gamificação em duas contas. Os itens permanecem amarelos até essa validação. Desafios antigos abertos serão expirados pela migration; histórico concluído e saldo legado real são preservados.
+
+### Direção de gamificação — 08/09/2026 (histórico do planejamento; implementação abaixo)
+
+- Missões diárias (26) são objetivos pessoais curtos; XP/níveis (27) são o sistema de progressão; desafios (30) no código atual são disputas entre duas pessoas com aceite, prazo e vencedor. Podem compartilhar a apuração de atividades, mas não são o mesmo recurso.
+- Uma atividade elegível pode avançar uma missão e um desafio compatíveis, sem crédito duplicado por reenvio. Encerramento de desafios e determinação de vencedor devem ser feitos pelo servidor, nunca por autodeclaração do cliente.
+- Direção proposta: atingir o teto de XP não bloqueia atividades nem apaga progresso; apenas interrompe créditos de experiência naquele dia. Sem perda de XP por descansar ou incentivo a compensar dias. O teto é uma regra de incentivo, não garantia de segurança física ou recomendação individual de exercício.
+- Duração deve usar tempo ativo (sem pausas), distância somente modalidades compatíveis e pontos elegíveis. Prever fuso/dia, travessia da meia-noite e trocas de fuso para impedir reinicializações indevidas do teto. Quantidades de XP e curva de níveis ainda não aprovadas/implementadas.
 
 ### Atualização de mapas — 06/09/2026
 

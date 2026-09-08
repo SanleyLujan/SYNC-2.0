@@ -130,7 +130,12 @@ export default function StatsDashboardScreen({ navigation }: any) {
   }
   const maxBucket = Math.max(...buckets.map((b) => b.value), 1);
 
-  const xp = computeUserXP(Math.round(totalKm * 10) + totalActivities * 50);
+  const [xp, setXP] = useState<any>(null);
+  useEffect(() => {
+    let active = true;
+    api.get('/gamification/me').then(r => { if (active) setXP(r.data); }).catch(() => { if (active) setXP(null); });
+    return () => { active = false; };
+  }, []);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 100 }}>
@@ -206,8 +211,8 @@ export default function StatsDashboardScreen({ navigation }: any) {
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Ionicons name="trophy" size={36} color="rgba(255,255,255,0.8)" />
-          <Text style={styles.heroLevel}>LV {xp.level}</Text>
-          <Text style={styles.heroTitle}>{xp.title}</Text>
+          <Text style={styles.heroLevel}>{xp ? `LV ${xp.level}` : 'XP indisponível'}</Text>
+          <Text style={styles.heroTitle}>{xp?.title || ''}</Text>
         </View>
       </LinearGradient>
 

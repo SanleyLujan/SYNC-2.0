@@ -185,6 +185,9 @@ export class User {
   @Column({ default: 0 })
   totalXP: number;
 
+  @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  gamificationStartedAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

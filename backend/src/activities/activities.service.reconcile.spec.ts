@@ -16,6 +16,7 @@ describe('ActivitiesService GPS reconciliation and timing', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    activityRepository.update.mockResolvedValue({ affected: 1 });
     pointRepository.create.mockImplementation((value) => value);
     service = new ActivitiesService(
       activityRepository as any,
@@ -29,6 +30,7 @@ describe('ActivitiesService GPS reconciliation and timing', () => {
       pushService as any,
       groupsService as any,
       segmentsMatch as any,
+      { summary: jest.fn().mockResolvedValue({}) } as any,
     );
   });
 
@@ -87,7 +89,7 @@ describe('ActivitiesService GPS reconciliation and timing', () => {
     await service.finish('activity-1', 'owner-1');
 
     expect(activityRepository.update).toHaveBeenCalledWith(
-      'activity-1',
+      { id: 'activity-1', user_id: 'owner-1', isCompleted: false },
       expect.objectContaining({
         duration: 40,
         distance: expect.any(Number),

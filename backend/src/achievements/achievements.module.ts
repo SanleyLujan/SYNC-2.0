@@ -8,11 +8,13 @@ import { Match } from '../matching/entities/match.entity';
 import { Like } from '../matching/entities/like.entity';
 import { Event } from '../events/entities/event.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { GamificationModule } from '../gamification/gamification.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserAchievement, Activity, Match, Like, Event]),
     NotificationsModule,
+    GamificationModule,
   ],
   controllers: [AchievementsController],
   providers: [AchievementsService],

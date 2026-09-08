@@ -48,6 +48,12 @@ export class Challenge {
   @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', nullable: true })
   expiresAt: Date | null;
 
+  @Column({ type: process.env.NODE_ENV === 'production' ? 'timestamp' : 'datetime', nullable: true })
+  acceptedAt: Date | null;
+
+  @Column({ type: 'integer', default: 1 })
+  ruleVersion: number;
+
   @CreateDateColumn()
   createdAt: Date;
 }

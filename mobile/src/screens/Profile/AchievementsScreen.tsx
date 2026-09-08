@@ -109,7 +109,7 @@ export default function AchievementsScreen({ navigation }: Props) {
         <View style={styles.xpBadge}>
           {isUnlocked ? (
             <>
-              <Text style={[styles.xpValue, { color: theme.primary }]}>+{item.xp}</Text>
+              <Text style={[styles.xpValue, { color: theme.primary }]}>Medalha</Text>
               <Text style={[styles.xpLabel, { color: theme.textSecondary }]}>XP</Text>
             </>
           ) : (

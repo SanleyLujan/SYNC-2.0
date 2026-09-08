@@ -19,6 +19,7 @@ import { User } from '../users/entities/user.entity';
 import { GroupsService } from '../groups/groups.service';
 import { SegmentsMatchService } from '../segments/segments-match.service';
 import { ILike, In } from 'typeorm';
+import { GamificationService } from '../gamification/gamification.service';
 import {
   calculateCalories,
   calculateElevationGain,
@@ -50,6 +51,7 @@ export class ActivitiesService {
     private readonly pushService: PushService,
     private readonly groupsService: GroupsService,
     private readonly segmentsMatch: SegmentsMatchService,
+    private readonly gamification: GamificationService,
   ) {}
 
   // ===== MENTIONS HELPERS =====
@@ -436,7 +438,10 @@ export class ActivitiesService {
       throw new NotFoundException('Atividade não encontrada');
     }
     // Retry após perda da resposta não pode creditar grupos/segments duas vezes.
-    if (activity.isCompleted) return activity;
+    if (activity.isCompleted) {
+      await this.gamification.summary(userId);
+      return activity;
+    }
 
     // Calcular distância total usando Haversine
     const points = activity.points.sort(
@@ -471,7 +476,7 @@ export class ActivitiesService {
     // o tempo de parede do servidor.
     const durationSeconds = activeDurationSeconds == null
       ? serverDuration
-      : Math.min(wallDuration, Math.max(0, Math.floor(activeDurationSeconds)));
+      : Math.min(serverDuration, Math.max(0, Math.floor(activeDurationSeconds)));
 
     // Pace e velocidade só existem para esportes medidos por distância.
     const distanceKm = totalDistance / 1000;
@@ -500,7 +505,7 @@ export class ActivitiesService {
         ? durationSeconds >= Number(activity.goalValue || Infinity)
         : false;
 
-    await this.activityRepository.update(activityId, {
+    const finalized = await this.activityRepository.update({ id: activityId, user_id: userId, isCompleted: false }, {
       endTime,
       distance: totalDistance,
       duration: durationSeconds,
@@ -514,6 +519,10 @@ export class ActivitiesService {
       pausedAt: null,
       pausedDuration: Math.max(0, wallDuration - durationSeconds),
     });
+    if (!finalized.affected) {
+      await this.gamification.summary(userId);
+      return this.activityRepository.findOneOrFail({ where: { id: activityId, user_id: userId }, relations: ['points'] });
+    }
 
     // Credita os km nos grupos do usuário (soma contínua) — fire-and-forget
     if (distanceKm > 0) {
@@ -527,6 +536,8 @@ export class ActivitiesService {
         .catch(() => {});
     }
 
+    // Durable activity is the source of truth. A retry can reconcile rewards safely.
+    await this.gamification.summary(userId);
     const completion = this.activityCompletionMessage(
       activity.id,
       activity.sport,

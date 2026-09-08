@@ -1,6 +1,6 @@
 import { ActivityPoint } from './entities/activity-point.entity';
 
-export const DISTANCE_SPORTS = new Set(['running', 'cycling', 'swimming', 'hiking']);
+export const DISTANCE_SPORTS = new Set(['walking', 'running', 'cycling', 'swimming', 'hiking']);
 
 export function isDistanceSport(sport: string): boolean {
   return DISTANCE_SPORTS.has(sport);

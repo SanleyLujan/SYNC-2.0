@@ -12,6 +12,7 @@ import { Like } from '../matching/entities/like.entity';
 import { Event } from '../events/entities/event.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import { GamificationService } from '../gamification/gamification.service';
 
 @Injectable()
 export class AchievementsService {
@@ -27,6 +28,7 @@ export class AchievementsService {
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
     private readonly notificationsService: NotificationsService,
+    private readonly gamification: GamificationService,
   ) {}
 
   // Retorna todas as conquistas do usuário com detalhes
@@ -219,14 +221,10 @@ export class AchievementsService {
       where: { user_id: userId },
     });
 
-    const totalXP = achievements.reduce(
-      (sum, a) => sum + (ACHIEVEMENT_INFO[a.type]?.xp || 0),
-      0,
-    );
+    const progress = await this.gamification.summary(userId);
 
     return {
-      totalXP,
-      level: this.calculateLevel(totalXP),
+      ...progress,
       achievementsCount: achievements.length,
       totalAchievements: Object.keys(AchievementType).length,
     };
@@ -258,7 +256,7 @@ export class AchievementsService {
         userId,
         NotificationType.ACHIEVEMENT_UNLOCKED,
         `${info.icon} Conquista desbloqueada!`,
-        `Você desbloqueou "${info.name}": ${info.description} (+${info.xp} XP)`,
+        `Você desbloqueou "${info.name}": ${info.description}`,
         JSON.stringify({ achievementType: type }),
       );
     }

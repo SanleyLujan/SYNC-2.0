@@ -2,7 +2,7 @@ import { IsString, IsNotEmpty, IsDateString, IsIn, IsInt, IsOptional, Max, Min }
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const VALID_SPORTS = [
-  'running', 'cycling', 'swimming', 'football', 'basketball',
+  'walking', 'running', 'cycling', 'swimming', 'football', 'basketball',
   'tennis', 'yoga', 'gym', 'hiking', 'crossfit', 'martial_arts', 'dance',
 ];
 

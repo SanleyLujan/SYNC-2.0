@@ -37,11 +37,17 @@ type Props = {
 };
 
 const SPORT_OPTIONS = [
+  { id: 'walking', label: 'Caminhada', icon: 'walk-outline' as const, color: '#4CAF50' },
   { id: 'running', label: 'Corrida', icon: 'walk-outline' as const, color: '#FF6B35' },
   { id: 'cycling', label: 'Ciclismo', icon: 'bicycle-outline' as const, color: '#2E7BFF' },
   { id: 'swimming', label: 'Natacao', icon: 'water-outline' as const, color: '#00BCD4' },
   { id: 'hiking', label: 'Trilha', icon: 'trail-sign-outline' as const, color: '#795548' },
   { id: 'gym', label: 'Academia', icon: 'barbell-outline' as const, color: '#F44336' },
+  { id: 'yoga', label: 'Yoga', icon: 'body-outline' as const, color: '#8BC34A' },
+  { id: 'football', label: 'Futebol', icon: 'football-outline' as const, color: '#4CAF50' },
+  { id: 'basketball', label: 'Basquete', icon: 'basketball-outline' as const, color: '#FF9800' },
+  { id: 'tennis', label: 'Tênis', icon: 'tennisball-outline' as const, color: '#CDDC39' },
+  { id: 'crossfit', label: 'CrossFit', icon: 'fitness-outline' as const, color: '#E91E63' },
 ];
 
 export default function TrackingMainScreen({ navigation }: Props) {
@@ -163,7 +169,7 @@ export default function TrackingMainScreen({ navigation }: Props) {
   const selectedSportData = SPORT_OPTIONS.find((s) => s.id === selectedSport);
   const selectedSportColor = selectedSport === 'running' ? theme.primary : selectedSportData?.color || theme.primary;
   const recommendation = weather ? getExerciseRecommendation(weather) : null;
-  const distanceBased = selectedSport !== 'gym';
+  const distanceBased = ['walking','running','cycling','swimming','hiking'].includes(selectedSport);
   const quickGoals = distanceBased
     ? [
         { label: '1 km', value: 1_000, icon: 'walk-outline' as const },

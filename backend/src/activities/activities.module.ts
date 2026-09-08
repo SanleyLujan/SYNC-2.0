@@ -14,6 +14,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthModule } from '../auth/auth.module';
 import { GroupsModule } from '../groups/groups.module';
 import { SegmentsModule } from '../segments/segments.module';
+import { GamificationModule } from '../gamification/gamification.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SegmentsModule } from '../segments/segments.module';
     AuthModule, // pra JwtService no gateway
     GroupsModule, // creditar km nos grupos ao finalizar treino
     SegmentsModule, // auto-match de segments ao finalizar treino
+    GamificationModule,
   ],
   controllers: [ActivitiesController],
   providers: [ActivitiesService, ActivitiesGateway],
