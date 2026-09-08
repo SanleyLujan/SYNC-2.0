@@ -84,6 +84,7 @@ const sportColors: Record<string, string> = {
 
 export default function MapMainScreen({ navigation }: Props) {
   const theme = useThemeStore((s) => s.theme);
+  const [headerHeight, setHeaderHeight] = useState(116);
   const [events, setEvents] = useState<EventType[]>([]);
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
   const [sportPlaces, setSportPlaces] = useState<SportPlace[]>([]);
@@ -514,6 +515,7 @@ export default function MapMainScreen({ navigation }: Props) {
       <TouchableOpacity
         style={[
           styles.routeBtn,
+          { top: (Platform.OS === 'ios' ? 54 : 40) + headerHeight + 8 },
           { backgroundColor: theme.surface, borderColor: theme.border },
           routeMode && { backgroundColor: theme.primary, borderColor: theme.primary },
         ]}
@@ -552,9 +554,10 @@ export default function MapMainScreen({ navigation }: Props) {
       )}
 
       {/* Top bar — faixa rolável pra não sobrepor os chips no celular */}
+      <View style={styles.topControls} onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)} pointerEvents="box-none">
       <ScrollView
         horizontal
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator
         style={styles.topBar}
         contentContainerStyle={styles.topBarContent}
       >
@@ -640,7 +643,7 @@ export default function MapMainScreen({ navigation }: Props) {
 
       {/* Filter row */}
       <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.filterRow}>
           {filters.map((f) => (
             <TouchableOpacity
               key={f.label}
@@ -664,12 +667,14 @@ export default function MapMainScreen({ navigation }: Props) {
           ))}
         </ScrollView>
       </View>
+      </View>
 
       {/* Weather panel */}
       {weather && recommendation && (
         <Animated.View
           style={[
             styles.weatherPanel,
+            { top: (Platform.OS === 'ios' ? 54 : 40) + headerHeight + 8 },
             {
               opacity: weatherAnim,
               transform: [{
@@ -777,6 +782,7 @@ export default function MapMainScreen({ navigation }: Props) {
       </View>
 
       {/* Events count badge */}
+      <View style={styles.bottomInfo} pointerEvents="box-none">
       <View style={[styles.eventCountBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Ionicons name="calendar" size={14} color={theme.primary} />
         <Text style={[styles.eventCountText, { color: theme.textPrimary }]}>
@@ -802,6 +808,7 @@ export default function MapMainScreen({ navigation }: Props) {
         <Ionicons name="calendar-outline" size={18} color={theme.textPrimary} />
         <Text style={[styles.myEventsBtnText, { color: theme.textPrimary }]}>Meus eventos</Text>
       </TouchableOpacity>
+      </View>
 
       {/* Flash event FAB (⚡ killer feature) */}
       <TouchableOpacity
@@ -1085,15 +1092,18 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  topBar: {
+  topControls: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 54 : 40,
     left: 0,
     right: 0,
-    // Altura fixa: ScrollView absoluto sem altura captura toque sobre o mapa todo
-    maxHeight: 44,
+  },
+  topBar: {
+    flexGrow: 0,
+    flexShrink: 0,
   },
   topBarContent: {
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -1174,12 +1184,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   filterContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 98 : 84,
-    left: 0,
-    right: 0,
+    flexShrink: 0,
   },
   filterRow: {
+    paddingVertical: 8,
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -1348,11 +1356,16 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
     marginTop: -3,
   },
-  eventCountBadge: {
-    maxWidth: '94%',
+  bottomInfo: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 100 : 85,
-    alignSelf: 'center',
+    left: spacing.md,
+    right: 80,
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  eventCountBadge: {
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -1369,6 +1382,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   eventCountText: {
+    flexShrink: 1,
     fontSize: fontSize.xs,
     fontWeight: '600',
     color: colors.text,
@@ -1443,9 +1457,6 @@ const styles = StyleSheet.create({
     borderColor: '#0A0A0F',
   },
   myEventsBtn: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 100 : 85,
-    left: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

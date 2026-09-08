@@ -77,6 +77,10 @@ Os itens 14–23 solicitados nesta etapa foram tratados. Os itens 14, 17, 18, 19
 
 ### Atualização de mapas — 06/09/2026
 
+- Correção de sobreposições (item 41): barras superiores em fluxo com altura medida e espaço vertical para chips/sombras; filtros continuam roláveis horizontalmente com indicador. Botão de rota e painel de clima passam a respeitar a altura das barras. Resumo de resultados e “Meus eventos” ficam em uma coluna inferior com espaçamento, sem coordenadas absolutas concorrentes entre eles.
+- Posição no mapa web: `showsUserLocation` era aceito, mas ignorado pelo adaptador Leaflet. Implementado marcador azul com círculo da precisão informada pelo navegador, atualização via watchPosition, aviso em falhas/permissão negada e limpeza ao desmontar. Não usa o centro do mapa como posição fictícia nem recentraliza a cada atualização. Isso não comprova se o GPS de um aparelho está ativado; localização pode vir de outros sinais do sistema.
+- Validação desta correção: TypeScript e 24 testes existentes mobile passaram. Esses testes não substituem validação visual nem ensaio de permissões/GPS em celular; ambos seguem pendentes após publicação.
+
 - Legibilidade (item 41, web/PWA): mapa compartilhado passa a acompanhar o tema persistido do app. Voyager no claro; Dark Matter com brilho 1,75 e contraste 1,08 apenas na camada de tiles no escuro. Créditos com cores adaptadas e fonte de 11 px. Troca de tema atualiza apenas tiles, preservando instância, centro, zoom, marcadores e rotas. Layout externo inalterado; ajuste visual final no celular e publicação pendentes. Mapas nativos não foram alterados nesta etapa.
 
 - Item 31: academias reais integradas via `GET /api/places/gyms/nearby`, sem tabela, migration, chave nova ou dependência adicional. Mantidos cores e componentes existentes, com ícone de academia e mensagens de estado/fonte.

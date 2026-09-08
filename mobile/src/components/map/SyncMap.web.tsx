@@ -12,6 +12,7 @@ import ReactDOMServer from 'react-dom/server';
 import L from 'leaflet';
 import { getCartoTileUrl } from '../../utils/carto';
 import { useThemeStore } from '../../store/themeStore';
+import { showToast } from '../ui/Toast';
 
 // CSS do Leaflet + overrides do Sync (injetado uma vez)
 function ensureLeafletCss() {
@@ -99,7 +100,7 @@ type MapViewProps = {
 };
 
 const MapView = forwardRef<any, MapViewProps>(function MapView(
-  { region, initialRegion, onPress, style, children },
+  { region, initialRegion, onPress, style, children, showsUserLocation = false },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -152,6 +153,47 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
   useEffect(() => {
     tileRef.current?.setUrl(getCartoTileUrl(mode === 'dark'));
   }, [mode]);
+
+  // The web adapter must implement this native prop explicitly.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !showsUserLocation) return;
+    if (!navigator.geolocation) {
+      showToast('Este navegador não disponibiliza localização.', 'info');
+      return;
+    }
+    let active = true;
+    let warned = false;
+    let dot: L.CircleMarker | undefined;
+    let accuracy: L.Circle | undefined;
+    const watch = navigator.geolocation.watchPosition(position => {
+      if (!active) return;
+      const { latitude, longitude, accuracy: meters } = position.coords;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      const point: L.LatLngExpression = [latitude, longitude];
+      if (!dot) {
+        accuracy = L.circle(point, { radius: 0, color: '#2563eb', weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
+        dot = L.circleMarker(point, { radius: 8, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map);
+        dot.bindTooltip('Sua localização', { direction: 'top' });
+      }
+      dot.setLatLng(point);
+      accuracy?.setLatLng(point).setRadius(Number.isFinite(meters) && meters >= 0 ? meters : 0);
+      warned = false;
+    }, error => {
+      if (!active) return;
+      // Do not leave an old fix looking like a current position.
+      dot?.remove(); accuracy?.remove(); dot = undefined; accuracy = undefined;
+      if (!warned) showToast(error.code === 1
+        ? 'Permita a localização nas configurações do navegador para ver sua posição.'
+        : 'Localização indisponível. Confira a localização do celular e tente recentralizar.', 'info');
+      warned = true;
+    }, { enableHighAccuracy: true, timeout: 20_000, maximumAge: 10_000 });
+    return () => {
+      active = false;
+      navigator.geolocation.clearWatch(watch);
+      dot?.remove(); accuracy?.remove();
+    };
+  }, [showsUserLocation]);
 
   // Atualiza centro quando region muda externamente (sem re-criar o map)
   useEffect(() => {
