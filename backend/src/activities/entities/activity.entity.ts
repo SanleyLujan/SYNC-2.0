@@ -13,6 +13,18 @@ import { ActivityPoint } from './activity-point.entity';
 // Atividade esportiva registrada (tipo Strava)
 @Entity('activities')
 export class Activity {
+  @Column({ default: false })
+  segmentsOptIn: boolean;
+
+  @Column({ default: false })
+  territoryOptIn: boolean;
+
+  @Column({ default: false })
+  territoryProcessed: boolean;
+
+  @Column({ type: 'simple-json', nullable: true, select: false })
+  plannedRoute: Array<{ latitude: number; longitude: number }> | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

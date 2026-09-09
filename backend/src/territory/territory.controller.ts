@@ -18,9 +18,9 @@ export class TerritoryController {
   @ApiOperation({ summary: 'Conquistar células de território pela rota percorrida' })
   claim(
     @CurrentUser() user: User,
-    @Body('points') points: { lat: number; lng: number }[],
+    @Body('activityId') activityId: string,
   ) {
-    return this.territoryService.claim(user.id, points || []);
+    return this.territoryService.claim(user.id, activityId);
   }
 
   @Get('cells')

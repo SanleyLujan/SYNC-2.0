@@ -78,12 +78,12 @@ export default function UserSearchScreen({ navigation }: Props) {
         result.matched
           ? `Match com ${item.name}! 🎉`
           : result.alreadyLiked
-            ? 'Convite já enviado. Aguardando resposta.'
-            : 'Convite enviado. O conteúdo aparece quando houver match.',
+            ? 'Interesse já enviado. Aguardando resposta.'
+            : 'Interesse enviado. O match acontece quando a outra pessoa também curtir.',
         'success',
       );
     } catch (e: any) {
-      showToast(e?.response?.data?.message || 'Não foi possível enviar o convite.', 'error');
+      showToast(e?.response?.data?.message || 'Não foi possível enviar o interesse.', 'error');
     } finally {
       setConnectingId(null);
     }
@@ -114,14 +114,14 @@ export default function UserSearchScreen({ navigation }: Props) {
         disabled={item.matchStatus !== 'available' || connectingId !== null}
         activeOpacity={0.8}
         accessibilityRole="button"
-        accessibilityLabel={item.matchStatus === 'matched' ? `Match com ${item.name}` : item.matchStatus === 'pending' ? `Convite enviado para ${item.name}` : `Adicionar ${item.name}`}
+        accessibilityLabel={item.matchStatus === 'matched' ? `Match com ${item.name}` : item.matchStatus === 'pending' ? `Interesse enviado para ${item.name}` : `Curtir perfil de ${item.name}`}
       >
         {connectingId === item.id ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
           <>
-            <Ionicons name={item.matchStatus === 'matched' ? 'checkmark' : item.matchStatus === 'pending' ? 'time-outline' : 'person-add-outline'} size={15} color="#fff" />
-            <Text style={styles.addBtnText}>{item.matchStatus === 'matched' ? 'Match' : item.matchStatus === 'pending' ? 'Enviado' : 'Adicionar'}</Text>
+            <Ionicons name={item.matchStatus === 'matched' ? 'checkmark' : item.matchStatus === 'pending' ? 'time-outline' : 'heart-outline'} size={15} color="#fff" />
+            <Text style={styles.addBtnText}>{item.matchStatus === 'matched' ? 'Match' : item.matchStatus === 'pending' ? 'Enviado' : 'Curtir'}</Text>
           </>
         )}
       </TouchableOpacity>

@@ -1,3 +1,5 @@
+import { TerritoryModule } from '../territory/territory.module';
+import { AchievementsModule } from '../achievements/achievements.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesController } from './activities.controller';
@@ -24,6 +26,8 @@ import { GamificationModule } from '../gamification/gamification.module';
     GroupsModule, // creditar km nos grupos ao finalizar treino
     SegmentsModule, // auto-match de segments ao finalizar treino
     GamificationModule,
+    TerritoryModule,
+    AchievementsModule,
   ],
   controllers: [ActivitiesController],
   providers: [ActivitiesService, ActivitiesGateway],

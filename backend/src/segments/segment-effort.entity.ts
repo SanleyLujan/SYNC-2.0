@@ -14,6 +14,9 @@ import { Segment } from './segment.entity';
 @Entity('segment_efforts')
 @Index(['segmentId', 'elapsedSec'])
 export class SegmentEffort {
+  @Column({ default: false })
+  verified: boolean;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

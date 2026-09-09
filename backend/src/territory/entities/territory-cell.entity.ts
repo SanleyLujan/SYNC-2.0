@@ -14,6 +14,9 @@ import {
  */
 @Entity('territory_cells')
 export class TerritoryCell {
+  @Column({ type: 'bigint', default: 0 })
+  capturedAt: string;
+
   @PrimaryColumn({ type: 'varchar', length: 40 })
   cellId: string;
 

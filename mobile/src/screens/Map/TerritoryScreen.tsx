@@ -14,17 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { getCurrentLocation } from '../../services/location.service';
 import { territoryApi, TerritoryCell, TerritoryLeader, TerritoryMe } from '../../services/territory.service';
+import { confirmAsync } from '../../utils/confirm';
 import { showToast } from '../../components/ui/Toast';
 import { useHaptic } from '../../hooks/useHaptic';
 
 const ACCENT = '#FF6B35';
-
-// Prêmios do pódio (imagens reais entram depois — placeholders por enquanto)
-const PRIZES = [
-  { pos: 1, emoji: '🥇', label: '1º lugar', prize: 'Troféu Sync Ouro + destaque no app' },
-  { pos: 2, emoji: '🥈', label: '2º lugar', prize: 'Medalha Prata + badge exclusiva' },
-  { pos: 3, emoji: '🥉', label: '3º lugar', prize: 'Medalha Bronze + badge' },
-];
 
 const darkMapStyle = [
   { elementType: 'geometry', stylers: [{ color: '#1a1a28' }] },
@@ -89,25 +83,8 @@ export default function TerritoryScreen({ navigation }: any) {
   }, [loadCells, loadMeta]);
 
   const handleCapture = async () => {
-    if (capturing) return;
-    setCapturing(true);
-    try {
-      const loc = await getCurrentLocation();
-      const res = await territoryApi.claim([{ lat: loc.latitude, lng: loc.longitude }]);
-      haptic.success();
-      showToast(
-        res.claimed > 0 ? `Área conquistada! 🚩 (${res.totalOwned} no total)` : 'Essa área já é sua 😎',
-        'success',
-      );
-      lastBox.current = ''; // força refetch
-      const r = { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 };
-      setRegion(r);
-      await Promise.all([loadCells(r), loadMeta()]);
-    } catch {
-      showToast('Não foi possível capturar. Verifique o GPS.', 'error');
-    } finally {
-      setCapturing(false);
-    }
+    if (!await confirmAsync('Participar dos territórios?', 'As áreas aproximadas deste treino ficarão visíveis no ranking mensal junto ao seu nome. Evite iniciar perto de casa. Participar é opcional e não dá XP extra.', { confirmText: 'Iniciar caminhada' })) return;
+    navigation.getParent()?.navigate('TrackingTab', { screen: 'ActiveTracking', params: { sport: 'walking', territoryOptIn: true } });
   };
 
   const podium = [leaders[1], leaders[0], leaders[2]].filter(Boolean) as TerritoryLeader[];
@@ -132,6 +109,7 @@ export default function TerritoryScreen({ navigation }: any) {
           onRegionChangeComplete={(r: any) => loadCells(r)}
           userInterfaceStyle="dark"
           customMapStyle={darkMapStyle}
+          showsUserLocation
         >
           {cells.map((c) => (
             <Circle
@@ -144,13 +122,7 @@ export default function TerritoryScreen({ navigation }: any) {
               fillOpacity={0.45}
             />
           ))}
-          {region && (
-            <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }}>
-              <View style={styles.meDot}>
-                <Ionicons name="navigate" size={12} color="#fff" />
-              </View>
-            </Marker>
-          )}
+
         </MapView>
       )}
 
@@ -166,7 +138,7 @@ export default function TerritoryScreen({ navigation }: any) {
           </TouchableOpacity>
           <Text style={styles.title}>Territórios 🚩</Text>
           <TouchableOpacity onPress={() => setShowPrizes((v) => !v)} style={styles.iconBtn}>
-            <Ionicons name="gift" size={18} color="#FCD34D" />
+            <Ionicons name="information-circle" size={18} color="#FCD34D" />
           </TouchableOpacity>
         </View>
 
@@ -188,22 +160,10 @@ export default function TerritoryScreen({ navigation }: any) {
         )}
       </LinearGradient>
 
-      {/* Prêmios (toggle) */}
-      {showPrizes && (
-        <View style={[styles.prizesCard, { top: Math.max(insets.top + 8, 44) + 200 }]}>
-          <Text style={styles.prizesTitle}>🏆 Prêmios do mês</Text>
-          {PRIZES.map((p) => (
-            <View key={p.pos} style={styles.prizeRow}>
-              <Text style={styles.prizeEmoji}>{p.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.prizeLabel}>{p.label}</Text>
-                <Text style={styles.prizeDesc}>{p.prize}</Text>
-              </View>
-            </View>
-          ))}
-          <Text style={styles.prizesHint}>Conquiste mais áreas que todo mundo até o fim do mês!</Text>
-        </View>
-      )}
+      {showPrizes && <View style={[styles.prizesCard, { top: Math.max(insets.top + 8, 44) + 200 }]}>
+        <Text style={styles.prizesTitle}>Ranking recreativo mensal</Text>
+        <Text style={styles.prizeDesc}>As áreas são conquistadas por treinos GPS concluídos. Uma nova temporada começa a cada mês (horário de Brasília). Não há prêmios, dinheiro ou XP extra. Treine no seu ritmo.</Text>
+      </View>}
 
       {/* Footer: minha posição + capturar */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 80 }]} pointerEvents="box-none">
@@ -222,7 +182,7 @@ export default function TerritoryScreen({ navigation }: any) {
             ) : (
               <>
                 <Ionicons name="flag" size={18} color="#fff" />
-                <Text style={styles.captureText}>Capturar minha área</Text>
+                <Text style={styles.captureText}>Iniciar treino GPS</Text>
               </>
             )}
           </LinearGradient>

@@ -62,6 +62,9 @@ export type MapStackParamList = {
 export type TrackingStackParamList = {
   TrackingMain: undefined;
   ActiveTracking: {
+    plannedRoute?: Array<{ latitude: number; longitude: number }>;
+    territoryOptIn?: boolean;
+    segmentsOptIn?: boolean;
     sport: string;
     enableLiveShare?: boolean;
     existingActivityId?: string;

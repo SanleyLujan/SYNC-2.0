@@ -1,3 +1,6 @@
+import { useAuthStore } from '../../store/authStore';
+import { calculateLiveCalories } from '../../utils/activity-metrics';
+import { Linking } from 'react-native';
 // Painel inferior do planejador de rotas — mostra distância, tempo, calorias
 // por esporte selecionado. Botão pra iniciar treino com rota planejada.
 import React, { useState } from 'react';
@@ -19,11 +22,13 @@ interface Props {
   route: RouteResult | null;
   loading?: boolean;
   onStart?: (sport: Sport) => void;
+  onSportChange?: (sport: Sport) => void;
   onClose?: () => void;
   onClear?: () => void;
 }
 
-export default function RoutePlannerPanel({ route, loading, onStart, onClose, onClear }: Props) {
+export default function RoutePlannerPanel({ route, loading, onStart, onSportChange, onClose, onClear }: Props) {
+  const profile = useAuthStore(s => s.user);
   const [sport, setSport] = useState<Sport>('running');
 
   if (!route && !loading) {
@@ -41,14 +46,14 @@ export default function RoutePlannerPanel({ route, loading, onStart, onClose, on
     return (
       <View style={styles.loadingPanel}>
         <Ionicons name="navigate-circle" size={22} color="#FF6B35" />
-        <Text style={styles.loadingText}>Calculando melhor rota…</Text>
+        <Text style={styles.loadingText}>Calculando rota sugerida…</Text>
       </View>
     );
   }
 
   const cfg = SPORT_CONFIG[sport];
   const duration = estimateTime(route!.distanceMeters, sport);
-  const calories = route!.caloriesEstimate[sport];
+  const calories = calculateLiveCalories({ sport, elapsedSeconds: duration, distanceMeters: route!.distanceMeters, weightKg: profile?.weightKg, heightCm: profile?.heightCm });
 
   return (
     <View style={styles.panel}>
@@ -74,7 +79,7 @@ export default function RoutePlannerPanel({ route, loading, onStart, onClose, on
             <TouchableOpacity
               key={s}
               style={[styles.tab, active && { backgroundColor: c.color }]}
-              onPress={() => setSport(s)}
+              onPress={() => { setSport(s); onSportChange?.(s); }}
             >
               <Ionicons name={c.icon} size={16} color={active ? '#fff' : c.color} />
               <Text style={[styles.tabLabel, active && { color: '#fff' }]}>{c.label}</Text>
@@ -93,12 +98,12 @@ export default function RoutePlannerPanel({ route, loading, onStart, onClose, on
         <View style={styles.statBox}>
           <Ionicons name="time" size={20} color={cfg.color} />
           <Text style={styles.statValue}>{formatDuration(duration)}</Text>
-          <Text style={styles.statLabel}>Tempo médio</Text>
+          <Text style={styles.statLabel}>Tempo estimado</Text>
         </View>
         <View style={styles.statBox}>
           <Ionicons name="flame" size={20} color={cfg.color} />
           <Text style={styles.statValue}>{calories}</Text>
-          <Text style={styles.statLabel}>kcal</Text>
+          <Text style={styles.statLabel}>kcal estimadas</Text>
         </View>
       </View>
 
@@ -112,6 +117,11 @@ export default function RoutePlannerPanel({ route, loading, onStart, onClose, on
         </Text>
       </View>
 
+      <Text style={{ color: colors.dark.secondaryText, fontSize: 11, marginBottom: 8 }}>
+        Sugestão, não navegação curva a curva. Confira acessos e condições do local. Origem e destino são enviados ao FOSSGIS para calcular a rota.
+      </Text>
+      <Text style={{ color: cfg.color, fontSize: 11, marginBottom: 8 }} onPress={() => Linking.openURL('https://routing.openstreetmap.de/about.html')}>Rotas: FOSSGIS / OSRM · dados © OpenStreetMap</Text>
+      <Text style={{ color: cfg.color, fontSize: 11, marginBottom: 8 }} onPress={() => Linking.openURL('https://www.openstreetmap.org/fixthemap')}>Corrigir o mapa</Text>
       {/* Start button */}
       <TouchableOpacity
         style={styles.startBtn}

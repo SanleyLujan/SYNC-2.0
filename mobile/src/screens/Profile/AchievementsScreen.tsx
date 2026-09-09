@@ -91,10 +91,10 @@ export default function AchievementsScreen({ navigation }: Props) {
         </View>
         <View style={styles.achievementInfo}>
           <Text style={[styles.achievementName, { color: isUnlocked ? theme.textPrimary : theme.textSecondary }]}>
-            {isUnlocked ? item.name : '???'}
+            {item.name}
           </Text>
           <Text style={[styles.achievementDesc, { color: theme.textSecondary }]}>
-            {isUnlocked ? item.description : 'Continue treinando para desbloquear'}
+            {item.description}
           </Text>
           {isUnlocked && item.unlockedAt && (
             <Text style={[styles.unlockedDate, { color: theme.primary }]}>
@@ -110,7 +110,7 @@ export default function AchievementsScreen({ navigation }: Props) {
           {isUnlocked ? (
             <>
               <Text style={[styles.xpValue, { color: theme.primary }]}>Medalha</Text>
-              <Text style={[styles.xpLabel, { color: theme.textSecondary }]}>XP</Text>
+              <Text style={[styles.xpLabel, { color: theme.textSecondary }]}>sem XP extra</Text>
             </>
           ) : (
             <Ionicons name="lock-closed" size={16} color={theme.textSecondary} />
@@ -199,7 +199,7 @@ export default function AchievementsScreen({ navigation }: Props) {
         ListHeaderComponent={
           achievements.length > 0 ? (
             <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-              {unlockedCount} de {totalCount} conquistas desbloqueadas
+              {unlockedCount} de {totalCount} conquistas desbloqueadas{'\n'}Treinos concluídos de pelo menos 1 minuto. Medalhas não dão XP extra; descanse quando precisar.
             </Text>
           ) : null
         }

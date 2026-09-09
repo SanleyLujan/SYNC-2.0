@@ -409,15 +409,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
     const end = pts[pts.length - 1];
     setCreatingSeg(true);
     try {
-      await segmentsApi.create({
-        name,
-        distanceMeters: activity.distance || 0,
-        startLat: start.latitude,
-        startLng: start.longitude,
-        endLat: end.latitude,
-        endLng: end.longitude,
-        sport: activity.sport,
-      });
+      await segmentsApi.create({ name, activityId: activity.id });
       setShowSegModal(false);
       setSegName('');
       showToast('Segmento criado! 🚩 Veja em Perfil → Segmentos.', 'success');
@@ -743,7 +735,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
               <Ionicons name="flag" size={28} color={accent} style={{ alignSelf: 'center' }} />
               <Text style={[styles.segModalTitle, { color: theme.textPrimary }]}>Criar segmento</Text>
               <Text style={[styles.segModalSub, { color: theme.textSecondary }]}>
-                Transforme este trecho num desafio. Outros atletas vão competir pelo melhor tempo (KOM/QOM).
+                O percurso inteiro deste treino ficará público, junto ao seu nome. Evite rotas perto de casa. Use um trajeto contínuo de 100 m a 5 km, sem pausas ou falhas de GPS. O nome e os tempos deste treino também entram nos segmentos compatíveis. Participar é opcional e não dá XP extra.
               </Text>
               <TextInput
                 style={[styles.segInput, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}

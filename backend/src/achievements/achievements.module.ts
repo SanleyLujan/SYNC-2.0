@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { AchievementsInterceptor } from './achievements.interceptor';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AchievementsController } from './achievements.controller';
 import { AchievementsService } from './achievements.service';
@@ -17,7 +19,7 @@ import { GamificationModule } from '../gamification/gamification.module';
     GamificationModule,
   ],
   controllers: [AchievementsController],
-  providers: [AchievementsService],
+  providers: [AchievementsService, { provide: APP_INTERCEPTOR, useClass: AchievementsInterceptor }],
   exports: [AchievementsService],
 })
 export class AchievementsModule {}

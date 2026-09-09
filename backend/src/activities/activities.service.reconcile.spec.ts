@@ -31,6 +31,8 @@ describe('ActivitiesService GPS reconciliation and timing', () => {
       groupsService as any,
       segmentsMatch as any,
       { summary: jest.fn().mockResolvedValue({}) } as any,
+      { claim: jest.fn().mockResolvedValue({}) } as any,
+      { checkAndUnlock: jest.fn().mockResolvedValue([]) } as any,
     );
   });
 

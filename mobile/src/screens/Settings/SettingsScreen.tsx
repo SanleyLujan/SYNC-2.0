@@ -353,7 +353,7 @@ export default function SettingsScreen({ navigation }: any) {
           <Row
             icon="analytics-outline"
             label="Painel administrativo"
-            value="denúncias · relatórios"
+            value="denúncias · verificação de identidade"
             onPress={() => navigation?.navigate?.('AdminPanel')}
             color="#A78BFA"
           />
@@ -362,9 +362,9 @@ export default function SettingsScreen({ navigation }: any) {
 
       <SectionTitle label="NOTIFICAÇÕES" />
       <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Row
+        {Platform.OS === 'web' ? <Row icon="notifications" label="Notificações no app" value="Consulte o sino · push fora do app indisponível" /> : <Row
           icon="notifications"
-          label="Push notifications"
+          label="Notificações push"
           right={
             <Switch
               value={pushOn}
@@ -373,7 +373,7 @@ export default function SettingsScreen({ navigation }: any) {
               thumbColor="#fff"
             />
           }
-        />
+        />}
         <Row
           icon="mail"
           label="Notificações por email"

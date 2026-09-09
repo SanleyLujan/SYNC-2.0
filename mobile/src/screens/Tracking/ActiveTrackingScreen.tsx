@@ -1,3 +1,4 @@
+import { routeGuidance } from '../../utils/route-guidance';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -65,11 +66,14 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     goalType,
     goalValue,
     countLaps = false,
+    territoryOptIn = false,
+    segmentsOptIn = false,
   } = route.params;
   const theme = useThemeStore((s) => s.theme);
   const profile = useAuthStore((s) => s.user);
   const distanceBased = isDistanceActivity(sport);
   const activityIdRef = useRef<string | null>(existingActivityId || null);
+  const [plannedRoute, setPlannedRoute] = useState(route.params.plannedRoute || []);
   const [points, setPoints] = useState<TrackingPoint[]>([]);
   const pointsRef = useRef<TrackingPoint[]>([]);
   const knownPointTimesRef = useRef(new Set<number>());
@@ -264,6 +268,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       setRegion((current) => ({ ...current, latitude: last.latitude, longitude: last.longitude }));
     }
 
+    setPlannedRoute(Array.isArray(data.plannedRoute) ? data.plannedRoute : []);
     const startedAt = new Date(data.startTime || existingStartedAt || Date.now()).getTime();
     activityStartedAtRef.current = Number.isFinite(startedAt) ? startedAt : Date.now();
     totalPausedMsRef.current = Math.max(0, Number(data.pausedDuration || 0) * 1000);
@@ -307,6 +312,9 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
           sport,
           goalType: targetGoal?.type,
           goalValue: targetGoal?.value,
+          territoryOptIn,
+          segmentsOptIn,
+          plannedRoute: plannedRoute.length > 1 ? plannedRoute : undefined,
         });
         id = data.id;
         activityStartedAtRef.current = new Date(data.startTime || Date.now()).getTime();
@@ -654,7 +662,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       // Jogo de territórios: conquista as células da rota percorrida (fire-and-forget)
       if (pointsRef.current.length > 0) {
         territoryApi
-          .claim(pointsRef.current.map((p) => ({ lat: p.latitude, lng: p.longitude })))
+          .claim(id)
           .catch(() => {});
       }
       navigation.replace('ActivitySummary', { activityId: id });
@@ -853,6 +861,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
           region={region}
           initialRegion={region}
         >
+          {plannedRoute.length > 1 && <Polyline coordinates={plannedRoute} strokeColor={theme.primary} strokeWidth={3} lineDashPattern={[8, 6]} />}
           {routeSegments.map((segment, index) => segment.length > 1 ? (
             <Polyline
               key={`route-segment-${index}`}
@@ -877,6 +886,13 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
 
       {/* Top status bar */}
       <View style={styles.topOverlay}>
+        {plannedRoute.length > 1 && (() => {
+          const last = points[points.length - 1];
+          const guide = last && Date.now() - last.timestamp < 30000 ? routeGuidance(plannedRoute, last) : null;
+          return <Text style={{ backgroundColor: theme.mapOverlay, color: guide?.offRoute ? theme.danger : theme.textPrimary, padding: 8, borderRadius: 10, marginBottom: 6 }}>
+            {!guide ? 'Rota salva · aguardando GPS atual' : guide.arrived ? 'Você está próximo do destino' : guide.offRoute ? 'Fora da rota sugerida · confira o mapa com segurança' : 'Rota sugerida · faltam cerca de ' + (guide.remainingMeters / 1000).toFixed(1) + ' km'}
+          </Text>;
+        })()}
         <View style={styles.topStatus}>
           {isPaused && (
             <View style={styles.pausedBadge}>

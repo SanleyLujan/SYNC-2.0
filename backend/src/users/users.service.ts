@@ -1,3 +1,4 @@
+import { Like as ProfileLike } from '../matching/entities/like.entity';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like as ILike, LessThan } from 'typeorm';
@@ -293,11 +294,12 @@ export class UsersService {
 
     const [users, total] = await this.userRepository
       .createQueryBuilder('user')
-      .where('(LOWER(user.name) LIKE LOWER(:query) OR user.id = :exactId)', {
+      .where('(LOWER(user.name) LIKE LOWER(:query) OR CAST(user.id AS text) = :exactId)', {
         query: `%${safeQuery}%`,
         exactId: safeQuery,
       })
       .andWhere('user.id != :currentUserId', { currentUserId })
+      .andWhere('NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id = :currentUserId AND b.blocked_id = user.id) OR (b.blocked_id = :currentUserId AND b.blocker_id = user.id))')
       .andWhere('user.isActive = :isActive', { isActive: true })
       .andWhere('user.isProfileVisible = :isProfileVisible', { isProfileVisible: true })
       .select([
@@ -321,6 +323,10 @@ export class UsersService {
       match.user1_id === currentUserId ? match.user2_id : match.user1_id
     )));
 
+    const pending = await this.userRepository.manager.getRepository(ProfileLike).find({
+      where: { from_user_id: currentUserId }, select: ['to_user_id'],
+    });
+    const pendingIds = new Set(pending.map(l => l.to_user_id));
     return {
       users: users.map((u) => ({
         id: u.id,
@@ -329,7 +335,7 @@ export class UsersService {
         sports: u.sports,
         level: u.level,
         city: u.showLocation ? u.city : null,
-        matchStatus: matchedIds.has(u.id) ? 'matched' : 'available',
+        matchStatus: matchedIds.has(u.id) ? 'matched' : pendingIds.has(u.id) ? 'pending' : 'available',
       })),
       total,
       page: safePage,

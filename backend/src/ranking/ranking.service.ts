@@ -64,6 +64,7 @@ export class RankingService {
       .addSelect('SUM(activity.distance)', 'totalDistance')
       .addSelect('COUNT(activity.id)', 'totalActivities')
       .where('activity.isCompleted = :completed', { completed: true })
+      .andWhere('user.isActive = :active', { active: true })
       .andWhere('activity.startTime >= :start', { start: startDate.toISOString() })
       .andWhere('activity.startTime <= :end', { end: endDate.toISOString() })
       .groupBy('user.id')
@@ -105,6 +106,7 @@ export class RankingService {
       .addSelect('SUM(activity.distance)', 'totalDistance')
       .addSelect('COUNT(activity.id)', 'totalActivities')
       .where('activity.isCompleted = :completed', { completed: true })
+      .andWhere('user.isActive = :active', { active: true })
       .andWhere('activity.startTime >= :start', { start: startOfWeek.toISOString() })
       .andWhere('activity.startTime < :end', { end: endOfWeek.toISOString() })
       .groupBy('user.id')
@@ -124,9 +126,7 @@ export class RankingService {
 
   // Ranking entre amigos (matches do user)
   async getFriendsRanking(userId: string, scope: 'week' | 'month' = 'month') {
-    const cacheKey = this.getCacheKey('friends', userId, scope);
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+
 
     // Pega todos os matches do user
     const matches = await this.matchRepository
@@ -160,7 +160,9 @@ export class RankingService {
       .addSelect('SUM(activity.distance)', 'totalDistance')
       .addSelect('COUNT(activity.id)', 'totalActivities')
       .where('activity.isCompleted = :completed', { completed: true })
+      .andWhere('user.isActive = :active', { active: true })
       .andWhere('activity.user_id IN (:...ids)', { ids: friendIds })
+      .andWhere('NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id = :viewer AND b.blocked_id = user.id) OR (b.blocked_id = :viewer AND b.blocker_id = user.id))', { viewer: userId })
       .andWhere('activity.startTime >= :start', { start: startDate.toISOString() })
       .groupBy('user.id')
       .addGroupBy('user.name')
@@ -169,7 +171,7 @@ export class RankingService {
       .getRawMany();
 
     const mapped = this.mapResults(results);
-    this.setCache(cacheKey, mapped);
+
     return mapped;
   }
 

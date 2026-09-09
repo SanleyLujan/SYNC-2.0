@@ -533,7 +533,7 @@ Pull requests são bem-vindos! Pra mudanças grandes, abra uma issue primeiro pr
 
 ## 📄 Licença
 
-MIT © Arthur Silva Narciso
+MIT © Sanley Lujan
 
 ---
 

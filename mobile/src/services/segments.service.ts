@@ -2,6 +2,7 @@
 import api from './api';
 
 export type Segment = {
+  geometry: Array<{ latitude: number; longitude: number }> | null;
   id: string;
   name: string;
   description?: string | null;
@@ -62,24 +63,8 @@ export const segmentsApi = {
   myEfforts: (id: string): Promise<MyEffortsResult> =>
     api.get(`/segments/${id}/my-efforts`).then((r) => r.data || { efforts: [], bestSec: null, lastSec: null, count: 0 }),
 
-  recordEffort: (
-    id: string,
-    elapsedSec: number,
-    activityId?: string,
-  ): Promise<{ ok: boolean; isPR: boolean; isKOM: boolean; elapsedSec: number; myPrevBest: number | null }> =>
-    api.post(`/segments/${id}/effort`, { elapsedSec, activityId }).then((r) => r.data),
-
-  create: (body: {
-    name: string;
-    description?: string;
-    distanceMeters: number;
-    startLat: number;
-    startLng: number;
-    endLat: number;
-    endLng: number;
-    city?: string;
-    sport?: string;
-  }): Promise<Segment> => api.post('/segments', body).then((r) => r.data),
+  create: (body: { name: string; activityId: string; startIndex?: number; endIndex?: number }): Promise<Segment> =>
+    api.post('/segments', body).then(r => r.data),
 };
 
 // Formata segundos como mm:ss ou h:mm:ss

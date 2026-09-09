@@ -97,14 +97,14 @@ export default function MyProfileScreen({ navigation }: Props) {
   const loadStats = async (isMounted: () => boolean = () => true) => {
     setStatsLoading(true);
     try {
-      const { data } = await api.get('/stats');
+      const { data } = await api.get('/stats', { params: { version: 2 } });
       const weeklyKm = data.weeklyDistance ?? data.weeklyDistanceKm ?? 0;
       if (!isMounted()) return;
       setStats({
         totalActivities: data.totalActivities || 0,
-        totalDistanceKm: data.totalDistance || 0,
+        totalDistanceKm: (data.totalDistance || 0) / (data.schemaVersion === 2 ? 1000 : 1),
         weeklyDistanceKm: weeklyKm,
-        totalDuration: (data.totalDuration || 0) * 3600,
+        totalDuration: (data.totalDuration || 0) * (data.schemaVersion === 2 ? 1 : 3600),
         currentStreak: data.currentStreak || 0,
         bestStreak: data.bestStreak || 0,
         averagePace: data.averagePace || 0,
@@ -113,31 +113,7 @@ export default function MyProfileScreen({ navigation }: Props) {
         totalEvents: data.totalEvents || 0,
       });
     } catch {
-      try {
-        const { data } = await api.get('/activities/history');
-        const activities = unwrapActivityHistory(data);
-        const now = new Date();
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay()); // Sunday
-        weekStart.setHours(0, 0, 0, 0);
-        const weeklyActivities = activities.filter((a: any) => {
-          const d = new Date(a.createdAt || a.startTime || 0);
-          return d >= weekStart;
-        });
-        const totalDistance = activities.reduce((sum: number, a: any) => sum + (a.distance || 0), 0);
-        const weeklyDistance = weeklyActivities.reduce((sum: number, a: any) => sum + (a.distance || 0), 0);
-        const totalDuration = activities.reduce((sum: number, a: any) => sum + (a.duration || 0), 0);
-        if (!isMounted()) return;
-        setStats((s) => ({
-          ...s,
-          totalActivities: activities.length,
-          totalDistanceKm: totalDistance / 1000,
-          weeklyDistanceKm: weeklyDistance / 1000,
-          totalDuration,
-        }));
-      } catch {
-        // sem stats
-      }
+      // Preserve previous totals; a paginated history is not a lifetime summary.
     } finally {
       if (isMounted()) setStatsLoading(false);
     }
@@ -469,9 +445,9 @@ export default function MyProfileScreen({ navigation }: Props) {
         <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="speedometer" size={18} color="#4ADE80" />
           <Text style={[styles.statValue, { color: theme.textPrimary }]}>
-            {stats.averagePace > 0 ? `${Math.floor(stats.averagePace)}:${String(Math.round((stats.averagePace % 1) * 60)).padStart(2, '0')}` : '--'}
+            {stats.averagePace > 0 ? `${Math.floor(Math.round(stats.averagePace * 60) / 60)}:${String(Math.round(stats.averagePace * 60) % 60).padStart(2, '0')}` : '--'}
           </Text>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>min/km</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Corrida · min/km</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="people" size={18} color="#8B5CFF" />

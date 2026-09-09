@@ -12,6 +12,9 @@ import { User } from '../users/entities/user.entity';
 
 @Entity('segments')
 export class Segment {
+  @Column({ type: 'simple-json', nullable: true })
+  geometry: Array<{ latitude: number; longitude: number }> | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

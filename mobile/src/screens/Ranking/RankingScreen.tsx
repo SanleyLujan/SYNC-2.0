@@ -32,7 +32,7 @@ type Scope = 'monthly' | 'weekly' | 'friends';
 const SCOPES: { id: Scope; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: 'monthly', label: 'Mensal', icon: 'calendar' },
   { id: 'weekly', label: 'Semanal', icon: 'flame' },
-  { id: 'friends', label: 'Amigos', icon: 'people' },
+  { id: 'friends', label: 'Matches', icon: 'people' },
 ];
 
 export default function RankingScreen({ navigation }: Props) {
@@ -141,7 +141,7 @@ export default function RankingScreen({ navigation }: Props) {
     </View>
   );
 
-  const scopeLabel = scope === 'monthly' ? 'Mensal' : scope === 'weekly' ? 'Semanal' : 'Entre Amigos';
+  const scopeLabel = scope === 'monthly' ? 'Mensal' : scope === 'weekly' ? 'Semanal' : 'Entre matches';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

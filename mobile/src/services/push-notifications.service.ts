@@ -5,7 +5,7 @@ import api from './api';
 let cachedToken: string | null = null;
 
 export async function registerForPushNotifications(): Promise<string | null> {
-  // No web: usa Notification API + service worker
+  // Web Push exige subscription/VAPID. Não pedir permissão sem conseguir entregar.
   if (Platform.OS === 'web') {
     return registerWebPush();
   }
@@ -83,16 +83,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 }
 
 async function registerWebPush(): Promise<string | null> {
-  if (typeof window === 'undefined' || !('Notification' in window)) return null;
-  try {
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return null;
-    // Web push verdadeiro requer VAPID keys + push subscription
-    // Por enquanto só pedimos permissão pra mostrar notifications locais via SW
-    return 'web-local';
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export function getCachedPushToken() {

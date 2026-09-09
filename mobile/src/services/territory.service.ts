@@ -26,8 +26,8 @@ export interface TerritoryMe {
 
 export const territoryApi = {
   /** Conquista células pela rota percorrida (lista de pontos lat/lng). */
-  claim: (points: { lat: number; lng: number }[]) =>
-    api.post<{ claimed: number; stolen: number; totalOwned: number }>('/territory/claim', { points })
+  claim: (activityId: string) =>
+    api.post<{ claimed: number; stolen: number; totalOwned: number }>('/territory/claim', { activityId })
       .then((r) => r.data),
 
   cells: (bbox: { minLat: number; minLng: number; maxLat: number; maxLng: number }) =>

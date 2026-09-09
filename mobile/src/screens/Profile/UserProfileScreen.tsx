@@ -39,8 +39,21 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
+  const toggleFollow = async () => {
+    if (followBusy || following == null) return;
+    setFollowBusy(true);
+    try {
+      if (following) await api.delete('/follows/' + userId);
+      else await api.post('/follows/' + userId);
+      setFollowing(!following);
+      showToast(following ? 'Você deixou de seguir este perfil.' : 'Seguindo. Isso não cria um match nem libera conteúdo privado.', 'success');
+    } catch { showToast('Não foi possível atualizar. Tente novamente.', 'error'); }
+    finally { setFollowBusy(false); }
+  };
 
-  useEffect(() => { loadUser(); }, []);
+  useEffect(() => { loadUser(); }, [userId]);
 
   const loadUser = async () => {
     setLoading(true);
@@ -48,6 +61,9 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     try {
       const { data } = await api.get(`/users/${userId}`);
       setUser(data);
+      setFollowing(null);
+      const status = await api.get('/follows/' + userId + '/status');
+      setFollowing(!!status.data.isFollowing);
     } catch {
       setError(true);
       showToast('Erro ao carregar perfil', 'error');
@@ -224,6 +240,11 @@ export default function UserProfileScreen({ navigation, route }: Props) {
             )}
           </View>
 
+          <TouchableOpacity style={[styles.challengeBtn, { backgroundColor: theme.primarySoft, padding: 14 }]}
+            onPress={toggleFollow} disabled={followBusy || following == null} accessibilityRole="button">
+            <Text style={{ color: theme.primary, textAlign: 'center', fontWeight: '700' }}>{followBusy ? 'Salvando…' : following ? 'Seguindo · deixar de seguir' : 'Seguir perfil'}</Text>
+          </TouchableOpacity>
+          <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 12 }}>Seguir acompanha o perfil nos rankings de seguidos. Match é uma conexão por interesse mútuo.</Text>
           {/* Challenge button */}
           <TouchableOpacity
             style={styles.challengeBtn}

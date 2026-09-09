@@ -306,6 +306,19 @@ export default function MapMainScreen({ navigation }: Props) {
     setRegion(r);
   };
 
+  const routeRequest = useRef(0);
+  const selectedRouteSport = useRef<'walking' | 'running' | 'cycling'>('running');
+  const calculateRoute = async (dest: { latitude: number; longitude: number }, sport = selectedRouteSport.current) => {
+    if (!userCoords) return;
+    selectedRouteSport.current = sport;
+    const request = ++routeRequest.current;
+    setRoute(null); setRouteLoading(true);
+    const result = await planRoute(userCoords, dest, sport === 'cycling' ? 'bike' : 'foot');
+    if (request !== routeRequest.current) return;
+    setRoute(result); setRouteLoading(false);
+    if (!result) showToast('Rota indisponível. Aguarde um instante e tente novamente.', 'info');
+  };
+
   const planRouteToPlace = async (place: SportPlace) => {
     if (!userCoords) {
       showToast('Aguarde sua localização carregar.', 'info');
@@ -315,14 +328,7 @@ export default function MapMainScreen({ navigation }: Props) {
     setSelectedPlace(null);
     setRouteMode(true);
     setDestination(dest);
-    setRouteLoading(true);
-    try {
-      setRoute(await planRoute(userCoords, dest, 'foot'));
-    } catch {
-      showToast('Não foi possível calcular a rota agora.', 'error');
-    } finally {
-      setRouteLoading(false);
-    }
+    await calculateRoute(dest);
   };
 
   const filters = [
@@ -400,10 +406,7 @@ export default function MapMainScreen({ navigation }: Props) {
             if (lat == null || lng == null) return;
             const dest = { latitude: lat, longitude: lng };
             setDestination(dest);
-            setRouteLoading(true);
-            const result = await planRoute(userCoords, dest, 'foot');
-            setRoute(result);
-            setRouteLoading(false);
+            await calculateRoute(dest);
           }
         }}
       >
@@ -523,6 +526,7 @@ export default function MapMainScreen({ navigation }: Props) {
           const next = !routeMode;
           setRouteMode(next);
           if (!next) {
+            routeRequest.current++; setRouteLoading(false);
             setDestination(null);
             setRoute(null);
           }
@@ -541,13 +545,17 @@ export default function MapMainScreen({ navigation }: Props) {
           <RoutePlannerPanel
             route={route}
             loading={routeLoading}
-            onClear={() => { setDestination(null); setRoute(null); }}
+            onClear={() => { routeRequest.current++; setRouteLoading(false); setDestination(null); setRoute(null); }}
+            onSportChange={(sport) => { if (destination) void calculateRoute(destination, sport); }}
             onStart={(sport) => {
-              // Volta pra TrackingMain pra iniciar atividade com sport selecionado
-              setRouteMode(false);
-              setDestination(null);
-              setRoute(null);
-              navigation.getParent()?.navigate('TrackingTab' as never);
+              if (!route || routeLoading) return;
+              if ((sport === 'cycling' ? 'bike' : 'foot') !== route.profile) {
+                if (destination) void calculateRoute(destination, sport);
+                return;
+              }
+              const plannedRoute = route.coordinates;
+              setRouteMode(false); setDestination(null); setRoute(null);
+              (navigation.getParent() as any)?.navigate('TrackingTab', { screen: 'ActiveTracking', params: { sport, plannedRoute } });
             }}
           />
         </View>

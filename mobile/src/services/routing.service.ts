@@ -1,11 +1,14 @@
 // Route planner usando OSRM (Open Source Routing Machine) — público, free
 // Calcula rota A→B pra foot, bike ou car
 
-const OSRM_BASE = 'https://router.project-osrm.org/route/v1';
+const OSRM_BASE = 'https://routing.openstreetmap.de';
+let lastRequestAt = 0;
+const routeCache = new Map<string, RouteResult>();
 
 export type RouteProfile = 'foot' | 'bike' | 'driving';
 
 export interface RouteResult {
+  profile: RouteProfile;
   distanceMeters: number;
   durationSeconds: number;
   coordinates: Array<{ latitude: number; longitude: number }>;
@@ -35,12 +38,20 @@ export async function planRoute(
   to: { latitude: number; longitude: number },
   profile: RouteProfile = 'foot',
 ): Promise<RouteResult | null> {
-  const url = `${OSRM_BASE}/${profile}/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`;
+  if (![from.latitude, from.longitude, to.latitude, to.longitude].every(Number.isFinite) ||
+    Math.abs(from.latitude) > 90 || Math.abs(to.latitude) > 90 || Math.abs(from.longitude) > 180 || Math.abs(to.longitude) > 180) return null;
+  const mode = profile === 'bike' ? 'bike' : profile === 'foot' ? 'foot' : 'car';
+  const url = `${OSRM_BASE}/routed-${mode}/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`;
+  const cached = routeCache.get(url);
+  if (cached) return cached;
+  // FOSSGIS allows at most one request per second. No bulk/background fetching.
+  if (Date.now() - lastRequestAt < 1100) return null;
+  lastRequestAt = Date.now();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 10000);
   try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(t);
+
     if (!res.ok) return null;
     const data = await res.json();
     const route = data.routes?.[0];
@@ -50,6 +61,10 @@ export async function planRoute(
       route.geometry?.coordinates || []
     ).map((c: [number, number]) => ({ longitude: c[0], latitude: c[1] }));
 
+    if (coords.length < 2 || coords.length > 2000 || coords.some(c => !Number.isFinite(c.latitude) ||
+      !Number.isFinite(c.longitude) || Math.abs(c.latitude) > 90 || Math.abs(c.longitude) > 180)) return null;
+    if (!Number.isFinite(route.distance) || route.distance <= 0 || route.distance > 100000 ||
+      !Number.isFinite(route.duration) || route.duration < 0) return null;
     const distanceMeters = route.distance;
     const durationSeconds = route.duration;
 
@@ -63,7 +78,8 @@ export async function planRoute(
       cycling: (distKm / speedKmh.cycling) * 3600,
     };
 
-    return {
+    const result: RouteResult = {
+      profile,
       distanceMeters,
       durationSeconds,
       coordinates: coords,
@@ -73,9 +89,11 @@ export async function planRoute(
         cycling: caloriesFor(MET_VALUES.cycling, durations.cycling),
       },
     };
-  } catch {
-    return null;
-  }
+    if (routeCache.size >= 20) routeCache.delete(routeCache.keys().next().value!);
+    routeCache.set(url, result);
+    return result;
+  } catch { return null; }
+  finally { clearTimeout(t); }
 }
 
 /** Tempo estimado por esporte. */

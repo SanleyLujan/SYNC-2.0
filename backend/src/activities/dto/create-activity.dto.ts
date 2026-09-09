@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsDateString, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsIn, IsInt, IsOptional, Max, Min, IsBoolean, IsArray, ArrayMinSize, ArrayMaxSize, ValidateNested, IsLatitude, IsLongitude } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const VALID_SPORTS = [
@@ -6,7 +7,30 @@ const VALID_SPORTS = [
   'tennis', 'yoga', 'gym', 'hiking', 'crossfit', 'martial_arts', 'dance',
 ];
 
+export class PlannedCoordinateDto {
+  @IsLatitude()
+  latitude: number;
+  @IsLongitude()
+  longitude: number;
+}
+
 export class CreateActivityDto {
+  @IsOptional()
+  @IsBoolean()
+  segmentsOptIn?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  territoryOptIn?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayMaxSize(2000)
+  @ValidateNested({ each: true })
+  @Type(() => PlannedCoordinateDto)
+  plannedRoute?: PlannedCoordinateDto[];
+
   @ApiProperty({ example: 'running', enum: VALID_SPORTS })
   @IsString()
   @IsNotEmpty()

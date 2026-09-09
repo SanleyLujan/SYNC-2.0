@@ -1,4 +1,5 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, BadRequestException } from '@nestjs/common';
+import { StatsPeriod } from './stats-rules';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StatsService } from './stats.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,13 +15,25 @@ export class StatsController {
 
   @Get()
   @ApiOperation({ summary: 'Estatísticas completas do usuário' })
-  getUserStats(@CurrentUser() user: User) {
-    return this.statsService.getUserStats(user.id);
+  async getUserStats(@CurrentUser() user: User, @Query('period') period: StatsPeriod = 'all', @Query('version') version = '1') {
+    if (!['all', 'week', 'month', 'year'].includes(period)) throw new BadRequestException('Período inválido');
+    if (!['1', '2'].includes(version)) throw new BadRequestException('Versão inválida');
+    const stats = await this.statsService.getUserStats(user.id, period);
+    if (version === '2') return stats;
+    // Old cached PWA bundles still expect kilometers/hours. Do not change their contract during rollout.
+    return { ...stats, schemaVersion: 1, units: { ...stats.units, distance: 'km', duration: 'h' },
+      totalDistance: stats.totalDistance / 1000, totalDuration: stats.totalDuration / 3600,
+      longestActivity: stats.longestActivity ? { ...stats.longestActivity, distance: stats.longestActivity.distance / 1000 } : null,
+      sportBreakdown: stats.sportBreakdown.map(r => ({ ...r, totalDistance: r.totalDistance / 1000, totalDuration: r.totalDuration / 3600 })),
+      weeklyStats: stats.weeklyStats.map(r => ({ ...r, distance: r.distance / 1000, duration: r.duration / 3600 })),
+      monthlyStats: stats.monthlyStats.map(r => ({ ...r, distance: r.distance / 1000, duration: r.duration / 3600 })),
+    };
   }
 
   @Get('weekly')
   @ApiOperation({ summary: 'Resumo semanal do usuário' })
-  getWeeklySummary(@CurrentUser() user: User) {
-    return this.statsService.getWeeklySummary(user.id);
+  async getWeeklySummary(@CurrentUser() user: User, @Query('version') version = '1') {
+    const rows = await this.statsService.getWeeklySummary(user.id);
+    return version === '2' ? rows : rows.map(r => ({ ...r, distance: r.distance / 1000, duration: r.duration / 3600 }));
   }
 }

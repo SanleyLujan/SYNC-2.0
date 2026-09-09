@@ -1,3 +1,4 @@
+import { confirmAsync } from '../../utils/confirm';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -6,8 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
-  TextInput,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,10 +51,6 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [showRecord, setShowRecord] = useState(false);
-  const [min, setMin] = useState('');
-  const [sec, setSec] = useState('');
-  const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [scope, setScope] = useState<'global' | 'friends'>('global');
 
@@ -86,36 +81,6 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
     setRefreshing(true);
     await load();
     setRefreshing(false);
-  };
-
-  const submitEffort = async () => {
-    const m = parseInt(min || '0', 10);
-    const s = parseInt(sec || '0', 10);
-    const total = m * 60 + s;
-    if (!total || total < 1) {
-      showToast('Informe um tempo válido (min:seg).', 'error');
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await segmentsApi.recordEffort(segmentId, total);
-      setShowRecord(false);
-      setMin(''); setSec('');
-      if (res.isKOM) {
-        haptic.success();
-        showToast('🏆 Novo KOM! Você é o mais rápido aqui!', 'success');
-      } else if (res.isPR) {
-        haptic.success();
-        showToast('🔥 Recorde pessoal neste segmento!', 'success');
-      } else {
-        showToast('Tempo registrado!', 'success');
-      }
-      await load();
-    } catch (e: any) {
-      showToast(e?.response?.data?.message || 'Não foi possível registrar agora.', 'error');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const shareToFeed = async () => {
@@ -216,10 +181,7 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
                 pointerEvents="none"
               >
                 <Polyline
-                  coordinates={[
-                    { latitude: segment.startLat, longitude: segment.startLng },
-                    { latitude: segment.endLat, longitude: segment.endLng },
-                  ]}
+                  coordinates={segment.geometry || []}
                   strokeColor={theme.primary}
                   strokeWidth={4}
                 />
@@ -302,15 +264,12 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
             )}
 
             <View style={styles.ctaRow}>
-              <TouchableOpacity style={styles.recordBtn} onPress={() => setShowRecord(true)} activeOpacity={0.85}>
-                <LinearGradient
-                  colors={theme.gradientPrimary}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={styles.recordBtnInner}
-                >
-                  <Ionicons name="stopwatch" size={18} color="#fff" />
-                  <Text style={styles.recordBtnText}>Registrar meu tempo</Text>
-                </LinearGradient>
+              <TouchableOpacity style={[styles.recordBtn, { padding: 12, backgroundColor: theme.primary }]} onPress={async () => {
+                if (!segment?.geometry?.length) return;
+                if (!await confirmAsync('Participar do ranking?', 'Seu nome e tempo nos segmentos percorridos neste treino ficarão públicos. Não há XP extra; pratique no seu ritmo.', { confirmText: 'Iniciar treino' })) return;
+                navigation.getParent()?.navigate('TrackingTab', { screen: 'ActiveTracking', params: { sport: segment.sport, segmentsOptIn: true, plannedRoute: segment.geometry } });
+              }}>
+                <Text style={styles.recordBtnText}>{segment.geometry?.length ? 'Treinar neste segmento' : 'Segmento legado · recrie pelo seu treino'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.shareBtn, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '40' }]} onPress={shareToFeed} disabled={sharing} activeOpacity={0.85}>
                 {sharing ? (
@@ -334,7 +293,7 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
                     onPress={() => { if (scope !== s) { setLoading(true); setScope(s); } }}
                   >
                     <Text style={[styles.scopeText, { color: scope === s ? theme.primaryText : theme.textSecondary }]}>
-                      {s === 'global' ? 'Global' : 'Amigos'}
+                      {s === 'global' ? 'Global' : 'Seguindo'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -355,48 +314,7 @@ export default function SegmentDetailScreen({ navigation, route }: Props) {
         contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
       />
 
-      {/* Modal: registrar tempo */}
-      <Modal visible={showRecord} transparent animationType="fade" onRequestClose={() => setShowRecord(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Seu tempo neste segmento</Text>
-            <View style={styles.timeRow}>
-              <TextInput
-                style={[styles.timeInput, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
-                value={min}
-                onChangeText={(t) => setMin(t.replace(/[^0-9]/g, '').slice(0, 3))}
-                keyboardType="number-pad"
-                placeholder="00"
-                placeholderTextColor={theme.placeholder}
-                maxLength={3}
-              />
-              <Text style={[styles.timeColon, { color: theme.textSecondary }]}>:</Text>
-              <TextInput
-                style={[styles.timeInput, { backgroundColor: theme.input, borderColor: theme.border, color: theme.textPrimary }]}
-                value={sec}
-                onChangeText={(t) => setSec(t.replace(/[^0-9]/g, '').slice(0, 2))}
-                keyboardType="number-pad"
-                placeholder="00"
-                placeholderTextColor={theme.placeholder}
-                maxLength={2}
-              />
-            </View>
-            <Text style={[styles.timeHint, { color: theme.textSecondary }]}>minutos : segundos</Text>
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalCancel, { borderColor: theme.border }]} onPress={() => setShowRecord(false)}>
-                <Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={submitEffort} disabled={saving}>
-                {saving ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.modalSaveText}>Registrar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
     </View>
   );
 }

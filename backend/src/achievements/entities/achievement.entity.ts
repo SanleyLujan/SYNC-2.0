@@ -179,7 +179,7 @@ export const ACHIEVEMENT_INFO: Record<
   },
   [AchievementType.SPEED_DEMON]: {
     name: 'Velocista',
-    description: 'Atinja velocidade média acima de 15km/h',
+    description: 'Corrida de pelo menos 1 km com média acima de 15 km/h',
     icon: '💨',
     xp: 150,
   },
@@ -300,7 +300,7 @@ export const ACHIEVEMENT_INFO: Record<
   },
   [AchievementType.PACE_5MIN]: {
     name: 'Sub-5',
-    description: 'Pace abaixo de 5:00/km numa corrida',
+    description: 'Pace abaixo de 5:00/km numa corrida de pelo menos 1 km',
     icon: '⚡',
     xp: 250,
   },
@@ -372,7 +372,7 @@ export const ACHIEVEMENT_INFO: Record<
   },
   [AchievementType.FLASH_EVENT]: {
     name: 'Relâmpago',
-    description: 'Crie ou participe de evento relâmpago',
+    description: 'Crie um evento relâmpago',
     icon: '⚡',
     xp: 100,
   },
@@ -384,7 +384,7 @@ export const ACHIEVEMENT_INFO: Record<
   },
   [AchievementType.CONSISTENCY_KING]: {
     name: 'Rei da Consistência',
-    description: 'Treine pelo menos 3x/semana por 3 meses',
+    description: 'Treine em 3 dias por semana durante 12 semanas consecutivas',
     icon: '👑',
     xp: 800,
   },
@@ -416,6 +416,9 @@ export const ACHIEVEMENT_INFO: Record<
 
 @Entity('user_achievements')
 export class UserAchievement {
+  @Column({ type: 'varchar', length: 120, nullable: true, unique: true })
+  claimKey: string | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

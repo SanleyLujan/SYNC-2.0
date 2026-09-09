@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Activity } from '../activities/entities/activity.entity';
+import { competitiveRoute } from '../common/utils/competitive-route';
+import { dayKey } from '../gamification/rules';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Like, In } from 'typeorm';
 import { TerritoryCell } from './entities/territory-cell.entity';
 import { User } from '../users/entities/user.entity';
 
@@ -29,101 +32,51 @@ export class TerritoryService {
     private readonly userRepo: Repository<User>,
   ) {}
 
-  /** Garante que o usuário tem uma cor de território e retorna ela. */
-  private async ensureColor(userId: string): Promise<{ color: string; name: string }> {
-    const user = await this.userRepo.findOne({
-      where: { id: userId },
-      select: ['id', 'name', 'territoryColor'],
+  /** Only a completed activity owned by the authenticated athlete can claim cells. */
+  async claim(userId: string, activityId: string) {
+    if (typeof activityId !== 'string' || !/^[0-9a-f-]{36}$/i.test(activityId)) {
+      throw new BadRequestException('Informe uma atividade concluída; captura manual não é permitida');
+    }
+    const result = await this.cellRepo.manager.transaction(async manager => {
+      // A short shared lock also serializes overlapping claims by different athletes.
+      if (manager.connection.options.type === 'postgres') await manager.query('SELECT pg_advisory_xact_lock(28092026)');
+      const activities = manager.getRepository(Activity);
+      const activity = await activities.findOne({ where: { id: activityId, user_id: userId }, relations: ['points'] });
+      if (!activity) throw new BadRequestException('Atividade não encontrada');
+      if (!activity.territoryOptIn) return { claimed: 0, stolen: 0 };
+      if (activity.territoryProcessed) return { claimed: 0, stolen: 0 };
+      const points = competitiveRoute(activity);
+      const month = dayKey(new Date()).slice(0, 7);
+      if (!points.length || dayKey(new Date(activity.endTime)).slice(0, 7) !== month) {
+        return { claimed: 0, stolen: 0 };
+      }
+      const profile = await manager.getRepository(User).findOneBy({ id: userId, isActive: true });
+      if (!profile) throw new BadRequestException('Conta indisponível');
+      const repo = manager.getRepository(TerritoryCell);
+      const visits = new Map<string, { lat: number; lng: number; time: number }>();
+      for (const p of points) {
+        const li = cellIndex(p.latitude), gi = cellIndex(p.longitude);
+        const id = month + ':' + li + '_' + gi;
+        visits.set(id, { lat: li * CELL_DEG, lng: gi * CELL_DEG, time: p.time });
+      }
+      const limited = [...visits].slice(0, 2000);
+      const existing = await repo.findBy({ cellId: In(limited.map(([id]) => id)) });
+      const previous = new Map(existing.map(c => [c.cellId, c]));
+      const updates: TerritoryCell[] = [];
+      let claimed = 0, stolen = 0;
+      for (const [cellId, visit] of limited) {
+        const old = previous.get(cellId);
+        if (old && Number(old.capturedAt) >= visit.time) continue;
+        if (!old || old.ownerId !== userId) { claimed++; if (old) stolen++; }
+        updates.push(repo.create({ ...old, cellId, ownerId: userId, ownerName: profile.name,
+          ownerColor: colorForUser(userId), lat: visit.lat, lng: visit.lng, capturedAt: String(visit.time),
+          claimCount: (old?.claimCount || 0) + (old?.ownerId === userId ? 0 : 1) }));
+      }
+      for (let i = 0; i < updates.length; i += 200) await repo.upsert(updates.slice(i, i + 200), ['cellId']);
+      await activities.update(activity.id, { territoryProcessed: true });
+      return { claimed, stolen };
     });
-    const name = user?.name || 'Atleta';
-    let color = user?.territoryColor || '';
-    if (!color) {
-      color = colorForUser(userId);
-      await this.userRepo.update(userId, { territoryColor: color }).catch(() => {});
-    }
-    return { color, name };
-  }
-
-  /**
-   * Conquista as células por onde o usuário passou.
-   * points: lista de {lat,lng} (rota do treino ou ponto atual).
-   * Retorna quantas foram conquistadas e quantas foram roubadas de outros.
-   */
-  async claim(
-    userId: string,
-    points: { lat: number; lng: number }[],
-  ): Promise<{ claimed: number; stolen: number; totalOwned: number }> {
-    if (!Array.isArray(points) || points.length === 0) {
-      const totalOwned = await this.cellRepo.count({ where: { ownerId: userId } });
-      return { claimed: 0, stolen: 0, totalOwned };
-    }
-
-    const { color, name } = await this.ensureColor(userId);
-
-    // Deduplica células
-    const cellMap = new Map<string, { lat: number; lng: number }>();
-    for (const p of points) {
-      if (
-        typeof p?.lat !== 'number' || typeof p?.lng !== 'number' ||
-        !isFinite(p.lat) || !isFinite(p.lng) ||
-        p.lat < -90 || p.lat > 90 || p.lng < -180 || p.lng > 180
-      ) continue;
-      const li = cellIndex(p.lat);
-      const gi = cellIndex(p.lng);
-      const id = `${li}_${gi}`;
-      if (!cellMap.has(id)) {
-        cellMap.set(id, { lat: li * CELL_DEG, lng: gi * CELL_DEG });
-      }
-    }
-    const ids = [...cellMap.keys()];
-    if (ids.length === 0) {
-      const totalOwned = await this.cellRepo.count({ where: { ownerId: userId } });
-      return { claimed: 0, stolen: 0, totalOwned };
-    }
-    // Limite de segurança por chamada
-    const limitedIds = ids.slice(0, 2000);
-
-    // Busca as células existentes nesse conjunto
-    const existing = await this.cellRepo.findByIds(limitedIds);
-    const existingMap = new Map(existing.map((c) => [c.cellId, c]));
-
-    let claimed = 0;
-    let stolen = 0;
-    const toSave: TerritoryCell[] = [];
-
-    for (const id of limitedIds) {
-      const center = cellMap.get(id)!;
-      const cur = existingMap.get(id);
-      if (!cur) {
-        const cell = this.cellRepo.create({
-          cellId: id,
-          ownerId: userId,
-          ownerName: name,
-          ownerColor: color,
-          lat: center.lat,
-          lng: center.lng,
-          claimCount: 1,
-        });
-        toSave.push(cell);
-        claimed++;
-      } else if (cur.ownerId !== userId) {
-        cur.ownerId = userId;
-        cur.ownerName = name;
-        cur.ownerColor = color;
-        cur.claimCount = (cur.claimCount || 1) + 1;
-        toSave.push(cur);
-        stolen++;
-        claimed++;
-      }
-      // se já é dono, não faz nada
-    }
-
-    if (toSave.length > 0) {
-      await this.cellRepo.save(toSave, { chunk: 200 });
-    }
-
-    const totalOwned = await this.cellRepo.count({ where: { ownerId: userId } });
-    return { claimed, stolen, totalOwned };
+    return { ...result, totalOwned: (await this.myStats(userId)).cells };
   }
 
   /** Células dentro de uma bounding box (viewport do mapa). */
@@ -136,13 +89,12 @@ export class TerritoryService {
     if (![minLat, minLng, maxLat, maxLng].every((n) => typeof n === 'number' && isFinite(n))) {
       return [];
     }
-    return this.cellRepo.find({
-      where: {
-        lat: Between(Math.min(minLat, maxLat), Math.max(minLat, maxLat)),
-        lng: Between(Math.min(minLng, maxLng), Math.max(minLng, maxLng)),
-      },
-      take: 3000,
-    });
+    return this.cellRepo.createQueryBuilder('c')
+      .innerJoin(User, 'u', 'CAST(u.id AS text) = c.ownerId AND u.isActive = :active', { active: true })
+      .where('c.cellId LIKE :season', { season: dayKey(new Date()).slice(0, 7) + ':%' })
+      .andWhere('c.lat BETWEEN :minLat AND :maxLat', { minLat: Math.min(minLat,maxLat), maxLat: Math.max(minLat,maxLat) })
+      .andWhere('c.lng BETWEEN :minLng AND :maxLng', { minLng: Math.min(minLng,maxLng), maxLng: Math.max(minLng,maxLng) })
+      .limit(3000).getMany();
   }
 
   /** Top usuários por número de células conquistadas. */
@@ -153,6 +105,8 @@ export class TerritoryService {
       .addSelect('c.ownerName', 'ownerName')
       .addSelect('c.ownerColor', 'ownerColor')
       .addSelect('COUNT(*)', 'cells')
+      .innerJoin(User, 'u', 'CAST(u.id AS text) = c.ownerId AND u.isActive = :active', { active: true })
+      .where('c.cellId LIKE :season', { season: dayKey(new Date()).slice(0, 7) + ':%' })
       .groupBy('c.ownerId')
       .addGroupBy('c.ownerName')
       .addGroupBy('c.ownerColor')
@@ -170,7 +124,7 @@ export class TerritoryService {
   }
 
   async myStats(userId: string) {
-    const cells = await this.cellRepo.count({ where: { ownerId: userId } });
+    const cells = await this.cellRepo.count({ where: { ownerId: userId, cellId: Like(dayKey(new Date()).slice(0, 7) + ':%') } });
     // posição no ranking
     const all = await this.leaderboard(1000);
     const me = all.find((u) => u.userId === userId);

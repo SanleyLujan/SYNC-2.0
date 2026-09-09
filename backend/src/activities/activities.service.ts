@@ -1,3 +1,5 @@
+import { TerritoryService } from '../territory/territory.service';
+import { AchievementsService } from '../achievements/achievements.service';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -52,6 +54,8 @@ export class ActivitiesService {
     private readonly groupsService: GroupsService,
     private readonly segmentsMatch: SegmentsMatchService,
     private readonly gamification: GamificationService,
+    private readonly territory: TerritoryService,
+    private readonly achievements: AchievementsService,
   ) {}
 
   // ===== MENTIONS HELPERS =====
@@ -247,6 +251,7 @@ export class ActivitiesService {
           )
           .catch(() => {});
       }
+      void this.achievements.checkAndUnlock(activity.user_id).catch(() => {});
       return { kudos: true, total };
     }
   }
@@ -271,6 +276,9 @@ export class ActivitiesService {
     const activity = this.activityRepository.create({
       user_id: userId,
       sport: dto.sport,
+      territoryOptIn: dto.territoryOptIn === true,
+      segmentsOptIn: dto.segmentsOptIn === true,
+      plannedRoute: dto.plannedRoute?.map(p => ({ latitude: Number(p.latitude), longitude: Number(p.longitude) })) ?? null,
       // O servidor registra o instante real. O endpoint só é chamado depois
       // do countdown, então a contagem regressiva não entra na duração.
       startTime: new Date(),
@@ -440,6 +448,7 @@ export class ActivitiesService {
     // Retry após perda da resposta não pode creditar grupos/segments duas vezes.
     if (activity.isCompleted) {
       await this.gamification.summary(userId);
+      await Promise.allSettled([this.territory.claim(userId, activityId), this.segmentsMatch.matchActivity(userId, activityId), this.achievements.checkAndUnlock(userId)]);
       return activity;
     }
 
@@ -521,6 +530,7 @@ export class ActivitiesService {
     });
     if (!finalized.affected) {
       await this.gamification.summary(userId);
+      await Promise.allSettled([this.territory.claim(userId, activityId), this.segmentsMatch.matchActivity(userId, activityId), this.achievements.checkAndUnlock(userId)]);
       return this.activityRepository.findOneOrFail({ where: { id: activityId, user_id: userId }, relations: ['points'] });
     }
 
@@ -529,15 +539,9 @@ export class ActivitiesService {
       this.groupsService.creditActivity(userId, distanceKm).catch(() => {});
     }
 
-    // Cronometra automaticamente os segments cobertos pela rota — fire-and-forget
-    if (points.length > 1) {
-      this.segmentsMatch
-        .matchActivity(userId, activityId, points as any)
-        .catch(() => {});
-    }
-
     // Durable activity is the source of truth. A retry can reconcile rewards safely.
     await this.gamification.summary(userId);
+      await Promise.allSettled([this.territory.claim(userId, activityId), this.segmentsMatch.matchActivity(userId, activityId), this.achievements.checkAndUnlock(userId)]);
     const completion = this.activityCompletionMessage(
       activity.id,
       activity.sport,
@@ -757,10 +761,8 @@ export class ActivitiesService {
 
   // Detalhes de uma atividade com todos os pontos (para desenhar rota)
   async getActivityDetail(activityId: string, userId: string) {
-    const activity = await this.activityRepository.findOne({
-      where: { id: activityId, user_id: userId },
-      relations: ['points'],
-    });
+    const activity = await this.activityRepository.createQueryBuilder('a').addSelect('a.plannedRoute')
+      .leftJoinAndSelect('a.points', 'p').where('a.id = :activityId AND a.user_id = :userId', { activityId, userId }).getOne();
     if (!activity) {
       throw new NotFoundException('Atividade não encontrada');
     }

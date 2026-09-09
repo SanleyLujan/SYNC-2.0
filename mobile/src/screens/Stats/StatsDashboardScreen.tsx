@@ -1,5 +1,5 @@
 // Dashboard de estatísticas — agregação semanal/mensal/anual com gráfico
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,22 +14,11 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Skeleton from '../../components/ui/Skeleton';
 import api from '../../services/api';
-import { unwrapActivityHistory } from '../../utils/activity-history';
-import { computeUserXP } from '../../utils/xp-system';
 import { useThemeStore } from '../../store/themeStore';
 
 type Period = 'week' | 'month' | 'year';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-interface Activity {
-  id: string;
-  sport: string;
-  distance: number; // meters
-  duration: number; // seconds
-  avgPace: number;
-  startTime: string;
-}
 
 function formatDuration(s: number): string {
   const h = Math.floor(s / 3600);
@@ -37,97 +26,34 @@ function formatDuration(s: number): string {
   return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }
 
-function isInPeriod(date: Date, period: Period): boolean {
-  const now = new Date();
-  if (period === 'week') {
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return date >= weekAgo;
-  }
-  if (period === 'month') {
-    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-  }
-  return date.getFullYear() === now.getFullYear();
-}
-
 export default function StatsDashboardScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const theme = useThemeStore((s) => s.theme);
   const [period, setPeriod] = useState<Period>('week');
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [summary, setSummary] = useState<any>(null);
+  const requestId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const loadData = () => {
+    const id = ++requestId.current;
     setLoading(true);
     setError(false);
-    api.get('/activities/history')
-      .then((r) => {
-        setActivities(unwrapActivityHistory(r.data).map((activity) => ({
-          id: activity.id,
-          sport: activity.sport,
-          distance: activity.distance || 0,
-          duration: activity.duration || 0,
-          avgPace: activity.avgPace || 0,
-          startTime: activity.startTime,
-        })));
-      })
-      .catch(() => { setError(true); setActivities([]); })
-      .finally(() => setLoading(false));
+    api.get('/stats', { params: { period, version: 2 } })
+      .then(r => { if (id === requestId.current) setSummary(r.data); })
+      .catch(() => { if (id === requestId.current) { setError(true); setSummary(null); } })
+      .finally(() => { if (id === requestId.current) setLoading(false); });
   };
-
-  useEffect(() => { loadData(); }, []);
-
-  const filtered = activities.filter((a) => isInPeriod(new Date(a.startTime), period));
-  const totalKm = filtered.reduce((sum, a) => sum + (a.distance || 0) / 1000, 0);
-  const totalDuration = filtered.reduce((sum, a) => sum + (a.duration || 0), 0);
-  const totalActivities = filtered.length;
-  const avgPace = filtered.length > 0
-    ? filtered.reduce((sum, a) => sum + (a.avgPace || 0), 0) / filtered.length
-    : 0;
-  const totalCalories = Math.round(totalKm * 60);
-
-  // Distribuição por esporte
-  const sportCount: Record<string, number> = {};
-  filtered.forEach((a) => {
-    const s = (a.sport || 'running').toLowerCase();
-    sportCount[s] = (sportCount[s] || 0) + 1;
-  });
-  const sportEntries = Object.entries(sportCount).sort((a, b) => b[1] - a[1]);
-
-  // Bar chart: km por dia (últimos 7) ou por semana (mês)
-  const buckets: { label: string; value: number }[] = [];
-  if (period === 'week') {
-    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      const day = d.getDay();
-      const sumKm = activities
-        .filter((a) => {
-          const ad = new Date(a.startTime);
-          return ad.toDateString() === d.toDateString();
-        })
-        .reduce((s, a) => s + (a.distance || 0) / 1000, 0);
-      buckets.push({ label: days[day], value: sumKm });
-    }
-  } else if (period === 'month') {
-    for (let w = 4; w >= 1; w--) {
-      const sumKm = filtered
-        .filter((a) => {
-          const day = new Date(a.startTime).getDate();
-          return day > (4 - w) * 7 && day <= (5 - w) * 7;
-        })
-        .reduce((s, a) => s + (a.distance || 0) / 1000, 0);
-      buckets.push({ label: `S${5 - w}`, value: sumKm });
-    }
-  } else {
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    for (let m = 0; m < 12; m++) {
-      const sumKm = filtered
-        .filter((a) => new Date(a.startTime).getMonth() === m)
-        .reduce((s, a) => s + (a.distance || 0) / 1000, 0);
-      buckets.push({ label: months[m], value: sumKm });
-    }
-  }
+  useEffect(() => { loadData(); return () => { requestId.current++; }; }, [period]);
+  const totalKm = (summary?.totalDistance || 0) / 1000;
+  const totalDuration = summary?.totalDuration || 0;
+  const totalActivities = summary?.totalActivities || 0;
+  const avgPace = summary?.averagePace || 0;
+  const totalCalories = summary?.totalCalories || 0;
+  const sportEntries: [string, number][] = (summary?.sportBreakdown || [])
+    .map((s: any) => [s.sport, s.count]).sort((a: any, b: any) => b[1] - a[1]);
+  const buckets: { label: string; value: number }[] = (summary?.buckets || [])
+    .map((b: any) => ({ label: b.label, value: b.distance / 1000 }));
   const maxBucket = Math.max(...buckets.map((b) => b.value), 1);
 
   const [xp, setXP] = useState<any>(null);
@@ -224,8 +150,8 @@ export default function StatsDashboardScreen({ navigation }: any) {
           { icon: 'flame', value: totalCalories, label: 'Calorias', color: theme.primary },
           {
             icon: 'speedometer',
-            value: avgPace ? `${Math.floor(avgPace)}:${Math.round((avgPace - Math.floor(avgPace)) * 60).toString().padStart(2, '0')}` : '--:--',
-            label: 'Pace /km',
+            value: avgPace ? `${Math.floor(Math.round(avgPace * 60) / 60)}:${(Math.round(avgPace * 60) % 60).toString().padStart(2, '0')}` : '--:--',
+            label: 'Corrida · min/km',
             color: theme.success,
           },
         ].map((s, i) => (
@@ -288,7 +214,7 @@ export default function StatsDashboardScreen({ navigation }: any) {
         </View>
       )}
 
-      {filtered.length === 0 && !loading && (
+      {totalActivities === 0 && !loading && !error && (
         <View style={styles.empty}>
           <Ionicons name="bar-chart-outline" size={56} color={theme.textMuted} />
           <Text style={[styles.emptyText, { color: theme.textSecondary }]}>

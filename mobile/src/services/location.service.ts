@@ -244,7 +244,7 @@ export async function reverseGeocode(
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
-          'Referer': 'https://sync-h29j2uaaq-rutunarciso-5121s-projects.vercel.app',
+          'Referer': 'https://sync-2-0-blush.vercel.app',
         },
       },
     );
@@ -295,7 +295,7 @@ export async function searchBrazilianCities(query: string): Promise<CitySearchRe
       headers: {
         Accept: 'application/json',
         'Accept-Language': 'pt-BR',
-        Referer: 'https://sync-h29j2uaaq-rutunarciso-5121s-projects.vercel.app',
+        Referer: 'https://sync-2-0-blush.vercel.app',
       },
     });
     if (!response.ok) throw new Error(`Geocoding search failed: ${response.status}`);

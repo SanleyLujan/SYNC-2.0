@@ -171,9 +171,9 @@ export default function StatsScreen({ navigation }: Props) {
           <View style={styles.metricCard}>
             <Ionicons name="speedometer-outline" size={22} color={colors.dark.accent} />
             <Text style={styles.metricValue}>
-              {stats.averagePace ? stats.averagePace.toFixed(1) : '--'}
+              {stats.averagePace ? `${Math.floor(Math.round(stats.averagePace * 60) / 60)}:${String(Math.round(stats.averagePace * 60) % 60).padStart(2, '0')}` : '--'}
             </Text>
-            <Text style={styles.metricUnit}>pace médio</Text>
+            <Text style={styles.metricUnit}>min/km · corrida</Text>
           </View>
         </View>
 
@@ -203,7 +203,7 @@ export default function StatsScreen({ navigation }: Props) {
             <View style={styles.weeklyChart}>
               {stats.weeklyStats.slice(-7).map((week, index) => {
                 const barHeight = Math.max(4, (week.distance / maxWeeklyDist) * 80);
-                const dayLabel = new Date(week.date).toLocaleDateString('pt-BR', { weekday: 'short' });
+                const dayLabel = new Date(week.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' });
                 return (
                   <View key={index} style={styles.weeklyBar}>
                     <Text style={styles.weeklyKm}>
@@ -283,8 +283,8 @@ export default function StatsScreen({ navigation }: Props) {
             <View style={styles.socialCard}>
               <Ionicons name="trophy-outline" size={24} color={colors.dark.accent} />
               <Text style={styles.socialValue}>
-                {stats.longestActivity > 0
-                  ? `${(stats.longestActivity / 1000).toFixed(1)}km`
+                {stats.longestActivity && stats.longestActivity.distance > 0
+                  ? `${(stats.longestActivity.distance / 1000).toFixed(1)}km`
                   : '--'}
               </Text>
               <Text style={styles.socialLabel}>Maior distância</Text>

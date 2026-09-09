@@ -258,12 +258,17 @@ export interface ExerciseRecommendation {
 
 // Stats
 export interface UserStats {
+  schemaVersion: 2;
+  units: { distance: 'm'; duration: 's'; pace: 'min/km'; speed: 'km/h'; calories: 'kcal' };
+  timezone: string;
+  totalCalories: number;
+  buckets: Array<{ label: string; distance: number }>;
   totalActivities: number;
   totalDistance: number;
   totalDuration: number;
   averagePace: number;
   averageSpeed: number;
-  longestActivity: number;
+  longestActivity: { id: string; sport: string; distance: number; duration: number; date: string } | null;
   currentStreak: number;
   bestStreak: number;
   totalMatches: number;
