@@ -531,12 +531,6 @@ Pull requests são bem-vindos! Pra mudanças grandes, abra uma issue primeiro pr
 
 ---
 
-## 📄 Licença
-
-MIT © Sanley Lujan
-
----
-
 ## 🙏 Créditos
 
 - **Mapas:** OpenStreetMap contributors + CartoDB
@@ -544,8 +538,7 @@ MIT © Sanley Lujan
 - **Geocoding:** Nominatim
 - **Clima:** Open-Meteo (free, sem API key)
 - **Imagens:** Unsplash
-- **Inspiração:** Strava, Adidas Running Club, Nike Run Club
-
+- **Inspiração:** Strava, Adidas Running Club, Nike Run Club, Arthur Silva (Escopo base de projeto) 
 ---
 
 <div align="center">
