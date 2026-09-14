@@ -198,6 +198,8 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => onComment(post)}
+            accessibilityRole="button"
+            accessibilityLabel={`Comentar post de ${post.user?.name || 'Atleta'}`}
             hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           >
             <Ionicons name="chatbubble-outline" size={20} color={theme.textSecondary} />
@@ -223,14 +225,8 @@ function FeedCardComponent({ post, liked, likesCount, onLike, onComment, onMenu 
   );
 }
 
-// React.memo — só re-renderiza quando muda o estado de like/contagem do próprio post
-const FeedCard = React.memo(
-  FeedCardComponent,
-  (prev, next) =>
-    prev.post.id === next.post.id &&
-    prev.liked === next.liked &&
-    prev.likesCount === next.likesCount,
-);
+// A comparação padrão também atualiza comentários, conteúdo e ações do cartão.
+const FeedCard = React.memo(FeedCardComponent);
 
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
@@ -680,7 +676,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.07)',
   },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, minWidth: 44 },
   actionLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
 
   // ── Empty ─────────────────────────────────────────────────────────────────

@@ -143,20 +143,20 @@ export default function ConversationListScreen({ navigation }: Props) {
         )}
       </View>
 
-      <View style={styles.info}>
+      <View style={[styles.info, { borderBottomColor: theme.divider }]}>
         <View style={styles.nameRow}>
           <Text
             style={[
               styles.name,
-              { color: item.unreadCount > 0 ? theme.textPrimary : theme.textSecondary },
               item.unreadCount > 0 && styles.nameBold,
+              { color: item.unreadCount > 0 ? theme.textPrimary : theme.textSecondary },
             ]}
             numberOfLines={1}
           >
             {item.user.name}
           </Text>
           {item.lastMessage && (
-            <Text style={[styles.time, { color: item.unreadCount > 0 ? theme.primary : theme.textSecondary }, item.unreadCount > 0 && styles.timeActive]}>
+            <Text style={[styles.time, item.unreadCount > 0 && styles.timeActive, { color: item.unreadCount > 0 ? theme.primary : theme.textSecondary }]}>
               {formatTime(item.lastMessage.createdAt)}
             </Text>
           )}
@@ -165,8 +165,8 @@ export default function ConversationListScreen({ navigation }: Props) {
           <Text
             style={[
               styles.lastMessage,
-              { color: item.unreadCount > 0 ? theme.textPrimary : theme.textSecondary },
               item.unreadCount > 0 && styles.lastMessageUnread,
+              { color: item.unreadCount > 0 ? theme.textPrimary : theme.textSecondary },
             ]}
             numberOfLines={1}
           >

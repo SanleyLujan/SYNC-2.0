@@ -4,7 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, Platform,
 } from 'react-native';
 import { Image } from 'expo-image'; // cache em disco para a foto do perfil
-import { RouteProp } from '@react-navigation/native';
+import { CommonActions, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, SPORTS, OBJECTIVES, AVAILABILITY, SportLevel } from '../../types';
@@ -160,7 +160,14 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   const handleChallenge = () => {
     const parent = navigation.getParent?.();
     if (parent) {
-      parent.navigate('ProfileTab', { screen: 'Challenges' });
+      const profileRoute = parent.getState().routes.find((item: { name: string }) => item.name === 'ProfileTab');
+      if (profileRoute?.state?.key) {
+        parent.dispatch({
+          ...CommonActions.reset({ index: 1, routes: [{ name: 'MyProfile' }, { name: 'Challenges' }] }),
+          target: profileRoute.state.key,
+        });
+      }
+      parent.navigate('ProfileTab', { screen: 'Challenges', initial: false });
       return;
     }
     navigation.navigate('Challenges');
@@ -179,20 +186,11 @@ export default function UserProfileScreen({ navigation, route }: Props) {
                 : require('../../assets/images/default-avatar.png')
             }
             style={styles.heroImage}
+            accessibilityLabel={`Foto de ${user.name}`}
             contentFit="cover"
             cachePolicy="memory-disk"
             transition={150}
           />
-          {/* Gradient overlay */}
-          <LinearGradient
-            colors={theme.mode === 'dark'
-              ? ['rgba(3,9,20,0.10)', 'rgba(3,9,20,0.46)', theme.background]
-              : ['rgba(23,23,28,0.06)', 'rgba(23,23,28,0.30)', theme.background]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.heroOverlay}
-          />
-
           {/* Back button */}
           <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(3,9,20,0.68)' : 'rgba(255,255,255,0.78)', borderColor: theme.border }]} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={22} color={theme.mode === 'dark' ? colors.white : theme.textPrimary} />
@@ -210,24 +208,23 @@ export default function UserProfileScreen({ navigation, route }: Props) {
             }
           </TouchableOpacity>
 
-          {/* Name overlay */}
-          <View style={styles.heroNameWrap}>
-            <View style={styles.heroNameRow}>
-              <Text style={styles.heroName} numberOfLines={1}>{user.name}</Text>
-              {user.isVerified && <Ionicons name="checkmark-circle" size={20} color="#2E7BFF" accessibilityLabel="Perfil verificado" />}
-            </View>
-            {user.city && (
-              <View style={styles.heroLocation}>
-                <Ionicons name="location-outline" size={13} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.heroCity} numberOfLines={1}>{user.city}</Text>
-              </View>
-            )}
-          </View>
         </View>
 
         {/* Content */}
         <View style={[styles.content, { backgroundColor: theme.background }]}>
-
+          {/* Nome fora da foto para manter a imagem sem filtros. */}
+          <View style={styles.heroNameWrap}>
+            <View style={styles.heroNameRow}>
+              <Text style={[styles.heroName, { color: theme.textPrimary }]} numberOfLines={1}>{user.name}</Text>
+              {user.isVerified && <Ionicons name="checkmark-circle" size={20} color="#2E7BFF" accessibilityLabel="Perfil verificado" />}
+            </View>
+            {user.city && (
+              <View style={styles.heroLocation}>
+                <Ionicons name="location-outline" size={13} color={theme.textSecondary} />
+                <Text style={[styles.heroCity, { color: theme.textSecondary }]} numberOfLines={1}>{user.city}</Text>
+              </View>
+            )}
+          </View>
           {/* Badges row */}
           <View style={styles.badgesRow}>
             {user.level && (
@@ -356,9 +353,6 @@ const styles = StyleSheet.create({
   backBtnText: { color: colors.white, fontWeight: '700' },
   heroWrap: { height: 380, position: 'relative' },
   heroImage: { width: '100%', height: '100%' },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
   backBtn: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 54 : 40,
@@ -380,18 +374,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   heroNameWrap: {
-    position: 'absolute', bottom: spacing.lg, left: spacing.lg, right: spacing.lg,
+    marginBottom: spacing.lg,
   },
   heroName: {
     fontSize: 28, fontWeight: '800', color: colors.white,
-    textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   heroLocation: {
     flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4,
   },
   heroCity: {
     fontSize: fontSize.sm, color: 'rgba(255,255,255,0.85)',
-    textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   content: { padding: spacing.lg },
   heroNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

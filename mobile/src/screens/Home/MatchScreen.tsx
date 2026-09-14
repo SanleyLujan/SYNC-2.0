@@ -1,17 +1,18 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Dimensions, SafeAreaView, AccessibilityInfo } from 'react-native';
+import React, { useEffect, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, Animated, Easing, ScrollView, TouchableOpacity, AccessibilityInfo } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, CommonActions } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/types';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
-import Button from '../../components/ui/Button';
+import { fontSize, spacing, borderRadius } from '../../theme';
+import { AppTheme } from '../../theme/colors';
+import { useThemeStore } from '../../store/themeStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getTabBarHeight } from '../../navigation/MainTabNavigator';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useAuthStore } from '../../store/authStore';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'MatchScreen'>;
@@ -19,6 +20,9 @@ type Props = {
 };
 
 export default function MatchScreen({ navigation, route }: Props) {
+  const theme = useThemeStore(state => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
   const { matchId, userName, userId, userAvatar } = route.params;
   const me = useAuthStore((s) => s.user);
   const myAvatar = me?.avatarUrl || (me as any)?.profilePhotos?.[0];
@@ -161,14 +165,15 @@ export default function MatchScreen({ navigation, route }: Props) {
   }, []);
 
   const goToChat = () => {
-    // Dispatch first, then goBack — prevents navigation on a stale ref
     const parent = navigation.getParent();
     if (parent) {
+      navigation.goBack();
       parent.dispatch(
         CommonActions.navigate({
           name: 'ChatTab',
           params: {
             screen: 'ChatRoom',
+            initial: false,
             params: {
               matchId,
               userName,
@@ -178,7 +183,6 @@ export default function MatchScreen({ navigation, route }: Props) {
         }),
       );
     }
-    navigation.goBack();
   };
 
   const rotate = heartRotate.interpolate({
@@ -188,22 +192,21 @@ export default function MatchScreen({ navigation, route }: Props) {
 
   return (
     <LinearGradient
-      colors={['#2E7BFF', '#5B2EFF', '#8B5CFF', '#FF6B9D']}
+      colors={[theme.background, theme.surfaceSecondary, theme.background]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: getTabBarHeight(insets.bottom) + 24 }]}>
         {/* Sparkles */}
         <Animated.View style={[styles.sparkle, styles.sparkle1, { opacity: sparkle1, transform: [{ scale: sparkle1 }] }]}>
-          <Ionicons name="star" size={20} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="star" size={20} color={theme.primary} />
         </Animated.View>
         <Animated.View style={[styles.sparkle, styles.sparkle2, { opacity: sparkle2, transform: [{ scale: sparkle2 }] }]}>
-          <Ionicons name="star" size={16} color="rgba(255,255,255,0.5)" />
+          <Ionicons name="star" size={16} color={theme.primary} />
         </Animated.View>
         <Animated.View style={[styles.sparkle, styles.sparkle3, { opacity: sparkle3, transform: [{ scale: sparkle3 }] }]}>
-          <Ionicons name="star" size={24} color="rgba(255,255,255,0.4)" />
+          <Ionicons name="star" size={24} color={theme.primary} />
         </Animated.View>
 
         {/* Duas fotos (você + match) com coração no meio */}
@@ -231,36 +234,39 @@ export default function MatchScreen({ navigation, route }: Props) {
         {/* Subtitle */}
         <Animated.View style={{ opacity: subtitleOpacity }}>
           <Text style={styles.subtitle} numberOfLines={3}>
-            Voce e <Text style={styles.userName}>{userName.length > 22 ? userName.slice(0, 22) + '…' : userName}</Text> querem treinar juntos!
+            Você e <Text style={styles.userName}>{userName.length > 22 ? userName.slice(0, 22) + '…' : userName}</Text> querem treinar juntos!
           </Text>
           <View style={styles.matchBadge}>
-            <Ionicons name="fitness" size={16} color={colors.white} />
+            <Ionicons name="fitness" size={16} color={theme.textPrimary} />
             <Text style={styles.matchBadgeText}>Parceiro de treino encontrado</Text>
           </View>
         </Animated.View>
 
         {/* Buttons */}
         <Animated.View style={[styles.buttons, { opacity: buttonsOpacity, transform: [{ translateY: buttonsOpacity.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
-          <Button
-            title="Enviar mensagem"
+          <TouchableOpacity
             onPress={goToChat}
-            variant="outline"
-            style={styles.btn}
-          />
-          <Button
-            title="Continuar descobrindo"
+            accessibilityRole="button"
+            accessibilityLabel="Enviar mensagem"
+            style={[styles.btn, styles.sendBtn]}
+          >
+            <Text style={styles.sendText}>Enviar mensagem</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => navigation.goBack()}
-            variant="ghost"
+            accessibilityRole="button"
+            accessibilityLabel="Continuar descobrindo"
             style={styles.btn}
-          />
+          >
+            <Text style={styles.continueText}>Continuar descobrindo</Text>
+          </TouchableOpacity>
         </Animated.View>
-      </View>
-      </SafeAreaView>
+      </ScrollView>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -268,7 +274,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
@@ -291,8 +297,8 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderColor: theme.primary,
+    backgroundColor: theme.primarySoft,
   },
   heartBadge: {
     position: 'absolute',
@@ -300,7 +306,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FF4D6D',
+    backgroundColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
@@ -328,29 +334,26 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 52,
     fontWeight: '800',
-    color: colors.white,
+    color: theme.textPrimary,
     marginTop: spacing.xl,
-    textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
   },
   subtitle: {
     fontSize: fontSize.lg,
-    color: 'rgba(255,255,255,0.9)',
+    color: theme.textSecondary,
     textAlign: 'center',
     marginTop: spacing.md,
     lineHeight: 26,
   },
   userName: {
     fontWeight: '800',
-    color: colors.white,
+    color: theme.textPrimary,
   },
   matchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: theme.primarySoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -359,7 +362,7 @@ const styles = StyleSheet.create({
   },
   matchBadgeText: {
     fontSize: fontSize.xs,
-    color: colors.white,
+    color: theme.textPrimary,
     fontWeight: '600',
   },
   buttons: {
@@ -368,5 +371,14 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   btn: {
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
+  sendBtn: { backgroundColor: theme.primary },
+  sendText: { color: theme.mode === 'dark' ? theme.background : theme.textPrimary, fontWeight: '800', fontSize: 16 },
+  continueText: { color: theme.textPrimary, fontWeight: '700', fontSize: 16 },
 });

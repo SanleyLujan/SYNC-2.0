@@ -35,8 +35,8 @@ function patchIndexHtml() {
   // Tags to inject (only if not already present)
   const pwaTags = `
     <!-- PWA: manifest & icons injected by postbuild.js -->
-    <link rel="manifest" href="/manifest.json?v=20260906" />
-    <meta name="theme-color" content="#4A0E2C" />
+    <link rel="manifest" href="/manifest.json?v=20260914" />
+    <meta name="theme-color" content="#030914" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -50,6 +50,10 @@ function patchIndexHtml() {
     html = html.replace('</head>', pwaTags + '\n  </head>');
     console.log('[postbuild] injected PWA meta tags into index.html');
   }
+
+  // O Expo também pode gerar essa tag; mantenha uma única cor inicial.
+  html = html.replace(/<meta\b(?=[^>]*\bname=["']theme-color["'])[^>]*>/gi, '');
+  html = html.replace('</head>', '<meta name="theme-color" content="#030914" />\n  </head>');
 
   // Fix the title — always "Sync", never screen-level names like "Welcome"
   html = html.replace(/<title>[^<]*<\/title>/, '<title>Sync</title>');

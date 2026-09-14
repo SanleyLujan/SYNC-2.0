@@ -1,5 +1,5 @@
 // ChatRoom — read receipts, voice messages (expo-av), real block/report
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,17 +25,17 @@ import { Message } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { socketService, SocketStatus } from '../../services/socket.service';
 import { chatOutbox } from '../../services/chat-outbox.service';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { fontSize, spacing, borderRadius } from '../../theme';
+import { AppTheme } from '../../theme/colors';
+import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
-import { uploadMedia } from '../../services/media.service';
+import { Audio } from 'expo-av';
 import { useHaptic } from '../../hooks/useHaptic';
-import * as ImagePicker from 'expo-image-picker';
 import * as ExpoLocation from 'expo-location';
 
 type Props = {
@@ -45,6 +45,8 @@ type Props = {
 
 export default function ChatRoomScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((state) => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { matchId, userName, userId: otherUserId } = route.params as any;
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,13 +56,6 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-
-  // Voice recording
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordDuration, setRecordDuration] = useState(0);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Voice playback
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -73,45 +68,6 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
   const flatListRef = useRef<FlatList>(null);
   const typingAnim = useRef(new Animated.Value(0)).current;
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const micPressAnim = useRef(new Animated.Value(1)).current;
-
-  // Acessibilidade: legenda automática do áudio (web, via Web Speech API).
-  // Transcreve enquanto você grava e envia a transcrição junto pra quem é surdo
-  // ou prefere ler. Grátis, sem servidor.
-  const recognitionRef = useRef<any>(null);
-  const transcriptRef = useRef<string>('');
-
-  const startSpeechCaption = () => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return;
-    try {
-      transcriptRef.current = '';
-      const rec = new SR();
-      rec.lang = 'pt-BR';
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.onresult = (e: any) => {
-        let finalText = '';
-        for (let i = 0; i < e.results.length; i++) {
-          if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-        }
-        if (finalText) transcriptRef.current = finalText.trim();
-      };
-      rec.onerror = () => {};
-      rec.start();
-      recognitionRef.current = rec;
-    } catch { /* navegador sem suporte */ }
-  };
-
-  const stopSpeechCaption = (): string => {
-    try { recognitionRef.current?.stop?.(); } catch {}
-    recognitionRef.current = null;
-    const t = transcriptRef.current;
-    transcriptRef.current = '';
-    return t;
-  };
-
   useEffect(() => {
     loadMessages(1, true);
     setupSocket();
@@ -126,9 +82,6 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
       socketService.leaveChat?.(matchId);
       socketService.clearMessageHandlers?.();
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      if (recordingTimer.current) clearInterval(recordingTimer.current);
-      try { recognitionRef.current?.stop?.(); } catch {}
-      recording?.stopAndUnloadAsync().catch(() => {});
       soundRef.current?.unloadAsync().catch(() => {});
     };
   }, []);
@@ -363,31 +316,6 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
     }
   };
 
-  const sendImage = async () => {
-    try {
-      if (Platform.OS !== 'web') {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-          showToast('Permita acesso à galeria para enviar imagem.', 'error');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      const { url } = await uploadMedia(asset.uri, {
-        name: `chat-image-${Date.now()}.jpg`,
-        mimeType: asset.mimeType || 'image/jpeg',
-      });
-      await deliverTyped(url, 'image');
-    } catch {
-      showToast('Erro ao enviar imagem', 'error');
-    }
-  };
-
   const sendLocation = async () => {
     try {
       const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
@@ -428,120 +356,6 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
         break; // ainda offline — para e tenta de novo na próxima reconexão
       }
     }
-  };
-
-  // ── Voice recording ────────────────────────────────────────────────────────
-  const startRecording = async () => {
-    try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        showToast('Permissão de microfone necessária', 'error');
-        return;
-      }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-      });
-
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await rec.startAsync();
-      startSpeechCaption(); // legenda automática (web) — acessibilidade
-      setRecording(rec);
-      setIsRecording(true);
-      setRecordDuration(0);
-      recordingTimer.current = setInterval(() => {
-        setRecordDuration((d) => d + 1);
-      }, 1000);
-
-      // Pulse animation
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(micPressAnim, { toValue: 1.25, duration: 300, useNativeDriver: true }),
-          Animated.timing(micPressAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        ]),
-      ).start();
-    } catch {
-      showToast('Erro ao iniciar gravação', 'error');
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!recording || !isRecording) return;
-    if (recordingTimer.current) clearInterval(recordingTimer.current);
-    micPressAnim.stopAnimation();
-    micPressAnim.setValue(1);
-    setIsRecording(false);
-    const caption = stopSpeechCaption(); // legenda transcrita (web)
-
-    try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
-
-      if (!uri || recordDuration < 1) {
-        showToast('Gravação muito curta', 'error');
-        setRecordDuration(0);
-        return;
-      }
-
-      setUploadingAudio(true);
-      // Upload do arquivo → URL pública (não mais base64 no banco!)
-      const { url } = await uploadMedia(uri, {
-        name: `voice-${Date.now()}.m4a`,
-        mimeType: 'audio/m4a',
-      });
-
-      const optimistic: Message = {
-        id: Date.now().toString(),
-        match_id: matchId,
-        sender_id: user!.id,
-        content: url,
-        type: 'audio',
-        isRead: false,
-        createdAt: new Date().toISOString(),
-      } as any;
-      setMessages((prev) => [...prev, optimistic]);
-      socketService.sendAudioMessage(matchId, url);
-
-      // Acessibilidade: envia a transcrição como legenda (mensagem de texto
-      // logo após o áudio) — quem é surdo ou prefere ler consegue acompanhar.
-      if (caption && caption.length > 1) {
-        const capText = `🗣️ "${caption}"`;
-        const capMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          match_id: matchId,
-          sender_id: user!.id,
-          content: capText,
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        } as any;
-        setMessages((prev) => [...prev, capMsg]);
-        socketService.sendMessage(matchId, capText);
-      }
-    } catch {
-      showToast('Erro ao enviar áudio', 'error');
-    } finally {
-      setUploadingAudio(false);
-      setRecordDuration(0);
-    }
-  };
-
-  const cancelRecording = async () => {
-    if (!recording) return;
-    if (recordingTimer.current) clearInterval(recordingTimer.current);
-    stopSpeechCaption(); // descarta a transcrição
-    micPressAnim.stopAnimation();
-    micPressAnim.setValue(1);
-    setIsRecording(false);
-    setRecordDuration(0);
-    try {
-      await recording.stopAndUnloadAsync();
-    } catch { /* ignore */ }
-    setRecording(null);
-    showToast('Gravação cancelada', 'info');
   };
 
   // ── Typing ─────────────────────────────────────────────────────────────────
@@ -664,7 +478,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
               <Ionicons
                 name={playingId === item.id ? 'pause-circle' : 'play-circle'}
                 size={26}
-                color={isMe ? '#fff' : '#FF6B35'}
+                color={isMe ? '#fff' : theme.primary}
               />
               <View style={styles.audioWave}>
                 {[...Array(8)].map((_, i) => (
@@ -673,7 +487,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
                     style={[
                       styles.audioBar,
                       { height: 4 + Math.sin(i * 0.8) * 6 + 6 },
-                      { backgroundColor: isMe ? 'rgba(255,255,255,0.7)' : 'rgba(255,107,53,0.7)' },
+                      { backgroundColor: isMe ? theme.primaryText : theme.primary },
                     ]}
                   />
                 ))}
@@ -698,9 +512,9 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
               accessibilityRole="button"
               accessibilityLabel="Abrir localização compartilhada"
             >
-              <Ionicons name="location" size={24} color={isMe ? '#fff' : '#FF6B35'} />
+              <Ionicons name="location" size={24} color={isMe ? '#fff' : theme.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.locationTitle, isMe && { color: '#fff' }]}>{locationPayload.label || 'Localização'}</Text>
+                <Text style={[styles.locationTitle, isMe && { color: theme.primaryText }]}>{locationPayload.label || 'Localização'}</Text>
                 <Text style={[styles.locationCoords, isMe && { color: 'rgba(255,255,255,0.75)' }]}>
                   {Number(locationPayload.latitude).toFixed(5)}, {Number(locationPayload.longitude).toFixed(5)}
                 </Text>
@@ -730,7 +544,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
                 <Ionicons
                   name={item.isRead ? 'checkmark-done' : 'checkmark'}
                   size={14}
-                  color={item.isRead ? '#4ADE80' : 'rgba(255,255,255,0.5)'}
+                  color={item.isRead ? theme.success : theme.primaryText}
                 />
               )
             )}
@@ -759,9 +573,6 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
     );
   };
 
-  const formatDuration = (secs: number) =>
-    `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`;
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
@@ -770,7 +581,9 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
     >
       {/* Header */}
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? [theme.surfaceSecondary, theme.surface, theme.background]
+          : [theme.surface, theme.surfaceSecondary, theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 8, 44) }]}
@@ -781,7 +594,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerInfo}
@@ -790,14 +603,13 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
           accessibilityLabel={`Conversa com ${userName}`}
         >
           <View style={styles.headerAvatar}>
-            <Image
-              source={require('../../assets/images/default-avatar.png')}
-              style={styles.headerAvatarImg}
-            />
+            <LinearGradient colors={theme.gradientPrimary} style={styles.headerAvatarImg}>
+              <Text style={styles.headerAvatarInitial}>{userName?.[0]?.toUpperCase() || '?'}</Text>
+            </LinearGradient>
             <View
               style={[
                 styles.headerOnlineDot,
-                connStatus !== 'connected' && { backgroundColor: connStatus === 'connecting' ? colors.warning : colors.secondaryText },
+                connStatus !== 'connected' && { backgroundColor: connStatus === 'connecting' ? theme.warning : theme.textSecondary },
               ]}
             />
           </View>
@@ -806,7 +618,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
             <Text
               style={[
                 styles.headerSubtitle,
-                connStatus !== 'connected' && { color: connStatus === 'connecting' ? colors.warning : colors.secondaryText },
+                connStatus !== 'connected' && { color: connStatus === 'connecting' ? theme.warning : theme.textSecondary },
               ]}
             >
               {connStatus === 'connected'
@@ -823,7 +635,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Mais opções: bloquear ou denunciar"
         >
-          <Ionicons name="ellipsis-vertical" size={20} color="rgba(255,255,255,0.8)" />
+          <Ionicons name="ellipsis-vertical" size={20} color={theme.textPrimary} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -852,7 +664,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
         ListEmptyComponent={
           <View style={styles.emptyChat}>
             <View style={styles.emptyChatIcon}>
-              <Ionicons name="chatbubble-ellipses-outline" size={36} color="rgba(255,107,53,0.4)" />
+              <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
             </View>
             <Text style={styles.emptyChatText}>Comece a conversa! Diga oi para {userName}</Text>
           </View>
@@ -872,81 +684,27 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
         </View>
       </Animated.View>
 
-      {/* Recording overlay */}
-      {isRecording && (
-        <View style={styles.recordingOverlay}>
-          <TouchableOpacity style={styles.cancelRecordBtn} onPress={cancelRecording}>
-            <Ionicons name="trash-outline" size={20} color="#F87171" />
-          </TouchableOpacity>
-          <View style={styles.recordingInfo}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingTime}>{formatDuration(recordDuration)}</Text>
-          </View>
-          <Text style={styles.recordingHint}>Solte para enviar</Text>
-        </View>
-      )}
-
-      {/* Input bar */}
+      {/* Envio de imagem e áudio suspenso; histórico continua disponível. */}
       <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom + 8, spacing.md) }]}>
-        {!isRecording ? (
-          <>
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.input}
-                placeholder="Mensagem..."
-                placeholderTextColor={colors.dark.secondaryText}
-                value={text}
-                onChangeText={handleTextChange}
-                multiline
-                maxLength={1000}
-              />
-            </View>
-            {!text.trim() && (
-              <>
-                <TouchableOpacity style={styles.attachBtn} onPress={sendImage} accessibilityLabel="Enviar imagem">
-                  <Ionicons name="image-outline" size={21} color="#FF6B35" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.attachBtn} onPress={sendLocation} accessibilityLabel="Enviar localização">
-                  <Ionicons name="location-outline" size={21} color="#FF6B35" />
-                </TouchableOpacity>
-              </>
-            )}
-            {text.trim() ? (
-              <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} accessibilityLabel="Enviar mensagem">
-                <Ionicons name="send" size={18} color="#fff" />
-              </TouchableOpacity>
-            ) : uploadingAudio ? (
-              <View style={styles.micBtn}>
-                <ActivityIndicator size="small" color="#FF6B35" />
-              </View>
-            ) : (
-              <Animated.View style={{ transform: [{ scale: micPressAnim }] }}>
-                <TouchableOpacity
-                  style={styles.micBtn}
-                  onLongPress={startRecording}
-                  delayLongPress={200}
-                  accessibilityLabel="Segure para gravar áudio"
-                >
-                  <Ionicons name="mic-outline" size={22} color="#FF6B35" />
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-          </>
-        ) : (
-          <TouchableOpacity
-            style={styles.stopRecordBtn}
-            onPress={stopRecording}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#FF6B35', '#FF4500']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.stopRecordGradient}
-            >
-              <Ionicons name="stop" size={18} color="#fff" />
-              <Text style={styles.stopRecordText}>Enviar</Text>
-            </LinearGradient>
+        <View style={styles.inputWrap}>
+          <TextInput
+            style={styles.input}
+            placeholder="Mensagem..."
+            placeholderTextColor={theme.textSecondary}
+            value={text}
+            onChangeText={handleTextChange}
+            multiline
+            maxLength={1000}
+          />
+        </View>
+        {!text.trim() && (
+          <TouchableOpacity style={styles.attachBtn} onPress={sendLocation} accessibilityRole="button" accessibilityLabel="Enviar localização">
+            <Ionicons name="location-outline" size={21} color={theme.primary} />
+          </TouchableOpacity>
+        )}
+        {!!text.trim() && (
+          <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} accessibilityRole="button" accessibilityLabel="Enviar mensagem">
+            <Ionicons name="send" size={18} color={theme.primaryText} />
           </TouchableOpacity>
         )}
       </View>
@@ -976,25 +734,25 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.dark.background },
+const createStyles = (theme: AppTheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
 
   // ── Reações ──────────────────────────────────────────────────────────────
   reactionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   reactionChip: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
+    backgroundColor: theme.surfaceElevated, borderRadius: 12,
     paddingHorizontal: 7, paddingVertical: 2,
     borderWidth: 1, borderColor: 'transparent',
   },
-  reactionChipMine: { backgroundColor: 'rgba(255,107,53,0.25)', borderColor: 'rgba(255,107,53,0.5)' },
+  reactionChipMine: { backgroundColor: theme.primarySoft, borderColor: theme.primary },
   reactionEmoji: { fontSize: 12 },
-  reactionCount: { fontSize: 11, fontWeight: '700', color: colors.text },
-  reactionOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  reactionCount: { fontSize: 11, fontWeight: '700', color: theme.textPrimary },
+  reactionOverlay: { flex: 1, backgroundColor: theme.overlay, alignItems: 'center', justifyContent: 'center' },
   reactionPicker: {
-    flexDirection: 'row', gap: 6, backgroundColor: '#1C1C28',
+    flexDirection: 'row', gap: 6, backgroundColor: theme.surfaceElevated,
     borderRadius: 30, paddingHorizontal: 10, paddingVertical: 8,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1, borderColor: theme.border,
   },
   reactionPickBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   reactionPickEmoji: { fontSize: 26 },
@@ -1010,23 +768,25 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: theme.surface,
+    borderWidth: 1, borderColor: theme.border,
     justifyContent: 'center', alignItems: 'center',
   },
   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   headerAvatar: { position: 'relative' },
   headerAvatarImg: {
     width: 38, height: 38, borderRadius: 19,
-    borderWidth: 2, borderColor: 'rgba(255,107,53,0.4)',
+    borderWidth: 2, borderColor: theme.primary,
+    justifyContent: 'center', alignItems: 'center',
   },
+  headerAvatarInitial: { color: theme.primaryText, fontSize: 18, fontWeight: '800' },
   headerOnlineDot: {
     position: 'absolute', bottom: 0, right: 0,
     width: 10, height: 10, borderRadius: 5,
-    backgroundColor: colors.success, borderWidth: 2, borderColor: '#0A0A0F',
+    backgroundColor: theme.success, borderWidth: 2, borderColor: theme.background,
   },
-  headerTitle: { fontSize: fontSize.md, fontWeight: '700', color: '#fff' },
-  headerSubtitle: { fontSize: fontSize.xs, color: colors.success, fontWeight: '500' },
+  headerTitle: { fontSize: fontSize.md, fontWeight: '700', color: theme.textPrimary },
+  headerSubtitle: { fontSize: fontSize.xs, color: theme.success, fontWeight: '500' },
   headerAction: {
     width: 36, height: 36, borderRadius: 18,
     justifyContent: 'center', alignItems: 'center',
@@ -1037,12 +797,12 @@ const styles = StyleSheet.create({
   emptyChat: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
   emptyChatIcon: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: theme.input,
     justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md,
   },
-  emptyChatText: { fontSize: fontSize.sm, color: colors.dark.secondaryText, textAlign: 'center' },
+  emptyChatText: { fontSize: fontSize.sm, color: theme.textSecondary, textAlign: 'center' },
   timeStamp: {
-    fontSize: 11, color: colors.dark.secondaryText,
+    fontSize: 11, color: theme.textSecondary,
     textAlign: 'center', marginVertical: spacing.sm,
   },
   messageBubble: {
@@ -1050,98 +810,74 @@ const styles = StyleSheet.create({
     borderRadius: 20, marginBottom: 4,
   },
   myMessage: {
-    alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomRightRadius: 6,
+    alignSelf: 'flex-end', backgroundColor: theme.primary, borderBottomRightRadius: 6,
   },
   theirMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: theme.surfaceSecondary,
+    borderWidth: 1, borderColor: theme.border,
     borderBottomLeftRadius: 6,
   },
-  messageText: { fontSize: fontSize.md, color: colors.dark.text, lineHeight: 22 },
-  myMessageText: { color: '#fff' },
+  messageText: { fontSize: fontSize.md, color: theme.textPrimary, lineHeight: 22 },
+  myMessageText: { color: theme.primaryText },
   messageFooter: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     gap: 4, marginTop: 2,
   },
-  messageTime: { fontSize: 10, color: colors.secondaryText },
+  messageTime: { fontSize: 10, color: theme.textSecondary },
   myMessageTime: { color: 'rgba(255,255,255,0.6)' },
 
   // ── Audio bubble ───────────────────────────────────────────────────────────
   audioBubble: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   audioWave: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   audioBar: { width: 3, borderRadius: 2 },
-  audioDurText: { fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
+  audioDurText: { fontSize: 12, color: theme.textSecondary, fontWeight: '600' },
 
   // ── Typing ─────────────────────────────────────────────────────────────────
   typingContainer: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.lg, paddingVertical: 4, gap: spacing.xs,
   },
-  typingText: { fontSize: fontSize.xs, color: colors.dark.secondaryText, fontStyle: 'italic' },
+  typingText: { fontSize: fontSize.xs, color: theme.textSecondary, fontStyle: 'italic' },
   typingDots: { flexDirection: 'row', gap: 3 },
-  typingDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.dark.secondaryText },
-
-  // ── Recording overlay ──────────────────────────────────────────────────────
-  recordingOverlay: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: 10,
-    backgroundColor: '#0D0D1A',
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
-    gap: spacing.md,
-  },
-  cancelRecordBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(248,113,113,0.12)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  recordingInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  recordingDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#F87171',
-  },
-  recordingTime: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  recordingHint: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
+  typingDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: theme.textSecondary },
 
   // ── Input bar ──────────────────────────────────────────────────────────────
   inputContainer: {
     flexDirection: 'row', alignItems: 'flex-end',
     paddingHorizontal: spacing.sm, paddingVertical: spacing.sm,
     paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.md,
-    backgroundColor: '#0D0D1A',
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: theme.surface,
+    borderTopWidth: 1, borderTopColor: theme.divider,
     gap: spacing.xs,
   },
   inputWrap: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: theme.input,
+    borderWidth: 1, borderColor: theme.border,
     borderRadius: 20,
     paddingHorizontal: spacing.md, maxHeight: 100,
   },
   input: {
-    fontSize: fontSize.md, color: colors.dark.text,
+    fontSize: fontSize.md, color: theme.textPrimary,
     paddingVertical: Platform.OS === 'ios' ? 10 : 8, minHeight: 36,
   },
   sendBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: '#FF6B35',
+    width: 38, height: 38, borderRadius: 19, backgroundColor: theme.primary,
     justifyContent: 'center', alignItems: 'center', marginBottom: 2,
-    shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 4 },
+    shadowColor: theme.primary, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5, shadowRadius: 10, elevation: 8,
-  },
-  micBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 2,
   },
   attachBtn: {
     width: 36, height: 36, borderRadius: 18,
     justifyContent: 'center', alignItems: 'center', marginBottom: 2,
-    backgroundColor: 'rgba(255,107,53,0.08)',
+    backgroundColor: theme.primarySoft,
   },
   chatImage: {
     width: 210,
     height: 150,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.divider,
   },
   locationBubble: {
     minWidth: 210,
@@ -1149,17 +885,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  locationTitle: { color: colors.dark.text, fontSize: 14, fontWeight: '800' },
-  locationCoords: { color: colors.secondaryText, fontSize: 11, marginTop: 2 },
-  stopRecordBtn: { flex: 1, borderRadius: borderRadius.md, overflow: 'hidden' },
-  stopRecordGradient: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12,
-  },
-  stopRecordText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-
+  locationTitle: { color: theme.textPrimary, fontSize: 14, fontWeight: '800' },
+  locationCoords: { color: theme.textSecondary, fontSize: 11, marginTop: 2 },
   loadMoreBtn: {
     alignItems: 'center', paddingVertical: spacing.sm, marginBottom: spacing.sm,
   },
-  loadMoreText: { fontSize: fontSize.xs, color: colors.dark.secondaryText, fontWeight: '500' },
+  loadMoreText: { fontSize: fontSize.xs, color: theme.textSecondary, fontWeight: '500' },
 });

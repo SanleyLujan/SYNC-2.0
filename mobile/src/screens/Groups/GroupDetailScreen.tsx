@@ -1,6 +1,6 @@
 // Detalhe do grupo: header, total de km (soma dos membros), entrar/sair,
 // e lista de membros rankeada por km contribuído.
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,9 @@ import { Image } from 'expo-image'; // recorta avatar no círculo (web + nativo)
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { fontSize, spacing, borderRadius } from '../../theme';
+import { AppTheme } from '../../theme/colors';
+import { useThemeStore } from '../../store/themeStore';
 import { groupsApi, GroupSummary, GroupJoinRequest } from '../../services/groups.service';
 import { useAuthStore } from '../../store/authStore';
 import { showToast } from '../../components/ui/Toast';
@@ -33,6 +35,8 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 
 export default function GroupDetailScreen({ navigation, route }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((state) => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { groupId, groupName } = route.params as { groupId: string; groupName?: string };
   const currentUser = useAuthStore((s) => s.user);
 
@@ -169,7 +173,7 @@ export default function GroupDetailScreen({ navigation, route }: any) {
             disabled={busy}
             accessibilityLabel={`Remover ${item.user?.name || 'membro'}`}
           >
-            <Ionicons name="close" size={16} color="#F87171" />
+            <Ionicons name="close" size={16} color={theme.danger} />
           </TouchableOpacity>
         )}
       </View>
@@ -183,10 +187,10 @@ export default function GroupDetailScreen({ navigation, route }: any) {
         <Text style={styles.requestSub}>Solicitou entrada</Text>
       </View>
       <TouchableOpacity style={styles.approveBtn} onPress={() => handleRequestDecision(item.id, true)} disabled={busy}>
-        <Ionicons name="checkmark" size={16} color="#fff" />
+        <Ionicons name="checkmark" size={16} color={theme.primaryText} />
       </TouchableOpacity>
       <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRequestDecision(item.id, false)} disabled={busy}>
-        <Ionicons name="close" size={16} color="#fff" />
+        <Ionicons name="close" size={16} color={theme.primaryText} />
       </TouchableOpacity>
     </View>
   );
@@ -194,32 +198,34 @@ export default function GroupDetailScreen({ navigation, route }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={theme.mode === 'dark'
+          ? [theme.surfaceSecondary, theme.surface, theme.background]
+          : [theme.surface, theme.surfaceSecondary, theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
       >
         <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Ionicons name="arrow-back" size={20} color={theme.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{group?.name || groupName || 'Grupo'}</Text>
         <View style={{ width: 38 }} />
       </LinearGradient>
 
       {loading ? (
-        <View style={styles.loadingWrap}><ActivityIndicator size="large" color="#FF6B35" /></View>
+        <View style={styles.loadingWrap}><ActivityIndicator size="large" color={theme.primary} /></View>
       ) : (
         <FlatList
           data={members}
           keyExtractor={(m) => m.id}
           renderItem={renderMember}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor="#FF6B35" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={theme.primary} />}
           contentContainerStyle={{ paddingBottom: 100 }}
           ListHeaderComponent={
             <View>
               {/* Hero */}
               <View style={styles.hero}>
-                <LinearGradient colors={['#FF6B35', '#FF4500']} style={styles.heroAvatar} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                <LinearGradient colors={theme.gradientPrimary} style={styles.heroAvatar} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                   <Text style={styles.heroLetter}>{(group?.name || 'G')[0]?.toUpperCase()}</Text>
                 </LinearGradient>
                 {group?.description ? <Text style={styles.heroDesc}>{group.description}</Text> : null}
@@ -250,15 +256,15 @@ export default function GroupDetailScreen({ navigation, route }: any) {
                 {/* Join / Leave */}
                 {isMember ? (
                   <TouchableOpacity style={[styles.actionBtn, styles.leaveBtn]} onPress={handleLeave} disabled={busy}>
-                    {busy ? <ActivityIndicator size="small" color="#F87171" /> : (
-                      <><Ionicons name="exit-outline" size={18} color="#F87171" /><Text style={styles.leaveText}>Sair do grupo</Text></>
+                    {busy ? <ActivityIndicator size="small" color={theme.danger} /> : (
+                      <><Ionicons name="exit-outline" size={18} color={theme.danger} /><Text style={styles.leaveText}>Sair do grupo</Text></>
                     )}
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity style={styles.actionBtn} onPress={handleJoin} disabled={busy || requestPending} activeOpacity={0.85}>
-                    <LinearGradient colors={['#FF6B35', '#FF4500']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.joinGradient}>
-                      {busy ? <ActivityIndicator size="small" color="#fff" /> : (
-                        <><Ionicons name={requestPending ? 'time-outline' : group?.isPrivate ? 'mail-outline' : 'add'} size={18} color="#fff" /><Text style={styles.joinText}>{requestPending ? 'Solicitação pendente' : group?.isPrivate ? 'Solicitar entrada' : 'Entrar no grupo'}</Text></>
+                    <LinearGradient colors={theme.gradientPrimary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.joinGradient}>
+                      {busy ? <ActivityIndicator size="small" color={theme.primaryText} /> : (
+                        <><Ionicons name={requestPending ? 'time-outline' : group?.isPrivate ? 'mail-outline' : 'add'} size={18} color={theme.primaryText} /><Text style={styles.joinText}>{requestPending ? 'Solicitação pendente' : group?.isPrivate ? 'Solicitar entrada' : 'Entrar no grupo'}</Text></>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
@@ -280,7 +286,7 @@ export default function GroupDetailScreen({ navigation, route }: any) {
           }
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Ionicons name="people-outline" size={40} color="rgba(255,255,255,0.2)" />
+              <Ionicons name="people-outline" size={40} color={theme.textMuted} />
               <Text style={styles.emptyText}>Ainda sem membros com km registrados.</Text>
             </View>
           }
@@ -290,86 +296,86 @@ export default function GroupDetailScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0F' },
+const createStyles = (theme: AppTheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: theme.divider, borderWidth: 1, borderColor: theme.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: fontSize.lg, fontWeight: '800', color: '#fff' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: fontSize.lg, fontWeight: '800', color: theme.textPrimary },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   hero: { alignItems: 'center', padding: spacing.lg, gap: spacing.sm },
   heroAvatar: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
-  heroLetter: { color: '#fff', fontSize: 32, fontWeight: '900' },
-  heroDesc: { color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', marginTop: 4 },
+  heroLetter: { color: theme.primaryText, fontSize: 32, fontWeight: '900' },
+  heroDesc: { color: theme.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 4 },
   heroMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-  heroMeta: { color: 'rgba(255,255,255,0.55)', fontSize: 12 },
+  heroMeta: { color: theme.textSecondary, fontSize: 12 },
 
   statsRow: {
     flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: borderRadius.lg,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.surface, borderRadius: borderRadius.lg,
+    borderWidth: 1, borderColor: theme.divider,
     paddingVertical: spacing.md, marginTop: spacing.sm,
   },
   statBox: { flex: 1, alignItems: 'center' },
-  statValue: { color: '#FF6B35', fontSize: 22, fontWeight: '900' },
-  statLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 },
-  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.08)' },
+  statValue: { color: theme.primary, fontSize: 22, fontWeight: '900' },
+  statLabel: { color: theme.textSecondary, fontSize: 11, marginTop: 2 },
+  statDivider: { width: 1, height: 28, backgroundColor: theme.divider },
 
   actionBtn: { alignSelf: 'stretch', borderRadius: borderRadius.md, overflow: 'hidden', marginTop: spacing.sm },
   joinGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
-  joinText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  joinText: { color: theme.primaryText, fontSize: 15, fontWeight: '800' },
   leaveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14,
-    backgroundColor: 'rgba(248,113,113,0.10)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.25)',
+    backgroundColor: theme.dangerSoft, borderWidth: 1, borderColor: theme.danger,
   },
-  leaveText: { color: '#F87171', fontSize: 15, fontWeight: '700' },
+  leaveText: { color: theme.danger, fontSize: 15, fontWeight: '700' },
 
   membersHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.xs },
-  membersTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  membersTitle: { color: theme.textPrimary, fontSize: 15, fontWeight: '800' },
 
   memberRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     marginHorizontal: spacing.md, marginBottom: spacing.xs,
-    backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: borderRadius.md,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', padding: spacing.sm,
+    backgroundColor: theme.surface, borderRadius: borderRadius.md,
+    borderWidth: 1, borderColor: theme.divider, padding: spacing.sm,
   },
-  memberRowMe: { borderColor: 'rgba(255,107,53,0.4)', backgroundColor: 'rgba(255,107,53,0.06)' },
+  memberRowMe: { borderColor: theme.primary, backgroundColor: theme.primarySoft },
   rankWrap: { width: 28, alignItems: 'center' },
   medal: { fontSize: 18 },
-  rankNum: { color: 'rgba(255,255,255,0.5)', fontWeight: '800', fontSize: 13 },
+  rankNum: { color: theme.textSecondary, fontWeight: '800', fontSize: 13 },
   memberAvatar: { width: 40, height: 40, borderRadius: 20 },
-  memberAvatarFallback: { backgroundColor: 'rgba(255,107,53,0.2)', alignItems: 'center', justifyContent: 'center' },
-  memberInitial: { color: '#FF6B35', fontWeight: '800', fontSize: 16 },
-  memberName: { color: '#fff', fontSize: 14, fontWeight: '700', maxWidth: 150 },
-  memberSub: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 },
-  memberKm: { color: '#FCD34D', fontSize: 15, fontWeight: '800' },
-  adminBadge: { backgroundColor: 'rgba(255,107,53,0.18)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
-  adminBadgeText: { color: '#FF6B35', fontSize: 9, fontWeight: '800' },
+  memberAvatarFallback: { backgroundColor: theme.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  memberInitial: { color: theme.primary, fontWeight: '800', fontSize: 16 },
+  memberName: { color: theme.textPrimary, fontSize: 14, fontWeight: '700', maxWidth: 150 },
+  memberSub: { color: theme.textSecondary, fontSize: 11, marginTop: 2 },
+  memberKm: { color: theme.mode === 'dark' ? '#FCD34D' : theme.primary, fontSize: 15, fontWeight: '800' },
+  adminBadge: { backgroundColor: theme.primarySoft, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
+  adminBadgeText: { color: theme.primary, fontSize: 9, fontWeight: '800' },
   removeMemberBtn: {
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(248,113,113,0.12)',
+    backgroundColor: theme.dangerSoft,
   },
   requestsBox: {
     marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: borderRadius.md,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: spacing.md,
+    backgroundColor: theme.surface, borderRadius: borderRadius.md,
+    borderWidth: 1, borderColor: theme.divider, padding: spacing.md,
   },
-  requestsTitle: { color: '#fff', fontSize: 14, fontWeight: '800', marginBottom: spacing.sm },
+  requestsTitle: { color: theme.textPrimary, fontSize: 14, fontWeight: '800', marginBottom: spacing.sm },
   requestRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
   requestInfo: { flex: 1 },
-  requestName: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  requestSub: { color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 },
-  approveBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center' },
-  rejectBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F87171', alignItems: 'center', justifyContent: 'center' },
+  requestName: { color: theme.textPrimary, fontSize: 13, fontWeight: '700' },
+  requestSub: { color: theme.textSecondary, fontSize: 11, marginTop: 2 },
+  approveBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.success, alignItems: 'center', justifyContent: 'center' },
+  rejectBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.danger, alignItems: 'center', justifyContent: 'center' },
 
   emptyWrap: { alignItems: 'center', marginTop: 40, gap: 10 },
-  emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: 13 },
+  emptyText: { color: theme.textSecondary, fontSize: 13 },
 });

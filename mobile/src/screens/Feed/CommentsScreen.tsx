@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert,
@@ -9,10 +9,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { feedApi, FeedComment } from '../../services/feed.service';
 import { useAuthStore } from '../../store/authStore';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { fontSize, spacing, borderRadius } from '../../theme';
+import { AppTheme } from '../../theme/colors';
+import { useThemeStore } from '../../store/themeStore';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getTabBarHeight } from '../../navigation/MainTabNavigator';
 
 // Generic params — Comments can be reached from multiple stacks
 type CommentsParams = {
@@ -37,6 +40,8 @@ function timeAgo(iso: string): string {
 
 export default function CommentsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore(state => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { postId, postAuthorName } = route.params;
   const { user } = useAuthStore();
   const [comments, setComments] = useState<FeedComment[]>([]);
@@ -64,7 +69,7 @@ export default function CommentsScreen({ navigation, route }: Props) {
   useEffect(() => { load(); }, [load]);
 
   const handleSubmit = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || submitting || !user) return;
     setSubmitting(true);
     const optimisticId = `temp-${Date.now()}`;
     const optimistic: FeedComment = {
@@ -176,7 +181,7 @@ export default function CommentsScreen({ navigation, route }: Props) {
           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           style={{ marginLeft: 4 }}
         >
-          <Ionicons name="trash-outline" size={14} color={colors.dark.secondaryText} />
+          <Ionicons name="trash-outline" size={14} color={theme.textSecondary} />
         </TouchableOpacity>
       )}
     </View>
@@ -184,13 +189,13 @@ export default function CommentsScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingBottom: getTabBarHeight(insets.bottom) }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={0}
     >
       {/* Header */}
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={[theme.surface, theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
@@ -201,7 +206,7 @@ export default function CommentsScreen({ navigation, route }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color={colors.dark.text} />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Comentários</Text>
@@ -212,7 +217,7 @@ export default function CommentsScreen({ navigation, route }: Props) {
       {/* Comments list */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
@@ -220,11 +225,13 @@ export default function CommentsScreen({ navigation, route }: Props) {
           data={comments}
           keyExtractor={(c) => c.id}
           renderItem={renderItem}
+          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1 }}
           contentContainerStyle={{ padding: spacing.md, paddingBottom: 120 }}
           ListEmptyComponent={
             error ? (
               <View style={styles.empty}>
-                <Ionicons name="cloud-offline-outline" size={48} color={colors.primary + '40'} />
+                <Ionicons name="cloud-offline-outline" size={48} color={theme.primary + '40'} />
                 <Text style={styles.emptyText}>Erro ao carregar comentários</Text>
                 <TouchableOpacity
                   style={styles.retryBtn}
@@ -238,7 +245,7 @@ export default function CommentsScreen({ navigation, route }: Props) {
               </View>
             ) : (
               <View style={styles.empty}>
-                <Ionicons name="chatbubbles-outline" size={48} color={colors.primary + '40'} />
+                <Ionicons name="chatbubbles-outline" size={48} color={theme.primary + '40'} />
                 <Text style={styles.emptyText}>Seja o primeiro a comentar!</Text>
               </View>
             )
@@ -259,7 +266,8 @@ export default function CommentsScreen({ navigation, route }: Props) {
         <TextInput
           style={styles.input}
           placeholder="Adicionar comentário..."
-          placeholderTextColor={colors.dark.secondaryText}
+          accessibilityLabel="Adicionar comentário"
+          placeholderTextColor={theme.textSecondary}
           value={text}
           onChangeText={setText}
           maxLength={500}
@@ -269,13 +277,15 @@ export default function CommentsScreen({ navigation, route }: Props) {
         />
         <TouchableOpacity
           onPress={handleSubmit}
+          accessibilityRole="button"
+          accessibilityLabel="Enviar comentário"
           disabled={submitting || !text.trim()}
           style={[styles.sendBtn, (!text.trim() || submitting) && { opacity: 0.4 }]}
         >
           {submitting ? (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <Ionicons name="send" size={20} color={colors.primary} />
+            <Ionicons name="send" size={20} color={theme.primary} />
           )}
         </TouchableOpacity>
       </View>
@@ -283,8 +293,8 @@ export default function CommentsScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.dark.background },
+const createStyles = (theme: AppTheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -294,54 +304,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: theme.divider,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.border,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: theme.border,
     justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: { fontSize: fontSize.lg, fontWeight: '700', color: colors.dark.text },
-  headerSub: { fontSize: fontSize.xs, color: colors.dark.secondaryText, marginTop: 1 },
+  headerTitle: { fontSize: fontSize.lg, fontWeight: '700', color: theme.textPrimary },
+  headerSub: { fontSize: fontSize.xs, color: theme.textSecondary, marginTop: 1 },
   commentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.10)' },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.border },
   bubble: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: theme.border,
   },
   bubbleHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   commenterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
-  commenterName: { fontSize: fontSize.sm, fontWeight: '700', color: colors.dark.text },
-  commentTime: { fontSize: 11, color: colors.dark.secondaryText },
-  commentText: { fontSize: fontSize.sm, color: colors.dark.text, lineHeight: 20 },
+  commenterName: { fontSize: fontSize.sm, fontWeight: '700', color: theme.textPrimary },
+  commentTime: { fontSize: 11, color: theme.textSecondary },
+  commentText: { fontSize: fontSize.sm, color: theme.textPrimary, lineHeight: 20 },
   reactionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: spacing.sm },
   reactionButton: {
     minHeight: 28,
     paddingHorizontal: 7,
     borderRadius: 14,
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: theme.surfaceSecondary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: theme.border,
   },
   reactionButtonSelected: {
-    backgroundColor: 'rgba(255,107,53,0.16)',
-    borderColor: 'rgba(255,107,53,0.55)',
+    backgroundColor: theme.primarySoft,
+    borderColor: theme.primary,
   },
-  reactionText: { color: colors.dark.text, fontSize: 12 },
+  reactionText: { color: theme.textPrimary, fontSize: 12 },
   empty: { alignItems: 'center', marginTop: 60, gap: spacing.md },
-  emptyText: { color: colors.dark.secondaryText, fontSize: fontSize.md },
+  emptyText: { color: theme.textSecondary, fontSize: fontSize.md },
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -349,30 +359,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#FF6B35',
+    backgroundColor: theme.primary,
   },
-  retryText: { color: '#fff', fontWeight: '700', fontSize: fontSize.sm },
+  retryText: { color: theme.primaryText, fontWeight: '700', fontSize: fontSize.sm },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: '#0D0D1A',
+    borderTopColor: theme.divider,
+    backgroundColor: theme.surface,
     gap: spacing.sm,
   },
-  inputAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.10)' },
+  inputAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.border },
   input: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: Platform.OS === 'ios' ? spacing.sm : 4,
-    color: colors.dark.text,
+    color: theme.textPrimary,
     fontSize: fontSize.sm,
     maxHeight: 100,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: theme.border,
   },
   sendBtn: { paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 4 },
 });

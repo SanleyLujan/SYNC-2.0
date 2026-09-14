@@ -11,7 +11,7 @@ import {
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { CommonActions, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from './types';
 import { colors } from '../theme';
@@ -32,6 +32,15 @@ const BAR_INNER_HEIGHT = Platform.OS === 'ios' ? 60 : 58;
 
 // Exportado para uso em paddingBottom de listas
 export const TAB_BAR_HEIGHT = BAR_INNER_HEIGHT + (Platform.OS === 'ios' ? 34 : 0);
+export const getTabBarHeight = (bottomInset: number) => (
+  BAR_INNER_HEIGHT + Math.max(bottomInset, Platform.OS === 'ios' ? 8 : 6)
+);
+
+const TAB_ROOTS: Record<string, string> = {
+  FeedTab: 'FeedMain', HomeTab: 'Discovery', MapTab: 'MapMain',
+  TrackingTab: 'TrackingMain', GroupsTab: 'GroupsHome',
+  ChatTab: 'ConversationList', ProfileTab: 'MyProfile',
+};
 
 const TABS: Record<
   string,
@@ -93,6 +102,7 @@ function TabItem({
       accessibilityRole="tab"
       accessibilityLabel={config.label}
       accessibilityState={{ selected: focused }}
+      aria-selected={focused}
     >
       {/* Pill indicator por trás do ícone */}
       <Animated.View
@@ -183,8 +193,17 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               target: route.key,
               canPreventDefault: true,
             });
-            if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name as never);
+            if (!event.defaultPrevented) {
+              const screen = TAB_ROOTS[route.name];
+              // Um toque na barra sempre abre a raiz, inclusive na aba ativa.
+              // Reinicia apenas a pilha escolhida, preservando as outras abas.
+              if (route.state?.key) {
+                navigation.dispatch({
+                  ...CommonActions.reset({ index: 0, routes: [{ name: screen }] }),
+                  target: route.state.key,
+                });
+              }
+              navigation.navigate(route.name, { screen });
             }
           };
 

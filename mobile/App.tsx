@@ -83,10 +83,23 @@ export default function App() {
     registerServiceWorker();
   }, [loadTheme]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    // No PWA Android, a barra do sistema usa o meta theme-color, não StatusBar.
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = theme.background;
+    document.documentElement.style.colorScheme = theme.mode;
+  }, [theme]);
+
   if (liveToken) {
     return (
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} backgroundColor={theme.background} />
         <LiveViewScreen token={liveToken} />
       </GestureHandlerRootView>
     );
@@ -95,7 +108,7 @@ export default function App() {
   if (emailVerificationToken) {
     return (
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} backgroundColor={theme.background} />
         <VerifyEmailScreen token={emailVerificationToken} />
         <ToastHost />
       </GestureHandlerRootView>
@@ -106,7 +119,7 @@ export default function App() {
   if (passwordResetToken) {
     return (
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
-        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} backgroundColor={theme.background} />
         <ResetPasswordScreen token={passwordResetToken} />
         <ToastHost />
       </GestureHandlerRootView>
@@ -134,7 +147,7 @@ export default function App() {
           }
         >
           <NavigationContainer documentTitle={{ formatter: () => 'Sync' }}>
-            <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+            <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} backgroundColor={theme.background} />
             <AccessibilityEffects />
             <ConnectionBanner />
             <ErrorBoundary fallback={<GlobalCrashFallback />}>

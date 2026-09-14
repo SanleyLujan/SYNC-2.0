@@ -1,5 +1,5 @@
 // Tela de Desafios — inbox/outbox, aceitar/recusar, criar novo desafio
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { fontSize, spacing, borderRadius } from '../../theme';
+import { AppTheme } from '../../theme/colors';
+import { useThemeStore } from '../../store/themeStore';
 import { challengesService, Challenge } from '../../services/challenges.service';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useAuthStore } from '../../store/authStore';
@@ -75,6 +77,8 @@ function timeAgo(dateStr: string) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function ChallengesScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore(state => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const user = useAuthStore((s) => s.user);
   const haptic = useHaptic();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -216,16 +220,16 @@ export default function ChallengesScreen({ navigation }: any) {
         {/* Challenge details */}
         <View style={styles.challengeDetails}>
           <View style={styles.detailChip}>
-            <Ionicons name="fitness-outline" size={13} color="rgba(255,255,255,0.5)" />
+            <Ionicons name="fitness-outline" size={13} color={theme.textSecondary} />
             <Text style={styles.detailText}>{SPORT_NAMES[item.sport] || item.sport}</Text>
           </View>
           <View style={styles.detailChip}>
-            <Ionicons name="trending-up-outline" size={13} color="rgba(255,255,255,0.5)" />
+            <Ionicons name="trending-up-outline" size={13} color={theme.textSecondary} />
             <Text style={styles.detailText}>{formatTarget(item.metric, item.target)}</Text>
           </View>
           {item.expiresAt && (
             <View style={styles.detailChip}>
-              <Ionicons name="calendar-outline" size={13} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="calendar-outline" size={13} color={theme.textSecondary} />
               <Text style={styles.detailText}>
                 {new Date(item.expiresAt).toLocaleDateString('pt-BR')}
               </Text>
@@ -253,10 +257,10 @@ export default function ChallengesScreen({ navigation }: any) {
               activeOpacity={0.7}
             >
               {isResponding ? (
-                <ActivityIndicator size="small" color="#F87171" />
+                <ActivityIndicator size="small" color={theme.danger} />
               ) : (
                 <>
-                  <Ionicons name="close" size={16} color="#F87171" />
+                  <Ionicons name="close" size={16} color={theme.danger} />
                   <Text style={[styles.actionBtnText, { color: '#F87171' }]}>Recusar</Text>
                 </>
               )}
@@ -268,7 +272,7 @@ export default function ChallengesScreen({ navigation }: any) {
               activeOpacity={0.7}
             >
               <LinearGradient
-                colors={['#FF6B35', '#FF4500']}
+                colors={theme.gradientPrimary}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.acceptGradient}
@@ -294,10 +298,10 @@ export default function ChallengesScreen({ navigation }: any) {
             activeOpacity={0.7}
           >
             {isCompleting ? (
-              <ActivityIndicator size="small" color="#10B981" />
+              <ActivityIndicator size="small" color={theme.success} />
             ) : (
               <>
-                <Ionicons name="flag-outline" size={15} color="#10B981" />
+                <Ionicons name="flag-outline" size={15} color={theme.success} />
                 <Text style={styles.completeBtnText}>Atualizar progresso automático</Text>
               </>
             )}
@@ -321,18 +325,18 @@ export default function ChallengesScreen({ navigation }: any) {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={[theme.surface, theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
       >
         <TouchableOpacity
-          onPress={() => navigation?.goBack?.()}
+          onPress={() => navigation.navigate('MyProfile')}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Ionicons name="arrow-back" size={20} color={theme.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Desafios</Text>
         <TouchableOpacity
@@ -341,7 +345,7 @@ export default function ChallengesScreen({ navigation }: any) {
           accessibilityRole="button"
           accessibilityLabel="Criar novo desafio"
         >
-          <Ionicons name="add" size={22} color="#FF6B35" />
+          <Ionicons name="add" size={22} color={theme.primary} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -363,7 +367,7 @@ export default function ChallengesScreen({ navigation }: any) {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
@@ -379,14 +383,14 @@ export default function ChallengesScreen({ navigation }: any) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); load(true); }}
-              tintColor="#FF6B35"
+              tintColor={theme.primary}
             />
           }
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}>
-                <Ionicons name="flash-outline" size={36} color="rgba(255,255,255,0.15)" />
+                <Ionicons name="flash-outline" size={36} color={theme.textSecondary} />
               </View>
               <Text style={styles.emptyTitle}>Nenhum desafio aqui</Text>
               <Text style={styles.emptySub}>
@@ -399,7 +403,7 @@ export default function ChallengesScreen({ navigation }: any) {
               {activeTab === 'Enviados' && (
                 <TouchableOpacity style={styles.emptyCreateBtn} onPress={() => setShowCreate(true)}>
                   <LinearGradient
-                    colors={['#FF6B35', '#FF4500']}
+                    colors={theme.gradientPrimary}
                     style={styles.emptyCreateGradient}
                   >
                     <Ionicons name="add" size={16} color="#fff" />
@@ -430,9 +434,11 @@ export default function ChallengesScreen({ navigation }: any) {
               <Text style={styles.modalTitle}>Novo desafio ⚡</Text>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar novo desafio"
                 onPress={() => setShowCreate(false)}
               >
-                <Ionicons name="close" size={20} color="rgba(255,255,255,0.6)" />
+                <Ionicons name="close" size={20} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -508,7 +514,7 @@ export default function ChallengesScreen({ navigation }: any) {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={['#FF6B35', '#FF4500']}
+                  colors={theme.gradientPrimary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.submitGradient}
@@ -532,8 +538,8 @@ export default function ChallengesScreen({ navigation }: any) {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0F' },
+const createStyles = (theme: AppTheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
 
   // Header
   header: {
@@ -548,20 +554,20 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.border,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: theme.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: fontSize.xl, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  headerTitle: { fontSize: fontSize.xl, fontWeight: '800', color: theme.textPrimary, letterSpacing: -0.3 },
   newBtn: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,107,53,0.12)',
+    backgroundColor: theme.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.30)',
+    borderColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -571,46 +577,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.045)',
+    backgroundColor: theme.surface,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: theme.border,
     padding: 3,
   },
   tab: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: '#FF6B35' },
-  tabText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
-  tabTextActive: { color: '#fff', fontWeight: '700' },
+  tabActive: { backgroundColor: theme.primary },
+  tabText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+  tabTextActive: { color: theme.primaryText, fontWeight: '700' },
 
   // Loading / empty
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: spacing.md, paddingBottom: 80 },
-  listContentEmpty: { flex: 1 },
+  listContentEmpty: { flexGrow: 1 },
   emptyWrap: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
     paddingHorizontal: spacing.xl, gap: spacing.md,
   },
   emptyIcon: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.surface,
+    borderWidth: 1, borderColor: theme.border,
     justifyContent: 'center', alignItems: 'center',
   },
-  emptyTitle: { fontSize: fontSize.lg, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  emptySub: { fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: fontSize.lg, fontWeight: '700', color: theme.textPrimary, textAlign: 'center' },
+  emptySub: { fontSize: 13, color: theme.textSecondary, textAlign: 'center', lineHeight: 20 },
   emptyCreateBtn: { borderRadius: borderRadius.md, overflow: 'hidden', marginTop: spacing.sm },
   emptyCreateGradient: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingVertical: 12, paddingHorizontal: spacing.xl,
   },
-  emptyCreateText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  emptyCreateText: { fontSize: 15, fontWeight: '700', color: theme.primaryText },
 
   // Challenge card
   card: {
-    backgroundColor: 'rgba(255,255,255,0.055)',
+    backgroundColor: theme.surface,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: theme.border,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
@@ -618,12 +624,12 @@ const styles = StyleSheet.create({
   opponentRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
   oppAvatar: { width: 38, height: 38, borderRadius: 19 },
   oppAvatarFallback: {
-    backgroundColor: 'rgba(255,107,53,0.18)',
+    backgroundColor: theme.primarySoft,
     justifyContent: 'center', alignItems: 'center',
   },
-  oppAvatarInitial: { fontSize: 15, fontWeight: '700', color: '#FF6B35' },
-  opponentName: { fontSize: 14, fontWeight: '700', color: '#fff', maxWidth: 160 },
-  cardTime: { fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 },
+  oppAvatarInitial: { fontSize: 15, fontWeight: '700', color: theme.primary },
+  opponentName: { fontSize: 14, fontWeight: '700', color: theme.textPrimary, maxWidth: 160 },
+  cardTime: { fontSize: 11, color: theme.textSecondary, marginTop: 2 },
   statusBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 4,
@@ -633,18 +639,18 @@ const styles = StyleSheet.create({
   challengeDetails: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   detailChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
-  detailText: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-  directionLabel: { fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 8 },
+  detailText: { fontSize: 12, color: theme.textSecondary },
+  directionLabel: { fontSize: 11, color: theme.textSecondary, marginBottom: 8 },
 
   // Action buttons
   actionRow: { flexDirection: 'row', gap: spacing.sm },
   actionBtn: { flex: 1, borderRadius: borderRadius.sm, overflow: 'hidden', minHeight: 42 },
   declineBtn: {
-    backgroundColor: 'rgba(248,113,113,0.10)',
-    borderWidth: 1, borderColor: 'rgba(248,113,113,0.25)',
+    backgroundColor: theme.dangerSoft,
+    borderWidth: 1, borderColor: theme.danger,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   acceptBtn: { overflow: 'hidden', borderRadius: borderRadius.sm },
@@ -656,31 +662,31 @@ const styles = StyleSheet.create({
 
   completeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: 'rgba(16,185,129,0.10)',
-    borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)',
+    backgroundColor: theme.successSoft,
+    borderWidth: 1, borderColor: theme.success,
     borderRadius: borderRadius.sm, paddingVertical: 10,
   },
-  completeBtnText: { fontSize: 13, fontWeight: '600', color: '#10B981' },
+  completeBtnText: { fontSize: 13, fontWeight: '600', color: theme.success },
 
   winnerBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(252,211,77,0.10)',
+    backgroundColor: theme.warningSoft,
     borderRadius: borderRadius.sm, padding: 8,
   },
-  winnerText: { fontSize: 13, fontWeight: '700', color: '#FCD34D' },
+  winnerText: { fontSize: 13, fontWeight: '700', color: theme.textPrimary },
 
   // ── Create Modal ──────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: theme.overlay,
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#13131F',
+    backgroundColor: theme.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: theme.border,
     paddingHorizontal: spacing.lg,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     maxHeight: '90%',
@@ -692,52 +698,52 @@ const styles = StyleSheet.create({
   },
   modalHandleBar: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: theme.textMuted,
     marginBottom: spacing.md,
   },
-  modalTitle: { fontSize: fontSize.xl, fontWeight: '800', color: '#fff' },
+  modalTitle: { fontSize: fontSize.xl, fontWeight: '800', color: theme.textPrimary },
   modalCloseBtn: {
     position: 'absolute', right: 0, top: spacing.md,
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: theme.surfaceSecondary,
     justifyContent: 'center', alignItems: 'center',
   },
 
   // Form
   formLabel: {
-    fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.5)',
+    fontSize: 12, fontWeight: '700', color: theme.textSecondary,
     letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8,
   },
   formInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: theme.surfaceSecondary,
+    borderWidth: 1, borderColor: theme.border,
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.md, paddingVertical: 12,
-    color: '#fff', fontSize: 14,
+    color: theme.textPrimary, fontSize: 14,
     marginBottom: spacing.lg,
   },
   chipsScroll: { marginBottom: spacing.lg },
   chipsRow: { flexDirection: 'row', gap: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: 20, borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
   },
-  chipActive: { backgroundColor: 'rgba(255,107,53,0.18)', borderColor: 'rgba(255,107,53,0.45)' },
-  chipText: { fontSize: 13, color: 'rgba(255,255,255,0.55)', fontWeight: '600' },
-  chipTextActive: { color: '#FF6B35' },
+  chipActive: { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+  chipText: { fontSize: 13, color: theme.textSecondary, fontWeight: '600' },
+  chipTextActive: { color: theme.primary },
   metricRow: { flexDirection: 'row', gap: 8, marginBottom: spacing.lg },
   metricBtn: {
     flex: 1, paddingVertical: 10, alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: theme.surfaceSecondary,
     borderRadius: borderRadius.sm, borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
   },
-  metricBtnActive: { backgroundColor: 'rgba(255,107,53,0.18)', borderColor: 'rgba(255,107,53,0.45)' },
-  metricBtnText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
-  metricBtnTextActive: { color: '#FF6B35' },
-  metricUnit: { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2 },
+  metricBtnActive: { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+  metricBtnText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+  metricBtnTextActive: { color: theme.primary },
+  metricUnit: { fontSize: 11, color: theme.textSecondary, marginTop: 2 },
   expiryRow: { flexDirection: 'row', gap: 8, marginBottom: spacing.xl },
 
   submitBtn: { borderRadius: borderRadius.md, overflow: 'hidden', marginTop: spacing.sm },
@@ -745,5 +751,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 16,
   },
-  submitText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  submitText: { fontSize: 16, fontWeight: '800', color: theme.primaryText },
 });
