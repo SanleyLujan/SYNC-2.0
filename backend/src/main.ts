@@ -39,8 +39,9 @@ async function bootstrap() {
             useDefaults: true,
             directives: {
               defaultSrc: ["'self'"],
-              scriptSrc: ["'self'", "'unsafe-inline'"], // Expo web exige inline
-              styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+              scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com/gsi/client'],
+              styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://accounts.google.com/gsi/style'],
+              frameSrc: ['https://accounts.google.com/gsi/'],
               imgSrc: [
                 "'self'",
                 'data:',
@@ -51,6 +52,7 @@ async function bootstrap() {
               ],
               connectSrc: [
                 "'self'",
+                'https://accounts.google.com/gsi/',
                 'https://api.open-meteo.com',
                 'https://air-quality-api.open-meteo.com',
                 'https://api.sunrise-sunset.org',
@@ -66,6 +68,7 @@ async function bootstrap() {
           }
         : false,
       crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
       crossOriginResourcePolicy: { policy: 'cross-origin' },
       // HSTS: força HTTPS por 6 meses em prod
       hsts: isProd ? { maxAge: 15552000, includeSubDomains: true, preload: true } : false,

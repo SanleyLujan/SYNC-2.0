@@ -20,6 +20,7 @@ import { authService } from '../../services/auth.service';
 import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
 import { heroImages } from '../../theme/images';
 import Input from '../../components/ui/Input';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showToast } from '../../components/ui/Toast';
@@ -38,7 +39,6 @@ export default function LoginScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const login = useAuthStore((s) => s.login);
-  const setAuth = useAuthStore((s) => s.setAuth);
 
   const fade = useRef(new Animated.Value(0)).current;
   const slideY = useRef(new Animated.Value(20)).current;
@@ -195,6 +195,8 @@ export default function LoginScreen({ navigation }: Props) {
                   )}
                 </LinearGradient>
               </Pressable>
+
+              <GoogleSignInButton />
 
               <TouchableOpacity
                 onPress={() => navigation.navigate('Register')}

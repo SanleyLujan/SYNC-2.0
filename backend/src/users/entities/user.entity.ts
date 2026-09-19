@@ -32,6 +32,9 @@ export class User {
   @Column({ unique: true, length: 255 })
   email: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, unique: true, select: false })
+  googleSubject: string | null;
+
   @Column({ select: false })
   password: string;
 

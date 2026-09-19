@@ -11,6 +11,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: GOOGLE_CLIENT_ID
+        value: 529178437359-vna4bk83lvk9mne5revmh6cfadmi9131.apps.googleusercontent.com
       - key: DB_SSL
         value: "true"
       - key: DB_SYNCHRONIZE

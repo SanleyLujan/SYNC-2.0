@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { User } from '../users/entities/user.entity';
 import { BannedCpf } from '../users/entities/banned-cpf.entity';
 import { RegisterDto } from './dto/register.dto';
@@ -44,6 +45,7 @@ const GENERIC_INVALID = 'Credenciais inválidas';
 
 @Injectable()
 export class AuthService {
+  private readonly googleClient = new OAuth2Client();
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -130,49 +132,64 @@ export class AuthService {
     };
   }
 
-  // Login/cadastro via Google. Recebe o id_token do app, valida no Google e
-  // cria/loga o usuário. Não precisa de lib extra (usa o endpoint tokeninfo).
-  // Requer env GOOGLE_CLIENT_ID (audiência esperada). Enquanto não setado,
-  // retorna erro claro — o botão no app fica desligado até configurar.
+  // Google Auth Library verifies signature, issuer, audience and expiration.
+  // GOOGLE_CLIENT_ID must match the web client's configured audience.
   async googleLogin(idToken: string, req?: Request) {
     const expectedAud = (process.env.GOOGLE_CLIENT_ID || '').trim();
     if (!expectedAud) {
       throw new BadRequestException('Login com Google ainda não está configurado.');
     }
-    if (!idToken || typeof idToken !== 'string') {
+    if (!idToken || typeof idToken !== 'string' || idToken.length > 10000) {
       throw new BadRequestException('Token do Google ausente.');
     }
 
-    let payload: any;
+    let payload: TokenPayload | undefined;
     try {
-      const resp = await fetch(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
-      );
-      if (!resp.ok) throw new Error('tokeninfo failed');
-      payload = await resp.json();
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: [expectedAud, ...(process.env.GOOGLE_CLIENT_IDS || '').split(',').map(s => s.trim()).filter(Boolean)],
+      });
+      payload = ticket.getPayload();
     } catch {
       throw new UnauthorizedException('Não foi possível validar o login do Google.');
     }
 
-    const audOk = payload.aud === expectedAud || (process.env.GOOGLE_CLIENT_IDS || '')
-      .split(',').map((s) => s.trim()).filter(Boolean).includes(payload.aud);
-    if (!audOk) {
-      throw new UnauthorizedException('Token do Google não é deste app.');
+    if (!payload?.sub) {
+      throw new UnauthorizedException('Token do Google inválido.');
     }
     const email = (payload.email || '').toLowerCase().trim();
-    if (!email || payload.email_verified === 'false' || payload.email_verified === false) {
+    if (!email || payload.email_verified !== true) {
       throw new UnauthorizedException('E-mail do Google não verificado.');
     }
 
-    const existing = await this.userRepository.findOne({ where: { email } });
+    // Include soft-deleted accounts so Google cannot recreate or reactivate them.
+    const findAccount = (where: { email?: string; googleSubject?: string }) =>
+      this.userRepository.createQueryBuilder('user').withDeleted()
+        .addSelect(['user.googleSubject', 'user.deletedAt']).where(where).getOne();
+    let existing = await findAccount({ googleSubject: payload.sub });
+    if (!existing) {
+      existing = await findAccount({ email });
+      if (existing) {
+        // Google is authoritative only for Gmail and verified Workspace email.
+        // Other providers require a separate account-linking challenge.
+        if ((existing.googleSubject && existing.googleSubject !== payload.sub) ||
+            (!email.endsWith('@gmail.com') && !payload.hd)) {
+          throw new UnauthorizedException('Entre com email e senha para acessar esta conta.');
+        }
+      }
+    }
     let user: User;
     if (!existing) {
-      const randomPwd = await bcrypt.hash(`google-${payload.sub}-${email}`, BCRYPT_ROUNDS);
+      if (!email.endsWith('@gmail.com') && !payload.hd) {
+        throw new UnauthorizedException('Para este provedor de email, crie sua conta com email e senha e confirme seu email.');
+      }
+      const randomPwd = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
       const newUser: Partial<User> = {
         name: (payload.name || email.split('@')[0]).slice(0, 100),
         email,
         password: randomPwd,
         emailVerified: true,
+        googleSubject: payload.sub,
       };
       if (payload.picture) newUser.avatarUrl = payload.picture;
       user = this.userRepository.create(newUser);
@@ -180,12 +197,12 @@ export class AuthService {
       await this.audit.log({ userId: user.id, event: 'register_success', req, detail: 'google' });
     } else {
       user = existing;
-      if (!user.isActive) {
+      if (!user.isActive || user.deletedAt) {
         await this.audit.log({ userId: user.id, event: 'login_failure', req, detail: 'inactive_account_google' });
         throw new UnauthorizedException(GENERIC_INVALID);
       }
-      if (!user.emailVerified) {
-        await this.userRepository.update(user.id, { emailVerified: true });
+      if (!user.googleSubject || !user.emailVerified) {
+        await this.userRepository.update(user.id, { googleSubject: payload.sub, emailVerified: true });
         user.emailVerified = true;
       }
       await this.audit.log({ userId: user.id, event: 'login_success', req, detail: 'google' });
