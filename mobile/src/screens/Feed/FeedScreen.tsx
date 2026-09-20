@@ -403,19 +403,8 @@ export default function FeedScreen() {
         </View>
         <View style={styles.headerInner}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity
-              style={[styles.headerIconButton, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-              onPress={() => showToast('Menu em breve')}
-              accessibilityRole="button"
-              accessibilityLabel="Abrir menu"
-            >
-              <Ionicons name="menu-outline" size={22} color={theme.textPrimary} />
-            </TouchableOpacity>
-            <View style={styles.headerBrand}>
-              <Logo size={30} variant="filled" />
-              <Text style={[styles.title, { color: theme.textPrimary }]}>Feed</Text>
-            </View>
+            <Logo size={30} variant="filled" />
+            <Text style={[styles.title, { color: theme.textPrimary }]}>Feed</Text>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
@@ -531,21 +520,8 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
-  },
-  headerIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerBrand: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   headerGrid: {
     position: 'absolute',
@@ -587,8 +563,7 @@ const styles = StyleSheet.create({
   },
   headerRight: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
   headerAccentWrap: {
-    paddingLeft: spacing.lg + 48,
-    paddingRight: spacing.lg,
+    paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
     zIndex: 2,
   },
