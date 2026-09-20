@@ -14,6 +14,8 @@ import api from '../../services/api';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { useThemeStore } from '../../store/themeStore';
+import VerifiedBadge from '../../components/VerifiedBadge';
+import ProfilePhotoGallery from '../../components/ProfilePhotoGallery';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -53,7 +55,10 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     finally { setFollowBusy(false); }
   };
 
-  useEffect(() => { loadUser(); }, [userId]);
+  useEffect(() => {
+    void loadUser();
+    return navigation.addListener('focus', () => { void loadUser(); });
+  }, [userId, navigation]);
 
   const loadUser = async () => {
     setLoading(true);
@@ -216,7 +221,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           <View style={styles.heroNameWrap}>
             <View style={styles.heroNameRow}>
               <Text style={[styles.heroName, { color: theme.textPrimary }]} numberOfLines={1}>{user.name}</Text>
-              {user.isVerified && <Ionicons name="checkmark-circle" size={20} color="#2E7BFF" accessibilityLabel="Perfil verificado" />}
+              {user.isVerified && <VerifiedBadge />}
             </View>
             {user.city && (
               <View style={styles.heroLocation}>
@@ -226,6 +231,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
             )}
           </View>
           {/* Badges row */}
+          <ProfilePhotoGallery user={user} />
           <View style={styles.badgesRow}>
             {user.level && (
               <View style={[styles.levelBadge, { borderColor: levelColor + '50', backgroundColor: levelColor + '12' }]}>
@@ -386,7 +392,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm, color: 'rgba(255,255,255,0.85)',
   },
   content: { padding: spacing.lg },
-  heroNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroNameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.md },
   levelBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

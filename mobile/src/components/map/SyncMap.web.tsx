@@ -100,12 +100,14 @@ type MapViewProps = {
 };
 
 const MapView = forwardRef<any, MapViewProps>(function MapView(
-  { region, initialRegion, onPress, style, children, showsUserLocation = false },
+  { region, initialRegion, onPress, onMapReady, onMapLoaded, onPanDrag, style, children, showsUserLocation = false },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
+  const callbacks = useRef({ onPress, onMapReady, onMapLoaded, onPanDrag });
+  callbacks.current = { onPress, onMapReady, onMapLoaded, onPanDrag };
   const mode = useThemeStore(s => s.theme.mode);
   const [, force] = React.useReducer((x) => x + 1, 0);
 
@@ -132,16 +134,32 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
       return;
     }
 
-    tileRef.current = L.tileLayer(getCartoTileUrl(mode === 'dark'), {
+    const tiles = L.tileLayer(getCartoTileUrl(mode === 'dark'), {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       maxZoom: 19,
       subdomains: 'abcd',
-    }).addTo(map);
+    });
+    let successfulTiles = 0;
+    let loaded = false;
+    tiles.on('tileload', () => { successfulTiles++; });
+    tiles.on('load', () => {
+      if (!loaded && successfulTiles > 0) { loaded = true; callbacks.current.onMapLoaded?.(); }
+    });
+    tileRef.current = tiles;
+    tiles.addTo(map);
 
-    if (onPress) map.on('click', onPress);
+    map.on('click', event => callbacks.current.onPress?.(event));
+    const interact = () => callbacks.current.onPanDrag?.();
+    const container = map.getContainer();
+    container.addEventListener('pointerdown', interact);
+    container.addEventListener('wheel', interact, { passive: true });
     mapRef.current = map;
+    callbacks.current.onMapReady?.();
     force(); // re-render para filhos receberem o context
     return () => {
+      container.removeEventListener('pointerdown', interact);
+      container.removeEventListener('wheel', interact);
+      tiles.off();
       map.remove();
       mapRef.current = null;
       tileRef.current = null;
@@ -214,12 +232,11 @@ const MapView = forwardRef<any, MapViewProps>(function MapView(
   useImperativeHandle(
     ref,
     () => ({
-      animateToRegion: (r: Region, _duration = 500) => {
+      animateToRegion: (r: Region, duration = 500) => {
         const m = mapRef.current;
         if (!m) return;
-        m.flyTo([r.latitude, r.longitude], deltaToZoom(r.latitudeDelta), {
-          duration: 0.6,
-        });
+        if (duration <= 0) m.setView([r.latitude, r.longitude], deltaToZoom(r.latitudeDelta), { animate: false });
+        else m.flyTo([r.latitude, r.longitude], deltaToZoom(r.latitudeDelta), { duration: duration / 1000 });
       },
     }),
     [],

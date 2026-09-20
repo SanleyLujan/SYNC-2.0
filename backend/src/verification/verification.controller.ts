@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Header, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -16,6 +16,7 @@ export class VerificationController {
   constructor(private readonly service: VerificationService) {}
 
   @Get('status')
+  @Header('Cache-Control', 'no-store, private')
   status(@CurrentUser() user: User) {
     return this.service.status(user.id);
   }

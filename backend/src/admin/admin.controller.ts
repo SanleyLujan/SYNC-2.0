@@ -91,7 +91,8 @@ export class AdminController {
   @ApiOperation({ summary: 'Filas de denúncias e verificação pendentes' })
   async moderation(@CurrentUser() user: User) {
     this.assertAdmin(user);
-    const [userReports, postReports, verifications] = await Promise.all([
+    let verificationError: string | null = null;
+    const [userReports, postReports, verifications, verificationStorage] = await Promise.all([
       this.reports.find({
         where: { status: ModerationStatus.PENDING },
         relations: ['reporter', 'reported'],
@@ -104,7 +105,11 @@ export class AdminController {
         order: { createdAt: 'ASC' },
         take: 50,
       }),
-      this.verification.listPending().catch(() => []),
+      this.verification.listPending().catch(() => {
+        verificationError = 'Não foi possível carregar os pedidos de verificação. Confira as migrations do backend e tente novamente.';
+        return [];
+      }),
+      this.verification.storageDiagnostics(),
     ]);
     return {
       userReports: userReports.map((r) => ({
@@ -123,6 +128,8 @@ export class AdminController {
         } : null,
       })),
       verifications,
+      verificationError,
+      verificationStorage,
     };
   }
 

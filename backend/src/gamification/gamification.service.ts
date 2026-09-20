@@ -6,10 +6,11 @@ import { Challenge } from '../challenges/entities/challenge.entity';
 import { UserAchievement, ACHIEVEMENT_INFO } from '../achievements/entities/achievement.entity';
 import { UserBlock } from '../users/entities/user-block.entity';
 import { Reward } from './reward.entity';
-import { DAILY_CAP, DAY_ZONE, Goal, dayKey, levelInfo, missions, SPORT_LABELS } from './rules';
+import { DAILY_CAP, DAY_ZONE, RULE_VERSION, Goal, dayKey, levelInfo, missions, nextDayReset, SPORT_LABELS } from './rules';
 
 export function eligibleActivity(a: Activity, cutoff: Date) {
   const start = new Date(a.startTime).getTime(), end = new Date(a.endTime).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
   const duration = Math.min(a.duration, Math.max(0, (end-start)/1000 - (a.pausedDuration || 0)));
   if (!a.isCompleted || !Object.keys(SPORT_LABELS).includes(a.sport) || !Number.isFinite(duration) || duration < 60 || start < +cutoff || end > Date.now() || end <= start) return null;
   const distanceSports = ['walking','running','cycling','hiking'];
@@ -22,8 +23,16 @@ export function eligibleActivity(a: Activity, cutoff: Date) {
 }
 
 export function goalProgress(goal: Pick<Goal, 'sport' | 'metric' | 'target'>, entries: Reward[]) {
-  return Math.min(goal.target, entries.reduce((n, r) => n +
-    ((goal.sport === 'any' || r.data?.sport === goal.sport) ? Number(r.data?.[goal.metric] || 0) : 0), 0));
+  return Math.min(goal.target, entries.reduce((n, r) => {
+    const value = Number(r.data?.[goal.metric] || 0);
+    return n + ((goal.sport === 'any' || r.data?.sport === goal.sport) && Number.isFinite(value) && value > 0 ? value : 0);
+  }, 0));
+}
+
+export function dailyEntries(rewards: Reward[], userId: string, day: string) {
+  return rewards.filter(r => r.user_id === userId && r.day === day && r.source.startsWith('activity:') &&
+    Number.isFinite(r.data?.start) && Number.isFinite(r.data?.end) && r.data.end > r.data.start &&
+    r.data.end <= Date.now() && dayKey(new Date(r.data.end)) === day);
 }
 
 export function challengeResult(c: Challenge, entries: Reward[]) {
@@ -51,7 +60,8 @@ export class GamificationService {
       if (this.db.options.type === 'postgres') options.lock = { mode: 'pessimistic_write' };
       const user = await em.findOne(User, options);
       if (!user) throw new NotFoundException('Conta não encontrada');
-      const today = dayKey(new Date());
+      const snapshotTime = new Date();
+      const today = dayKey(snapshotTime);
       const rewards = await em.find(Reward, { where: { user_id: userId } });
       const known = new Set(rewards.map(r => r.source));
       if (!known.has('baseline:v1')) {
@@ -69,7 +79,7 @@ export class GamificationService {
         rewards.push(row); known.add(source); user.totalXP = (user.totalXP || 0) + xp;
       };
       const plan = async (day: string): Promise<Goal[]> => {
-        const source = `plan:${day}`;
+        const source = `plan:${RULE_VERSION}:${day}`;
         if (!known.has(source)) await grant(source, day, 0, missions(userId, day, user.sports || []));
         return rewards.find(r => r.source === source)!.data;
       };
@@ -81,12 +91,13 @@ export class GamificationService {
         .orderBy('a.endTime', 'ASC').addOrderBy('a.id', 'ASC').take(500).getMany();
       for (const activity of activities) {
         const data = eligibleActivity(activity, user.gamificationStartedAt || user.createdAt);
+        if (!Number.isFinite(new Date(activity.endTime).getTime())) continue;
         const day = dayKey(new Date(activity.endTime));
         const overlaps = data && rewards.some(r => r.source.startsWith('activity:') && r.data && r.data.start < data.end && r.data.end > data.start);
         // Persist even rejected/zero-credit events so retries cannot change the outcome.
         await grant(`activity:${activity.id}`, day, data && !overlaps ? Math.min(40, Math.floor(data.duration/60)*2) : 0, overlaps ? null : data);
         const goals = await plan(day);
-        const entries = rewards.filter(r => r.day === day && r.source.startsWith('activity:'));
+        const entries = dailyEntries(rewards, userId, day);
         for (const goal of goals) if (goalProgress(goal, entries) >= goal.target) await grant(`mission:${day}:${goal.id}`, day, goal.xp);
       }
       const challenges = await em.getRepository(Challenge).find({ where: [
@@ -101,13 +112,15 @@ export class GamificationService {
         const own = c.challenger_id === userId ? result.challenger : result.challenged;
         if (own.completedAt) await grant(`challenge:${c.id}`, dayKey(new Date(own.completedAt)), 20);
       }
-      await em.update(User, userId, { totalXP: user.totalXP || 0 });
       const goals = await plan(today);
-      const todayEntries = rewards.filter(r => r.day === today && r.source.startsWith('activity:'));
-      return { ...levelInfo(user.totalXP), day: today, timezone: DAY_ZONE, dailyCap: DAILY_CAP,
+      const todayEntries = dailyEntries(rewards, userId, today);
+      for (const goal of goals) if (goalProgress(goal, todayEntries) >= goal.target) await grant(`mission:${today}:${goal.id}`, today, goal.xp);
+      await em.update(User, userId, { totalXP: user.totalXP || 0 });
+      const now = new Date();
+      return { ...levelInfo(user.totalXP), day: today, timezone: DAY_ZONE, dailyCap: DAILY_CAP, serverNow: now.toISOString(), resetsAt: nextDayReset(snapshotTime).toISOString(),
         todayXP: rewards.filter(r => r.day === today).reduce((n,r) => n+r.xp, 0),
-        missions: goals.map(g => ({ ...g, progress: goalProgress(g, todayEntries), completed: known.has(`mission:${today}:${g.id}`),
-          awardedXP: rewards.find(r => r.source === `mission:${today}:${g.id}`)?.xp || 0 })) };
+        missions: goals.map(g => ({ ...g, progress: goalProgress(g, todayEntries), completed: goalProgress(g, todayEntries) >= g.target,
+          awardedXP: goalProgress(g, todayEntries) >= g.target ? rewards.find(r => r.source === `mission:${today}:${g.id}`)?.xp || 0 : 0 })) };
     });
   }
 }

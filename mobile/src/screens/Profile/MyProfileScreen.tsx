@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import VerifiedBadge from '../../components/VerifiedBadge';
+import ProfilePhotosEditor from '../../components/ProfilePhotosEditor';
 import {
   View,
   Text,
@@ -70,6 +73,7 @@ export default function MyProfileScreen({ navigation }: Props) {
   const { user, setUser } = useAuthStore();
   const [uploadTarget, setUploadTarget] = useState<'avatar' | 'banner' | null>(null);
   const [showPhotoChoice, setShowPhotoChoice] = useState(false);
+  const [showGalleryEditor, setShowGalleryEditor] = useState(false);
   const [stats, setStats] = useState<Stats>({
     totalActivities: 0, totalDistanceKm: 0, weeklyDistanceKm: 0, totalDuration: 0,
     currentStreak: 0, bestStreak: 0,
@@ -82,6 +86,14 @@ export default function MyProfileScreen({ navigation }: Props) {
   const [statsLoading, setStatsLoading] = useState(true);
   const [territory, setTerritory] = useState<{ cells: number; position: number | null; color: string } | null>(null);
   const [komCount, setKomCount] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    api.get('/users/me').then(({ data }) => {
+      if (active && data.id === useAuthStore.getState().user?.id) setUser(data);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [setUser]));
 
   useEffect(() => {
     let mounted = true;
@@ -131,7 +143,9 @@ export default function MyProfileScreen({ navigation }: Props) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadStats(), loadWeather()]);
+    await Promise.all([loadStats(), loadWeather(), api.get('/users/me').then(({ data }) => {
+      if (data.id === useAuthStore.getState().user?.id) setUser(data);
+    }).catch(() => {})]);
     setQuote(getRandomQuote());
     setRefreshing(false);
   };
@@ -337,7 +351,7 @@ export default function MyProfileScreen({ navigation }: Props) {
           </View>
           <View style={styles.nameRow}>
             <Text style={styles.name}>{user.name}</Text>
-            {user.isVerified && <Ionicons name="checkmark-circle" size={20} color="#2E7BFF" accessibilityLabel="Perfil verificado" />}
+            {user.isVerified && <VerifiedBadge />}
           </View>
           {user.city && (
             <View style={styles.locationRow}>
@@ -614,6 +628,14 @@ export default function MyProfileScreen({ navigation }: Props) {
               </View>
             </TouchableOpacity>
 
+            <TouchableOpacity style={[styles.photoOption, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]} onPress={() => { setShowPhotoChoice(false); setShowGalleryEditor(true); }}>
+              <Ionicons name="albums-outline" size={22} color={theme.primary} />
+              <View style={styles.photoOptionTextWrap}>
+                <Text style={[styles.photoOptionTitle, { color: theme.textPrimary }]}>Editar fotos do perfil</Text>
+                <Text style={[styles.photoOptionSubtitle, { color: theme.textSecondary }]}>Adicione, troque ou organize as fotos do Descobrir.</Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.photoCancel, { borderColor: theme.border }]}
               onPress={() => setShowPhotoChoice(false)}
@@ -624,6 +646,7 @@ export default function MyProfileScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
+      <ProfilePhotosEditor visible={showGalleryEditor} onClose={() => setShowGalleryEditor(false)} />
     </ScrollView>
   );
 }

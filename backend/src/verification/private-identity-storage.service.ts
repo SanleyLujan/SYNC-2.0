@@ -4,9 +4,9 @@ import sharp = require('sharp');
 @Injectable()
 export class PrivateIdentityStorageService {
   private get config() {
-    const url = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-    const bucket = process.env.SUPABASE_KYC_BUCKET || 'identity-verification';
+    const url = (process.env.SUPABASE_URL || '').trim().replace(/\/$/, '');
+    const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+    const bucket = (process.env.SUPABASE_KYC_BUCKET || '').trim() || 'identity-verification';
     if (!url || !key || !bucket) {
       throw new ServiceUnavailableException('Verificação de perfil ainda não foi configurada com armazenamento privado');
     }
@@ -23,25 +23,39 @@ export class PrivateIdentityStorageService {
   }
 
   async assertPrivateBucket(): Promise<void> {
+    const status = await this.diagnostics();
+    if (!status.available) throw new ServiceUnavailableException('Armazenamento privado de verificação indisponível. A administração precisa verificar a configuração.');
+  }
+
+  // Only the administrator endpoint returns these actionable details. Never return keys.
+  async diagnostics() {
+    const missing = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'].filter(name => !process.env[name]?.trim());
+    if (missing.length) return { available: false, code: 'missing_config', message: `Configure ${missing.join(' e ')} no Render.` };
     const { url, bucket } = this.config;
-    const response = await fetch(`${url}/storage/v1/bucket/${encodeURIComponent(bucket)}`, {
-      headers: this.headers(),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) throw new ServiceUnavailableException('Bucket privado de verificação indisponível');
-    const data: any = await response.json();
-    if (data?.public !== false) {
-      throw new ServiceUnavailableException('O bucket de documentos precisa estar configurado como privado');
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.pathname !== '/') {
+        return { available: false, code: 'invalid_url', message: 'SUPABASE_URL deve ser a URL base do projeto, sem /storage ou /rest.' };
+      }
+      const response = await fetch(`${url}/storage/v1/bucket/${encodeURIComponent(bucket)}`, {
+        headers: this.headers(), signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        const body: any = await response.json().catch(() => ({}));
+        if (response.status === 401 || response.status === 403) return { available: false, code: 'access_denied', message: 'Confira a chave service_role do mesmo projeto no Render. A chave anon não serve para documentos privados.' };
+        if (response.status === 404 || body?.message === 'Bucket not found' || body?.error === 'Bucket not found') return { available: false, code: 'bucket_missing', message: `Crie o bucket privado "${bucket}" em Supabase → Storage.` };
+        return { available: false, code: 'storage_error', message: 'O Supabase não respondeu corretamente. Confira o projeto e o serviço Storage.' };
+      }
+      const data: any = await response.json();
+      if (data?.public !== false) return { available: false, code: 'bucket_public', message: `O bucket "${bucket}" precisa estar privado. Desative Public bucket no Supabase.` };
+      return { available: true, code: 'ready', message: 'Armazenamento privado disponível.' };
+    } catch {
+      return { available: false, code: 'unreachable', message: 'Não foi possível conectar ao Storage. Confira SUPABASE_URL e se o projeto Supabase está ativo.' };
     }
   }
 
   async isAvailable(): Promise<boolean> {
-    try {
-      await this.assertPrivateBucket();
-      return true;
-    } catch {
-      return false;
-    }
+    return (await this.diagnostics()).available;
   }
 
   async sanitizeImage(file: Express.Multer.File): Promise<Buffer> {

@@ -245,9 +245,10 @@ export default function DiscoveryScreen({ navigation }: Props) {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
       // Só captura o gesto se houver movimento horizontal/vertical relevante
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 || Math.abs(g.dy) > 12,
+      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 12 || Math.abs(g.dy) > 12,
       onPanResponderMove: (_, gesture) => {
         position.setValue({ x: gesture.dx, y: gesture.dy });
       },
@@ -736,7 +737,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
             <Text style={[styles.overlayText, { color: colors.dislikeRed }]}>NOPE</Text>
           </Animated.View>
 
-          <SwipeCard user={currentUser} cardHeight={deckH > 0 ? deckH - 8 : undefined} />
+          <SwipeCard key={currentUser.id} user={currentUser} cardHeight={deckH > 0 ? deckH - 8 : undefined} onOpenProfile={() => navigation.navigate('UserProfile', { userId: currentUser.id })} />
         </Animated.View>
       </View>
 

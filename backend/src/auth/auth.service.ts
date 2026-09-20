@@ -488,6 +488,7 @@ export class AuthService {
       onboardingCompleted: user.onboardingCompleted,
       avatarUrl: user.avatarUrl,
       bannerUrl: user.bannerUrl,
+      profilePhotos: user.profilePhotos,
       sports: user.sports,
       level: user.level,
       objectives: user.objectives,

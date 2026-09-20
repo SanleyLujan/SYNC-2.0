@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useAuthStore } from '../../store/authStore';
 import { ActivityIndicator, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,18 +28,36 @@ export default function ProfileVerificationScreen({ navigation }: any) {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [statusError, setStatusError] = useState(false);
+  const focused = useRef(false);
+  const sendingRef = useRef(false);
 
-  const loadStatus = async () => {
-    setLoading(true);
+  const loadStatus = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setStatusError(false);
-    try { setStatus((await api.get('/verification/status')).data); }
-    catch { setStatus(null); setStatusError(true); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { void loadStatus(); }, []);
+    const userId = useAuthStore.getState().user?.id;
+    try {
+      const { data } = await api.get('/verification/status');
+      if (!focused.current || userId !== useAuthStore.getState().user?.id) return;
+      setStatus(data);
+      const current = useAuthStore.getState().user;
+      if (current && typeof data.isVerified === 'boolean' && current.isVerified !== data.isVerified) {
+        useAuthStore.getState().setUser({ ...current, isVerified: data.isVerified });
+      }
+    }
+    catch { if (focused.current) { setStatus(null); setStatusError(true); } }
+    finally { if (focused.current) setLoading(false); }
+  }, []);
+  useFocusEffect(useCallback(() => {
+    focused.current = true;
+    void loadStatus();
+    const timer = setInterval(() => { if (!sendingRef.current) void loadStatus(true); }, 30_000);
+    return () => { focused.current = false; clearInterval(timer); };
+  }, [loadStatus]));
 
   const pick = async (slot: Slot) => {
-    const permission = slot === 'selfie' && Platform.OS !== 'web'
+    if (sendingRef.current) return;
+    try {
+    const permission = Platform.OS === 'web' ? { granted: true } : slot === 'selfie'
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -47,12 +67,19 @@ export default function ProfileVerificationScreen({ navigation }: any) {
     const result = slot === 'selfie' && Platform.OS !== 'web'
       ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: false })
       : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: false });
-    if (!result.canceled && result.assets[0]) setAssets((current) => ({ ...current, [slot]: result.assets[0] }));
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      if ((asset.fileSize || asset.file?.size || 0) > 6 * 1024 * 1024) { showToast('Cada imagem deve ter no máximo 6 MB.', 'error'); return; }
+      if (asset.mimeType && !/^image\/(jpeg|png|webp)$/i.test(asset.mimeType)) { showToast('Use uma imagem JPEG, PNG ou WebP.', 'error'); return; }
+      setAssets((current) => ({ ...current, [slot]: asset }));
+    }
+    } catch { showToast('Não foi possível abrir a câmera ou selecionar a imagem.', 'error'); }
   };
 
-  const appendAsset = (form: FormData, slot: Slot, asset: Asset) => {
-    if (Platform.OS === 'web' && asset.file) {
-      form.append(slot, asset.file);
+  const appendAsset = async (form: FormData, slot: Slot, asset: Asset) => {
+    if (Platform.OS === 'web') {
+      const blob = asset.file || await (await fetch(asset.uri)).blob();
+      form.append(slot, blob, asset.fileName || `${slot}.jpg`);
       return;
     }
     form.append(slot, {
@@ -63,17 +90,18 @@ export default function ProfileVerificationScreen({ navigation }: any) {
   };
 
   const submit = async () => {
-    if (sending || loading || status?.canSubmit !== true) return;
+    if (sendingRef.current || loading || status?.canSubmit !== true) return;
     if (!assets.selfie || !assets.documentFront || !assets.documentBack) {
       showToast('Adicione as três imagens antes de enviar.', 'error');
       return;
     }
     setSending(true);
+    sendingRef.current = true;
     try {
       const form = new FormData();
-      appendAsset(form, 'selfie', assets.selfie);
-      appendAsset(form, 'documentFront', assets.documentFront);
-      appendAsset(form, 'documentBack', assets.documentBack);
+      await appendAsset(form, 'selfie', assets.selfie);
+      await appendAsset(form, 'documentFront', assets.documentFront);
+      await appendAsset(form, 'documentBack', assets.documentBack);
       await api.post('/verification/requests', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60_000 });
       setAssets({});
       setStatus({ status: 'pending', canSubmit: false });
@@ -83,6 +111,7 @@ export default function ProfileVerificationScreen({ navigation }: any) {
       const message = error?.response?.data?.message || 'Não foi possível enviar o pedido.';
       showToast(Array.isArray(message) ? message.join(' • ') : message, 'error');
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -98,7 +127,7 @@ export default function ProfileVerificationScreen({ navigation }: any) {
           <Ionicons name="arrow-back" size={21} color={theme.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.textPrimary }]}>Verificar perfil</Text>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity accessibilityLabel="Atualizar status da verificação" disabled={loading || sending} onPress={() => void loadStatus()}><Ionicons name="refresh" size={22} color={theme.textPrimary} /></TouchableOpacity>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -109,7 +138,7 @@ export default function ProfileVerificationScreen({ navigation }: any) {
               {loading ? 'Verificando disponibilidade…' : statusError ? 'Não foi possível consultar' : status?.isVerified ? 'Perfil verificado' : status?.status === 'pending' ? 'Em análise' : !status?.canSubmit ? 'Verificação indisponível no momento' : status?.status === 'rejected' ? 'Pedido não aprovado' : 'Análise manual e privada'}
             </Text>
             <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-              {loading ? 'Aguarde antes de selecionar documentos.' : statusError || (!status?.canSubmit && !status?.isVerified && status?.status !== 'pending') ? 'Não selecione documentos agora. Tente novamente mais tarde.' : status?.isVerified
+              {loading ? 'Aguarde antes de selecionar documentos.' : statusError ? 'Não foi possível consultar seu pedido. Toque em atualizar.' : (!status?.canSubmit && !status?.isVerified && status?.status !== 'pending') ? 'O recebimento de documentos está temporariamente indisponível. A administração precisa verificar o armazenamento privado.' : status?.isVerified
                 ? 'Seu selo já aparece para outras pessoas.'
                 : status?.status === 'pending'
                   ? 'Consulte o resultado nesta tela depois da revisão administrativa.'
@@ -128,7 +157,7 @@ export default function ProfileVerificationScreen({ navigation }: any) {
           const asset = assets[slot];
           const copy = COPY[slot];
           return (
-            <TouchableOpacity key={slot} onPress={() => void pick(slot)} style={[styles.slot, { backgroundColor: theme.surface, borderColor: asset ? theme.primary : theme.border }]}>
+            <TouchableOpacity key={slot} disabled={sending} onPress={() => void pick(slot)} style={[styles.slot, { backgroundColor: theme.surface, borderColor: asset ? theme.primary : theme.border }]}>
               {asset ? <Image source={{ uri: asset.uri }} style={styles.preview} /> : (
                 <View style={[styles.slotIcon, { backgroundColor: theme.primarySoft }]}><Ionicons name={copy.icon} size={24} color={theme.primary} /></View>
               )}

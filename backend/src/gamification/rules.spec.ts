@@ -1,5 +1,5 @@
-import { missions, GOALS, levelInfo, dayKey } from './rules';
-import { challengeResult, eligibleActivity, goalProgress } from './gamification.service';
+import { missions, GOALS, levelInfo, dayKey, nextDayReset } from './rules';
+import { challengeResult, dailyEntries, eligibleActivity, goalProgress } from './gamification.service';
 describe('Gamification rules', () => {
   it('has a varied catalogue with modest targets, no intensity tasks', () => {
     expect(GOALS.length).toBeGreaterThan(30);
@@ -17,6 +17,24 @@ describe('Gamification rules', () => {
     expect(dayKey(new Date('2026-09-08T03:00:00Z'))).toBe('2026-09-08');
     expect(levelInfo(500).level).toBe(2);
     expect(levelInfo(499).level).toBe(1);
+    expect(nextDayReset(new Date('2026-09-20T02:59:59Z')).toISOString()).toBe('2026-09-20T03:00:00.000Z');
+  });
+  it('rotates catalogue goals every day without repeating yesterday goals', () => {
+    for (const sports of [[], ['gym'], ['walking', 'running', 'cycling']]) {
+      for (let i = 1; i < 28; i++) {
+        const a = missions('santiago', `2026-09-${String(i).padStart(2,'0')}`, sports);
+        const b = missions('santiago', `2026-09-${String(i+1).padStart(2,'0')}`, sports);
+        expect(b.some(g => a.some(old => old.id === g.id))).toBe(false);
+        expect(b.every(g => GOALS.some(template => template.id === g.id))).toBe(true);
+      }
+    }
+  });
+  it('excludes yesterday, other accounts, invalid timestamps and reward markers from progress', () => {
+    const day = '2026-09-08';
+    const good:any = { user_id:'santiago', source:'activity:one', day, data:{start:+new Date('2026-09-08T12:00:00Z'),end:+new Date('2026-09-08T12:10:00Z'),duration:600,sport:'gym'} };
+    const rows = [good, {...good,user_id:'another'}, {...good, day:'2026-09-07'}, {...good,source:'mission:old'}, {...good,data:{...good.data,end:NaN}}, {...good,data:{...good.data,start:+new Date('2026-09-07T12:00Z'),end:+new Date('2026-09-07T12:10Z')}}];
+    expect(dailyEntries(rows,'santiago',day)).toEqual([good]);
+    expect(dailyEntries(rows,'santiago','2026-09-09')).toEqual([]);
   });
   it('caps active duration, rejects impossible movement, incomplete and legacy activities', () => {
     const now = Date.now();

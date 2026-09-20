@@ -12,6 +12,7 @@ import {
   ScrollView,
   Dimensions,
   Linking,
+  AccessibilityInfo,
 } from 'react-native';
 import MapView, { Marker, Circle, HeatLayer, Polyline } from '../../components/map/SyncMap';
 import { planRoute, RouteResult } from '../../services/routing.service';
@@ -28,6 +29,8 @@ import { fetchCurrentWeather, WeatherData, getExerciseRecommendation, reverseGeo
 import api from '../../services/api';
 import { confirmAsync } from '../../utils/confirm';
 import { showToast } from '../../components/ui/Toast';
+import { useFocusEffect } from '@react-navigation/native';
+import { useAccessibilityStore } from '../../store/accessibilityStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -111,6 +114,39 @@ export default function MapMainScreen({ navigation }: Props) {
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const mapRef = useRef<MapView>(null);
+  const reduceMotion = useAccessibilityStore(s => s.reduceMotion);
+  const [systemReduceMotion, setSystemReduceMotion] = useState(false);
+  const [mapVisit, setMapVisit] = useState(0);
+  const introConsumed = useRef(false);
+  const mapFocused = useRef(false);
+  const introTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setSystemReduceMotion(value); }).catch(() => {});
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setSystemReduceMotion);
+    return () => { active = false; subscription.remove(); };
+  }, []);
+  useFocusEffect(useCallback(() => {
+    mapFocused.current = true;
+    introConsumed.current = false;
+    setMapVisit(visit => visit+1);
+    return () => {
+      mapFocused.current = false;
+      introConsumed.current = true;
+      if (introTimer.current) clearTimeout(introTimer.current);
+    };
+  }, []));
+  const revealLocation = () => {
+    if (introTimer.current) clearTimeout(introTimer.current);
+    if (!mapFocused.current || introConsumed.current || !userCoords) return;
+    introConsumed.current = true;
+    if (reduceMotion || systemReduceMotion || routeMode) return;
+    const target = { ...userCoords, latitudeDelta: 0.015, longitudeDelta: 0.015 };
+    mapRef.current?.animateToRegion(target, 1100);
+    setRegion(target);
+  };
+  revealRef.current = revealLocation;
 
   useEffect(() => {
     if (!userCoords) return;
@@ -246,6 +282,7 @@ export default function MapMainScreen({ navigation }: Props) {
   };
 
   const centerOnUser = async () => {
+    introConsumed.current = true;
     try {
       const coords = await getCurrentLocation();
       setUserCoords(coords);
@@ -386,9 +423,16 @@ export default function MapMainScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <MapView
+        key={mapVisit}
         ref={mapRef}
         style={styles.map}
-        region={region}
+        initialRegion={routeMode ? region : { ...(userCoords || region), latitudeDelta: 0.03, longitudeDelta: 0.03 }}
+        onMapReady={() => {
+          // Apple Maps does not emit onMapLoaded; allow its initial rendering a short head start.
+          if (Platform.OS === 'ios') introTimer.current = setTimeout(() => revealRef.current(), 650);
+        }}
+        onMapLoaded={revealLocation}
+        onPanDrag={() => { introConsumed.current = true; }}
         showsUserLocation
         showsMyLocationButton={false}
         onPress={async (e: any) => {

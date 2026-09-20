@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 
 export const DAILY_CAP = 100;
-export const RULE_VERSION = 'v1';
+export const RULE_VERSION = 'v2';
 export const DAY_ZONE = 'America/Sao_Paulo';
 export const dayKey = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: DAY_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 export function levelInfo(totalXP: number) {
@@ -21,14 +21,27 @@ export const GOALS: Goal[] = [
 ];
 export function missions(userId: string, day: string, sports: string[] = []): Goal[] {
   const eligible = GOALS.filter(g => g.sport === 'any' || sports.includes(g.sport));
-  const rank = (g: Goal) => createHash('sha256').update(`${RULE_VERSION}:${userId}:${day}:${g.id}`).digest('hex');
-  const sorted = eligible.sort((a,b) => rank(a).localeCompare(rank(b)));
-  const selected: Goal[] = [];
-  for (const goal of sorted) {
-    if (!selected.some(g => g.sport === goal.sport && g.metric === goal.metric)) selected.push(goal);
-    if (selected.length === 3) break;
+  const ordinal = Math.floor(Date.parse(`${day}T00:00:00Z`) / 86_400_000);
+  const offset = (key: string) => createHash('sha256').update(`${RULE_VERSION}:${userId}:${key}`).digest().readUInt32BE(0);
+  const groups = new Map<string, Goal[]>();
+  for (const goal of eligible) {
+    const key = `${goal.sport}:${goal.metric}`;
+    groups.set(key, [...(groups.get(key) || []), goal]);
   }
-  // One universal objective is always available. Never demand extra sessions.
-  if (!selected.some(g => g.sport === 'any')) selected[selected.length - 1] = sorted.find(g => g.sport === 'any')!;
-  return selected;
+  const otherKeys = [...groups.keys()].filter(key => key !== 'any:duration').sort((a,b) => offset(a)-offset(b));
+  const keys = ['any:duration'];
+  for (let i = 0; i < Math.min(2, otherKeys.length); i++) keys.push(otherKeys[(ordinal+i) % otherKeys.length]);
+  // Rotate inside each catalogue category: no identical goal on consecutive days.
+  return keys.map(key => { const pool = groups.get(key)!; return pool[(ordinal+offset(key)) % pool.length]; });
+}
+
+export function nextDayReset(now: Date): Date {
+  // Locate the boundary in the configured timezone, including timezone offset changes.
+  const day = dayKey(now);
+  let low = now.getTime(), high = low + 27 * 3_600_000;
+  while (high - low > 1) {
+    const mid = Math.floor((low + high) / 2);
+    if (dayKey(new Date(mid)) === day) low = mid; else high = mid;
+  }
+  return new Date(high);
 }

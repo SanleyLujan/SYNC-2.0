@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Image as PrivateImage } from 'expo-image';
+import VerificationReviewCard from '../../components/VerificationReviewCard';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,9 +15,11 @@ export default function AdminPanelScreen({ navigation }: any) {
   const [reports, setReports] = useState<any>(null);
   const [moderation, setModeration] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const [d, r, m] = await Promise.all([
         api.get('/admin/dashboard'),
@@ -28,6 +30,8 @@ export default function AdminPanelScreen({ navigation }: any) {
       setReports(r.data);
       setModeration(m.data);
     } catch (e: any) {
+      setLoadError(true);
+      setModeration(null);
       showToast(e?.response?.data?.message || 'Acesso admin indisponível', 'error');
     } finally {
       setLoading(false);
@@ -74,6 +78,11 @@ export default function AdminPanelScreen({ navigation }: any) {
 
       {loading ? (
         <View style={styles.loading}><ActivityIndicator size="large" color="#FF6B35" /></View>
+      ) : loadError ? (
+        <View style={styles.section}>
+          <Text style={styles.itemText}>Não foi possível carregar o painel. A fila não está disponível para análise.</Text>
+          <TouchableOpacity style={styles.neutralBtn} onPress={load}><Text style={styles.neutralText}>Tentar novamente</Text></TouchableOpacity>
+        </View>
       ) : (
         <>
           <View style={styles.grid}>
@@ -150,26 +159,10 @@ export default function AdminPanelScreen({ navigation }: any) {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Verificação de perfis · pendentes</Text>
-            {(moderation?.verifications || []).map((r: any) => (
-              <View key={r.id} style={styles.item}>
-                <Text style={styles.itemTitle}>{r.user?.name || 'Usuário'}</Text>
-                <Text style={styles.itemSub}>Links privados expiram em 5 minutos</Text>
-                <View style={styles.kycImages}>
-                  <PrivateImage source={{ uri: r.images?.selfie }} style={styles.kycImage} cachePolicy="none" contentFit="cover" />
-                  <PrivateImage source={{ uri: r.images?.documentFront }} style={styles.kycImage} cachePolicy="none" contentFit="cover" />
-                  <PrivateImage source={{ uri: r.images?.documentBack }} style={styles.kycImage} cachePolicy="none" contentFit="cover" />
-                </View>
-                <View style={styles.actions}>
-                  <TouchableOpacity style={styles.neutralBtn} onPress={() => review(`/admin/verifications/${r.id}`, { decision: 'reject', reason: 'As imagens não permitiram confirmar a identidade.' }, 'Recusar este pedido?')}>
-                    <Text style={styles.neutralText}>Recusar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.approveBtn} onPress={() => review(`/admin/verifications/${r.id}`, { decision: 'approve' }, 'Confirmar que as imagens pertencem à mesma pessoa?')}>
-                    <Text style={styles.approveText}>Aprovar selo</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-            {(moderation?.verifications || []).length === 0 && <Text style={styles.empty}>Nenhum pedido de verificação pendente.</Text>}
+            <Text style={[styles.itemText, moderation?.verificationStorage?.available === false && { color: '#FCA5A5' }]}>{moderation?.verificationStorage?.message}</Text>
+            {!!moderation?.verificationError && <Text accessibilityRole="alert" style={styles.dangerText}>{moderation.verificationError}</Text>}
+            {(moderation?.verifications || []).map((r: any) => <VerificationReviewCard key={r.id} request={r} onReviewed={() => void load()} onRefresh={() => void load()} />)}
+            {!moderation?.verificationError && (moderation?.verifications || []).length === 0 && <Text style={styles.empty}>Nenhum pedido de verificação pendente.</Text>}
           </View>
 
           <View style={styles.section}>

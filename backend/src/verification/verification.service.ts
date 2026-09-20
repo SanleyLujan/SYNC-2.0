@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
@@ -76,18 +76,32 @@ export class VerificationService {
       .orderBy('request.createdAt', 'ASC')
       .take(50)
       .getMany();
-    return Promise.all(rows.map(async (row) => ({
+    const canRead = rows.length === 0 || await this.storage.isAvailable();
+    return Promise.all(rows.map(async (row) => {
+      let images: Record<string, string> | null = null;
+      let imageError: string | null = null;
+      try {
+        if (!canRead) throw new Error('private storage unavailable');
+        if (!row.selfieKey || !row.documentFrontKey || !row.documentBackKey) throw new Error('missing images');
+        const [selfie, documentFront, documentBack] = await Promise.all([
+          this.storage.signedUrl(row.selfieKey), this.storage.signedUrl(row.documentFrontKey), this.storage.signedUrl(row.documentBackKey),
+        ]);
+        images = { selfie, documentFront, documentBack };
+      } catch {
+        imageError = 'Não foi possível abrir as três imagens. Verifique o armazenamento e atualize os documentos.';
+      }
+      return {
       id: row.id,
       createdAt: row.createdAt,
-      user: { id: row.user.id, name: row.user.name, avatarUrl: row.user.avatarUrl },
-      images: {
-        selfie: await this.storage.signedUrl(row.selfieKey!),
-        documentFront: await this.storage.signedUrl(row.documentFrontKey!),
-        documentBack: await this.storage.signedUrl(row.documentBackKey!),
-      },
+      user: { id: row.user_id, name: row.user?.name || 'Conta indisponível', avatarUrl: row.user?.avatarUrl },
+      images,
+      imageError,
       expiresInSeconds: 300,
-    })));
+      };
+    }));
   }
+
+  storageDiagnostics() { return this.storage.diagnostics(); }
 
   countPending() {
     return this.requests.count({ where: { status: VerificationStatus.PENDING } });
@@ -114,7 +128,13 @@ export class VerificationService {
       const request = await query.getOne();
       if (!request) throw new NotFoundException('Pedido de verificação não encontrado');
       if (request.status !== VerificationStatus.PENDING) throw new BadRequestException('Pedido já analisado');
+      if (request.user_id === adminId) throw new ForbiddenException('Outro administrador precisa analisar seu pedido.');
       const approved = decision === 'approve';
+      if (approved) {
+        const target = await manager.getRepository(User).findOne({ where: { id: request.user_id }, select: ['id', 'isActive'] });
+        if (!target?.isActive) throw new BadRequestException('Não é possível aprovar uma conta excluída ou desativada.');
+        if (!request.selfieKey || !request.documentFrontKey || !request.documentBackKey) throw new BadRequestException('Pedido sem as três imagens obrigatórias.');
+      }
       // Apaga primeiro. Se o storage falhar, as chaves permanecem no banco para
       // uma nova tentativa e nenhum pedido é marcado como concluído indevidamente.
       await this.storage.remove([request.selfieKey, request.documentFrontKey, request.documentBackKey].filter(Boolean) as string[]);

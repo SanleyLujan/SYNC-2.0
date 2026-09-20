@@ -30,6 +30,29 @@ describe('armazenamento privado de identidade', () => {
     expect(JSON.parse((fetch as jest.Mock).mock.calls[1][1].body).expiresIn).toBe(300);
     expect((fetch as jest.Mock).mock.calls[1][1].signal).toBeInstanceOf(AbortSignal);
   });
+  it('explica configuração ausente sem expor credenciais', async () => {
+    delete process.env.SUPABASE_URL;
+    const result = await service.diagnostics();
+    expect(result.code).toBe('missing_config');
+    expect(result.message).toContain('SUPABASE_URL');
+    expect(JSON.stringify(result)).not.toContain('test-only');
+  });
+  it.each([
+    [404, {}, 'bucket_missing'],
+    [400, { message:'Bucket not found' }, 'bucket_missing'],
+    [401, {}, 'access_denied'],
+    [403, {}, 'access_denied'],
+    [500, {}, 'storage_error'],
+  ])('diagnostica status HTTP %s', async (status, body, code) => {
+    (fetch as jest.Mock).mockResolvedValue({ ok:false, status, json:async () => body });
+    expect(await service.diagnostics()).toEqual(expect.objectContaining({ available:false, code }));
+  });
+  it('recusa bucket público e URL que aponta para um endpoint', async () => {
+    (fetch as jest.Mock).mockResolvedValue({ ok:true, json:async () => ({ public:true }) });
+    expect((await service.diagnostics()).code).toBe('bucket_public');
+    process.env.SUPABASE_URL = 'https://example.invalid/storage/v1';
+    expect((await service.diagnostics()).code).toBe('invalid_url');
+  });
   it('reencoda imagem real removendo EXIF e recusa conteúdo falso', async () => {
     const buffer = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#123456' } })
       .jpeg().withMetadata({ exif: { IFD0: { Artist: 'fictitious-test' } } }).toBuffer();

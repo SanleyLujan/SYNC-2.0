@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { profileGallery } from '../../utils/profile-photos';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image'; // cache em disco + transição suave
 import { LinearGradient } from 'expo-linear-gradient';
@@ -40,22 +42,19 @@ const SPORT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 interface SwipeCardProps {
   user: DiscoveryUser;
   cardHeight?: number;
+  onOpenProfile?: () => void;
 }
 
-function SwipeCardInner({ user, cardHeight }: SwipeCardProps) {
+function SwipeCardInner({ user, cardHeight, onOpenProfile }: SwipeCardProps) {
   const me = useAuthStore((s) => s.user);
   const [photoIndex, setPhotoIndex] = useState(0);
 
   // Build photo gallery: profilePhotos first, then avatarUrl as fallback
   const photos = useMemo(() => {
-    const gallery: string[] = [];
-    if (user.profilePhotos && user.profilePhotos.length > 0) {
-      gallery.push(...user.profilePhotos);
-    } else if (user.avatarUrl) {
-      gallery.push(user.avatarUrl);
-    }
-    return gallery;
+    return profileGallery(user);
   }, [user.profilePhotos, user.avatarUrl]);
+
+  useEffect(() => setPhotoIndex(0), [user.id, photos]);
 
   const currentPhoto = photos[photoIndex] || null;
 
@@ -116,10 +115,10 @@ function SwipeCardInner({ user, cardHeight }: SwipeCardProps) {
       {/* Tap zones for photo navigation */}
       {photos.length > 1 && (
         <View style={styles.tapZones} pointerEvents="box-none">
-          <TouchableWithoutFeedback onPress={() => handleTap('left')}>
+          <TouchableWithoutFeedback accessibilityRole="button" accessibilityLabel="Foto anterior" onPress={() => handleTap('left')}>
             <View style={styles.tapLeft} />
           </TouchableWithoutFeedback>
-          <TouchableWithoutFeedback onPress={() => handleTap('right')}>
+          <TouchableWithoutFeedback accessibilityRole="button" accessibilityLabel="Próxima foto" onPress={() => handleTap('right')}>
             <View style={styles.tapRight} />
           </TouchableWithoutFeedback>
         </View>
@@ -172,6 +171,7 @@ function SwipeCardInner({ user, cardHeight }: SwipeCardProps) {
         style={styles.gradient}
       >
         <View style={styles.info}>
+          {onOpenProfile && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Ver perfil de ${user.name}`} onPress={onOpenProfile} style={{ alignSelf: 'flex-start', paddingVertical: 8 }}><Text style={{ color: '#fff', fontWeight: '700' }}>Ver perfil ↗</Text></TouchableOpacity>}
           <View style={styles.nameRow}>
             <Text style={styles.name}>{user.name}</Text>
             {age && <Text style={styles.age}>, {age}</Text>}
