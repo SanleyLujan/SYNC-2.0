@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
+import { ChatPresenceService } from './chat-presence.service';
 
 // Gateway WebSocket para chat em tempo real.
 // SECURITY: autenticação via JWT bearer no handshake.auth.token.
@@ -53,6 +54,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly chatService: ChatService,
     private readonly jwtService: JwtService,
+    private readonly presence: ChatPresenceService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -86,12 +88,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
+    this.presence.disconnect(client.id);
     const userId = this.socketToUser.get(client.id);
     if (userId) {
       this.socketToUser.delete(client.id);
       // PRIVACY: sem broadcast global de offline — ver nota em handleConnection
     }
     this.msgRate.delete(client.id);
+  }
+
+  @SubscribeMessage('presenceHeartbeat')
+  handlePresenceHeartbeat(@ConnectedSocket() client: Socket) {
+    const userId = this.socketToUser.get(client.id);
+    if (userId) this.presence.heartbeat(client.id, userId);
+  }
+
+  @SubscribeMessage('leaveChat')
+  async handleLeaveChat(@ConnectedSocket() client: Socket, @MessageBody() data: { matchId: string }) {
+    if (this.socketToUser.has(client.id) && typeof data?.matchId === 'string') {
+      await client.leave(`match:${data.matchId}`);
+    }
   }
 
   // Entrar na room do match para receber mensagens em tempo real
@@ -221,6 +237,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   isUserOnline(userId: string): boolean {
-    return [...this.socketToUser.values()].includes(userId);
+    return this.presence.isOnline(userId);
   }
 }

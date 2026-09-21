@@ -1,12 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useThemeStore } from '../store/themeStore';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { currentDailySnapshot, dailyDeadline } from '../utils/daily-progress';
+import { onAppForegroundChange } from '../services/app-foreground';
 
-export default function DailyProgress() {
+export default function DailyProgress({ title = 'Missões diárias', refreshKey = 0 }: { title?: string; refreshKey?: number }) {
   const theme = useThemeStore(s => s.theme);
   const userId = useAuthStore(s => s.user?.id);
   const [snapshot, setSnapshot] = useState<{ userId: string; expiresAt: number; data: any } | null>(null);
@@ -36,13 +37,13 @@ export default function DailyProgress() {
     };
     load();
     const timer = setInterval(load, 60_000);
-    const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active') { if (Date.now() >= expiresAt) setSnapshot(null); void load(); }
+    const unsubscribe = onAppForegroundChange(foreground => {
+      if (foreground) { if (Date.now() >= expiresAt) setSnapshot(null); void load(); }
     });
-    return () => { active = false; clearInterval(timer); if (resetTimer) clearTimeout(resetTimer); subscription.remove(); };
-  }, [retry, userId]));
+    return () => { active = false; clearInterval(timer); if (resetTimer) clearTimeout(resetTimer); unsubscribe(); };
+  }, [retry, userId, refreshKey]));
   return <View style={{ margin: 16, padding: 16, gap: 10, borderRadius: 16, backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }}>
-    <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 17 }}>Missões diárias</Text>
+    <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 17 }}>{title}</Text>
     {error ? <TouchableOpacity onPress={() => setRetry(n => n+1)}><Text style={{ color: theme.primary }}>Não foi possível carregar. Toque para tentar novamente.</Text></TouchableOpacity>
       : !data ? <ActivityIndicator color={theme.primary} /> : <>
         <Text style={{ color: theme.textPrimary }}>Nível {data.level} · {data.totalXP} XP</Text>

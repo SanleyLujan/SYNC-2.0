@@ -7,6 +7,8 @@ import {
   Param,
   Query,
   UseGuards,
+  Header,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
@@ -14,13 +16,21 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { ChatPresenceService } from './chat-presence.service';
 
 @ApiTags('Chat')
 @Controller('api/chat')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(private readonly chatService: ChatService, private readonly presence: ChatPresenceService) {}
+
+  @Get(':matchId/presence')
+  @Header('Cache-Control', 'no-store, private')
+  async getPresence(@CurrentUser() user: User, @Param('matchId', ParseUUIDPipe) matchId: string) {
+    const userId = await this.chatService.presencePeer(matchId, user.id);
+    return { userId, online: this.presence.isOnline(userId) };
+  }
 
   @Get('conversations')
   @ApiOperation({ summary: 'Listar conversas do usuário' })

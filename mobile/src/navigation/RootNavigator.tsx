@@ -12,11 +12,13 @@ import OnboardingNavigator from './OnboardingNavigator';
 import MainTabNavigator from './MainTabNavigator';
 import NetworkBanner from '../components/NetworkBanner';
 import EmailVerificationBanner from '../components/EmailVerificationBanner';
+import { useAppPresence } from '../hooks/useAppPresence';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { isAuthenticated, user, isLoading, loadStoredAuth, setUser } = useAuthStore();
+  useAppPresence(isAuthenticated && user ? user.id : null);
 
   useEffect(() => {
     loadStoredAuth();

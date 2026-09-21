@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { TrackingStackParamList } from '../../navigation/types';
 import { Activity } from '../../types';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { fontSize, spacing, borderRadius } from '../../theme';
+import { AppTheme } from '../../theme/colors';
+import { useThemeStore } from '../../store/themeStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,6 +69,8 @@ function computePRMap(acts: Activity[]): Map<string, { distPR: boolean; duration
 
 export default function ActivityHistoryScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore(state => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,11 +122,11 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
       activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
-        <View style={[styles.sportIconWrap, hasPR && { backgroundColor: 'rgba(252,211,77,0.15)' }]}>
+        <View style={[styles.sportIconWrap, hasPR && { backgroundColor: theme.successSoft }]}>
           <Ionicons
             name={sportIcons[item.sport] || 'fitness-outline'}
             size={20}
-            color={hasPR ? '#FCD34D' : colors.dark.accent}
+            color={hasPR ? theme.success : theme.primary}
           />
         </View>
         <View style={styles.cardInfo}>
@@ -132,19 +136,19 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
             </Text>
             {pr?.distPR && (
               <View style={styles.prBadge}>
-                <Ionicons name="trophy" size={10} color="#FCD34D" />
+                <Ionicons name="trophy" size={10} color={theme.success} />
                 <Text style={styles.prBadgeText}>🏅 Dist. PR</Text>
               </View>
             )}
             {pr?.pacePR && !pr?.distPR && (
               <View style={styles.prBadge}>
-                <Ionicons name="flash" size={10} color="#FCD34D" />
+                <Ionicons name="flash" size={10} color={theme.success} />
                 <Text style={styles.prBadgeText}>⚡ Pace PR</Text>
               </View>
             )}
             {!distanceBased && pr?.durationPR && (
               <View style={styles.prBadge}>
-                <Ionicons name="time" size={10} color="#FCD34D" />
+                <Ionicons name="time" size={10} color={theme.success} />
                 <Text style={styles.prBadgeText}>🏅 Tempo PR</Text>
               </View>
             )}
@@ -161,7 +165,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
             })}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.dark.secondaryText} />
+        <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
       </View>
       <View style={styles.cardMetrics}>
         <View style={styles.metric}>
@@ -204,7 +208,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={[theme.surfaceSecondary, theme.surface, theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
@@ -215,9 +219,9 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Historico</Text>
+        <Text style={styles.title}>Histórico</Text>
         <View style={{ width: 38 }} />
       </LinearGradient>
 
@@ -250,7 +254,7 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
       {loading ? (
         <ActivityIndicator
           size="large"
-          color={colors.dark.accent}
+          color={theme.primary}
           style={{ marginTop: 50 }}
         />
       ) : (
@@ -261,12 +265,12 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} colors={[theme.primary]} progressBackgroundColor={theme.surface} />
           }
           ListEmptyComponent={
             error ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="cloud-offline-outline" size={48} color="rgba(255,255,255,0.20)" />
+                <Ionicons name="cloud-offline-outline" size={48} color={theme.textMuted} />
                 <Text style={styles.emptyTitle}>Erro ao carregar</Text>
                 <Text style={styles.emptyText}>Não foi possível buscar seu histórico.</Text>
                 <TouchableOpacity
@@ -275,16 +279,16 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
                   accessibilityRole="button"
                   accessibilityLabel="Tentar novamente"
                 >
-                  <Ionicons name="refresh" size={16} color="#fff" />
+                  <Ionicons name="refresh" size={16} color={theme.primaryText} />
                   <Text style={styles.retryText}>Tentar novamente</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.emptyContainer}>
-                <Ionicons name="fitness-outline" size={48} color="rgba(255,255,255,0.20)" />
+                <Ionicons name="fitness-outline" size={48} color={theme.textMuted} />
                 <Text style={styles.emptyTitle}>Nenhuma atividade</Text>
                 <Text style={styles.emptyText}>
-                  Comece a treinar para ver seu historico aqui
+                  Comece a treinar para ver seu histórico aqui
                 </Text>
               </View>
             )
@@ -295,10 +299,10 @@ export default function ActivityHistoryScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark.background,
+    backgroundColor: theme.background,
   },
   header: {
     flexDirection: 'row',
@@ -312,16 +316,16 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.surfaceSecondary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: theme.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: '#fff',
+    color: theme.textPrimary,
     letterSpacing: 0.3,
   },
   summaryRow: {
@@ -330,14 +334,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.055)',
+    backgroundColor: theme.surface,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: theme.mode === 'dark' ? 0.2 : 0.05,
     shadowRadius: 6,
     elevation: 3,
   },
@@ -348,47 +352,47 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: fontSize.xl,
     fontWeight: '700',
-    color: colors.dark.accent,
+    color: theme.primary,
   },
   summaryLabel: {
     fontSize: fontSize.xs,
-    color: colors.dark.secondaryText,
+    color: theme.textSecondary,
     marginTop: 2,
   },
   summaryDivider: {
     width: 1,
     height: 30,
-    backgroundColor: colors.dark.border,
+    backgroundColor: theme.divider,
   },
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.055)',
+    backgroundColor: theme.surface,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: theme.mode === 'dark' ? 0.2 : 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   cardPR: {
-    borderColor: 'rgba(252,211,77,0.30)',
-    backgroundColor: 'rgba(252,211,77,0.04)',
+    borderColor: theme.success,
+    backgroundColor: theme.surface,
   },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   prBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: 'rgba(252,211,77,0.12)',
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(252,211,77,0.30)',
+    backgroundColor: theme.successSoft,
+    borderRadius: 20, borderWidth: 1, borderColor: theme.success,
     paddingHorizontal: 6, paddingVertical: 2,
   },
-  prBadgeText: { fontSize: 10, fontWeight: '700', color: '#FCD34D' },
+  prBadgeText: { fontSize: 10, fontWeight: '700', color: theme.textPrimary },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -398,7 +402,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.dark.accent + '20',
+    backgroundColor: theme.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -409,11 +413,11 @@ const styles = StyleSheet.create({
   sportName: {
     fontSize: fontSize.md,
     fontWeight: '600',
-    color: colors.dark.text,
+    color: theme.textPrimary,
   },
   dateText: {
     fontSize: fontSize.xs,
-    color: colors.dark.secondaryText,
+    color: theme.textSecondary,
     marginTop: 2,
   },
   cardMetrics: {
@@ -427,19 +431,19 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: fontSize.md,
     fontWeight: '700',
-    color: colors.dark.text,
+    color: theme.textPrimary,
     fontVariant: ['tabular-nums'],
   },
   metricLabel: {
     fontSize: 10,
-    color: colors.dark.secondaryText,
+    color: theme.textSecondary,
     marginTop: 2,
     textTransform: 'uppercase',
   },
   metricDivider: {
     width: 1,
     height: 20,
-    backgroundColor: colors.dark.border,
+    backgroundColor: theme.divider,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -447,19 +451,19 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginTop: spacing.lg, backgroundColor: '#FF6B35',
+    marginTop: spacing.lg, backgroundColor: theme.primary,
     paddingVertical: 12, paddingHorizontal: spacing.xl, borderRadius: 12,
   },
-  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  retryText: { color: theme.primaryText, fontWeight: '700', fontSize: 14 },
   emptyTitle: {
     fontSize: fontSize.lg,
     fontWeight: '600',
-    color: colors.dark.text,
+    color: theme.textPrimary,
     marginTop: spacing.md,
   },
   emptyText: {
     fontSize: fontSize.sm,
-    color: colors.dark.secondaryText,
+    color: theme.textSecondary,
     textAlign: 'center',
     marginTop: spacing.sm,
   },

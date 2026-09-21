@@ -38,6 +38,7 @@ import { Audio } from 'expo-av';
 import { useHaptic } from '../../hooks/useHaptic';
 import * as ExpoLocation from 'expo-location';
 import { profilePreviewPhoto } from '../../utils/profile-photos';
+import { useChatPresence } from '../../hooks/useChatPresence';
 
 type Props = {
   navigation: NativeStackNavigationProp<ChatStackParamList, 'ChatRoom'>;
@@ -49,6 +50,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
   const theme = useThemeStore((state) => state.theme);
   const styles = useMemo(() => createStyles(theme), [theme]);
   const { matchId, userName, userId: otherUserId } = route.params;
+  const otherOnline = useChatPresence(matchId, otherUserId);
   const { user } = useAuthStore();
   const [otherProfile, setOtherProfile] = useState<User | null>(null);
   const [failedPhotos, setFailedPhotos] = useState<string[]>([]);
@@ -72,6 +74,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
   const [text, setText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [otherIsTyping, setOtherIsTyping] = useState(false);
+  useEffect(() => { if (otherOnline !== true) setOtherIsTyping(false); }, [otherOnline]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -174,10 +177,10 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
   const setupSocket = async () => {
     if (!user) return;
     try {
-      await socketService.connect();
       socketService.joinChat(matchId);
 
       socketService.onNewMessage((message: Message) => {
+        if (message.match_id !== matchId) return;
         setMessages((prev) => {
           // Evita duplicar: o servidor faz broadcast pra sala INCLUINDO o
           // remetente, então a própria mensagem volta. Se já existe uma
@@ -204,7 +207,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
       });
 
       socketService.onTyping?.((data: any) => {
-        if (data.userId !== user.id) {
+        if (data.userId === otherUserId) {
           setOtherIsTyping(true);
           if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
           typingTimeoutRef.current = setTimeout(() => setOtherIsTyping(false), 3000);
@@ -228,6 +231,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
           prev.map((m) => (m.id === data.messageId ? { ...m, reactions: data.reactions } : m)),
         );
       });
+      await socketService.connect();
     } catch {
       // HTTP fallback still works
     }
@@ -641,7 +645,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
             <View
               style={[
                 styles.headerOnlineDot,
-                connStatus !== 'connected' && { backgroundColor: connStatus === 'connecting' ? theme.warning : theme.textSecondary },
+                (connStatus !== 'connected' || otherOnline !== true) && { backgroundColor: theme.textMuted },
               ]}
             />
           </View>
@@ -650,14 +654,14 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
             <Text
               style={[
                 styles.headerSubtitle,
-                connStatus !== 'connected' && { color: connStatus === 'connecting' ? theme.warning : theme.textSecondary },
+                (connStatus !== 'connected' || otherOnline !== true) && { color: theme.textSecondary },
               ]}
             >
               {connStatus === 'connected'
-                ? (otherIsTyping ? 'Digitando…' : 'Online agora')
+                ? (otherOnline === true ? (otherIsTyping ? 'Digitando…' : 'Online agora') : otherOnline === false ? 'Offline' : 'Ver perfil')
                 : connStatus === 'connecting'
                 ? 'Reconectando…'
-                : 'Offline'}
+                : 'Sem conexão'}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />

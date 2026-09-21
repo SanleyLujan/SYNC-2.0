@@ -43,6 +43,24 @@ export class ChatService {
     return match;
   }
 
+  // Presence is private to a valid, unblocked match.
+  async presencePeer(matchId: string, userId: string): Promise<string> {
+    const match = await this.assertMatchAccess(matchId, userId);
+    const peerId = match.user1_id === userId ? match.user2_id : match.user1_id;
+    const block = await this.messageRepository.manager.findOne(UserBlock, {
+      where: [
+        { blocker_id: userId, blocked_id: peerId },
+        { blocker_id: peerId, blocked_id: userId },
+      ],
+    });
+    if (block) throw new ForbiddenException('Presença indisponível');
+    const peer = await this.userRepository.findOne({
+      where: { id: peerId, isActive: true }, select: ['id', 'deletedAt'],
+    });
+    if (!peer || peer.deletedAt) throw new NotFoundException('Perfil indisponível');
+    return peerId;
+  }
+
   // Alterna a reação (emoji) de um usuário numa mensagem. Retorna o mapa novo.
   async toggleReaction(
     userId: string,

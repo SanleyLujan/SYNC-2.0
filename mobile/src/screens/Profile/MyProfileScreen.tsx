@@ -83,6 +83,7 @@ export default function MyProfileScreen({ navigation }: Props) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [quote, setQuote] = useState<MotivationalQuote | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [dailyRefresh, setDailyRefresh] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
   const [territory, setTerritory] = useState<{ cells: number; position: number | null; color: string } | null>(null);
   const [komCount, setKomCount] = useState(0);
@@ -142,6 +143,7 @@ export default function MyProfileScreen({ navigation }: Props) {
   };
 
   const onRefresh = async () => {
+    setDailyRefresh(value => value + 1);
     setRefreshing(true);
     await Promise.all([loadStats(), loadWeather(), api.get('/users/me').then(({ data }) => {
       if (data.id === useAuthStore.getState().user?.id) setUser(data);
@@ -435,7 +437,6 @@ export default function MyProfileScreen({ navigation }: Props) {
       )}
 
       {/* Stats cards */}
-      <DailyProgress />
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="flash" size={18} color={theme.primary} />
@@ -500,69 +501,7 @@ export default function MyProfileScreen({ navigation }: Props) {
       )}
 
       {/* Daily Challenges */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Desafios do dia</Text>
-        <View style={[styles.challengesCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          {[
-            {
-              icon: 'walk-outline' as const,
-              label: 'Registre 1 treino hoje',
-              progress: stats.totalActivities > 0 ? 1 : 0,
-              total: 1,
-              color: theme.primary,
-            },
-            {
-              icon: 'navigate-outline' as const,
-              label: 'Corra 5km esta semana',
-              progress: Math.min(stats.weeklyDistanceKm, 5),
-              total: 5,
-              unit: 'km',
-              color: '#2E7BFF',
-            },
-            {
-              icon: 'calendar-outline' as const,
-              label: 'Participe de 1 evento',
-              progress: 0,
-              total: 1,
-              color: '#8B5CFF',
-            },
-          ].map((c, i) => {
-            const pct = Math.min(1, c.progress / c.total);
-            const done = pct >= 1;
-            return (
-              <View
-                key={i}
-                style={[
-                  styles.challengeItem,
-                  i < 2 && styles.challengeDivider,
-                  i < 2 && { borderBottomColor: theme.divider },
-                ]}
-              >
-                <View style={[styles.challengeIcon, { backgroundColor: c.color + '18' }]}>
-                  <Ionicons name={done ? 'checkmark-circle' : c.icon} size={18} color={done ? colors.success : c.color} />
-                </View>
-                <View style={styles.challengeContent}>
-                  <Text style={[
-                    styles.challengeLabel,
-                    { color: theme.textPrimary },
-                    done && styles.challengeLabelDone,
-                    done && { color: theme.textSecondary },
-                  ]}>{c.label}</Text>
-                  <View style={styles.challengeBarWrap}>
-                    <View style={[styles.challengeBar, { backgroundColor: theme.divider }]}>
-                      <View style={[styles.challengeBarFill, { width: `${pct * 100}%`, backgroundColor: done ? colors.success : c.color }]} />
-                    </View>
-                    <Text style={[styles.challengeProgress, { color: done ? colors.success : c.color }]}>
-                      {c.unit ? `${c.progress.toFixed(1)}/${c.total}${c.unit}` : `${Math.round(c.progress)}/${c.total}`}
-                    </Text>
-                  </View>
-                </View>
-                {done && <Ionicons name="checkmark-circle" size={20} color={colors.success} />}
-              </View>
-            );
-          })}
-        </View>
-      </View>
+      <DailyProgress title="Desafios do dia" refreshKey={dailyRefresh} />
 
       {/* Menu */}
       <View style={styles.menu}>

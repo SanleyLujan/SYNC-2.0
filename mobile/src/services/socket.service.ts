@@ -18,6 +18,11 @@ class SocketService {
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private status: SocketStatus = 'disconnected';
+  private appActive = false;
+  private generation = 0;
+  private connecting: Promise<Socket> | null = null;
+  private cancelConnection: (() => void) | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
   // Handlers registrados pela UI — re-vinculados a CADA novo socket pra que a
   // conversa não "morra" depois de uma reconexão (bug clássico: o listener
@@ -32,16 +37,52 @@ class SocketService {
    * Conecta ao gateway de chat autenticando via JWT.
    * O userId é extraído do token pelo servidor — não é enviado pelo cliente.
    */
-  async connect(): Promise<Socket> {
-    if (this.socket?.connected) return this.socket;
+  connect(): Promise<Socket> {
+    if (!this.appActive) return Promise.reject(new Error('App em segundo plano'));
+    if (this.socket?.connected) return Promise.resolve(this.socket);
+    if (this.connecting) return this.connecting;
+    const attempt = this.connectWithToken(this.generation);
+    this.connecting = attempt;
+    const clear = () => { if (this.connecting === attempt) this.connecting = null; };
+    void attempt.then(clear, clear);
+    return attempt;
+  }
 
+  private async connectWithToken(generation: number): Promise<Socket> {
     const token = await secureStorage.getItem('@sync:token');
+    if (!this.appActive || generation !== this.generation) throw new Error('Conexão cancelada');
     if (!token) throw new Error('Não autenticado — faça login antes de conectar ao chat');
-
     this.jwtToken = token;
-    this.reconnectAttempts = 0;
-
     return this.createConnection(token);
+  }
+
+  /** Foreground state is owned by the authenticated app, not by an open chat. */
+  setAppActive(active: boolean) {
+    if (this.appActive === active) return;
+    this.appActive = active;
+    if (active) {
+      this.reconnectAttempts = 0;
+      void this.connect().catch(() => {});
+    } else this.stopTransport();
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+  }
+
+  private stopTransport() {
+    this.generation++;
+    this.cancelConnection?.();
+    this.cancelConnection = null;
+    this.connecting = null;
+    this.stopHeartbeat();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    this.socket?.removeAllListeners();
+    this.socket?.disconnect();
+    this.socket = null;
+    this.setStatus('disconnected');
   }
 
   private setStatus(s: SocketStatus) {
@@ -65,6 +106,8 @@ class SocketService {
 
   private createConnection(token: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
+      this.cancelConnection = () => reject(new Error('Conexão cancelada'));
+      this.stopHeartbeat();
       if (this.socket) {
         this.socket.removeAllListeners();
         this.socket.disconnect();
@@ -72,7 +115,7 @@ class SocketService {
 
       this.setStatus('connecting');
 
-      this.socket = io(SOCKET_URL, {
+      const socket = io(SOCKET_URL, {
         // SECURITY: JWT no handshake.auth, nunca em query params (evita logging em proxies)
         auth: { token },
         // websocket primeiro; cai pra polling se o upgrade WS falhar atrás do
@@ -81,33 +124,48 @@ class SocketService {
         reconnection: false, // gerenciamos manualmente com backoff exponencial
         timeout: 10000,
       });
+      this.socket = socket;
 
-      this.socket.on('connect', () => {
+      socket.on('connect', () => {
+        if (this.socket !== socket || !this.appActive) return;
+        this.cancelConnection = null;
         this.reconnectAttempts = 0;
-        this.setStatus('connected');
+        this.stopHeartbeat();
+        socket.emit('presenceHeartbeat');
+        this.heartbeatTimer = setInterval(() => {
+          if (this.appActive && socket.connected) socket.emit('presenceHeartbeat');
+        }, 15_000);
         // Re-vincula handlers e re-entra nas salas — chave pra reconexão funcionar
         this.rebindHandlers();
         this.joinedRooms.forEach((matchId) => {
           this.socket?.emit('joinChat', { matchId });
         });
-        resolve(this.socket!);
+        this.setStatus('connected');
+        resolve(socket);
       });
 
-      this.socket.on('connect_error', (err) => {
+      socket.on('connect_error', (err) => {
+        if (this.socket !== socket) return;
+        this.cancelConnection = null;
+        this.stopHeartbeat();
         this.setStatus('disconnected');
-        if (this.reconnectAttempts === 0) {
-          reject(err);
-        }
+        reject(err);
         this.scheduleReconnect();
       });
 
-      this.socket.on('disconnect', () => {
+      socket.on('disconnect', () => {
+        if (this.socket !== socket) return;
+        this.cancelConnection = null;
+        this.stopHeartbeat();
+        reject(new Error('Conexão encerrada'));
         this.setStatus('disconnected');
         this.scheduleReconnect();
       });
 
       // Servidor nos expulsa se o token expirar
-      this.socket.on('auth_error', () => {
+      socket.on('auth_error', () => {
+        if (this.socket !== socket) return;
+        reject(new Error('Sessão expirada'));
         this.jwtToken = null;
         this.disconnect();
       });
@@ -125,7 +183,7 @@ class SocketService {
   }
 
   private scheduleReconnect() {
-    if (!this.jwtToken) return; // só desiste se não há sessão
+    if (!this.jwtToken || !this.appActive) return;
     if (this.reconnectTimer) return;
 
     // Backoff exponencial com teto — tenta pra sempre (até desconectar de vez)
@@ -135,26 +193,21 @@ class SocketService {
     );
     this.reconnectAttempts++;
 
-    this.reconnectTimer = setTimeout(async () => {
+    this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      // Re-read token in case it was refreshed
-      const token = await secureStorage.getItem('@sync:token').catch(() => null);
-      if (token) {
-        this.jwtToken = token;
-        this.createConnection(token).catch(() => {});
-      }
+      void this.connect().catch(() => {});
     }, delay);
   }
 
   /** Força uma reconexão imediata (ex.: quando a rede volta). */
   reconnectNow() {
-    if (!this.jwtToken || this.socket?.connected) return;
+    if (!this.appActive || !this.jwtToken || this.socket?.connected) return;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     this.reconnectAttempts = 0;
-    this.createConnection(this.jwtToken).catch(() => {});
+    void this.connect().catch(() => {});
   }
 
   joinChat(matchId: string) {
@@ -250,13 +303,8 @@ class SocketService {
   }
 
   disconnect() {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    this.socket?.removeAllListeners();
-    this.socket?.disconnect();
-    this.socket = null;
+    this.appActive = false;
+    this.stopTransport();
     this.jwtToken = null;
     this.reconnectAttempts = 0;
     this.handlers = {};
