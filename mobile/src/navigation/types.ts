@@ -49,6 +49,7 @@ export type HomeStackParamList = {
 export type ChatStackParamList = {
   ConversationList: undefined;
   ChatRoom: { matchId: string; userName: string; userId: string };
+  UserProfile: { userId: string };
 };
 
 export type MapStackParamList = {

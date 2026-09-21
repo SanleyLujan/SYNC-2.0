@@ -1,4 +1,4 @@
-# Dependências
+# Dependências e saídas geradas
 node_modules/
 **/node_modules/
 .expo/
@@ -7,16 +7,46 @@ dist/
 **/dist/
 build/
 **/build/
+.pnpm-store/
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
 
 # Banco local — Railway cria Postgres novo
 backend/sync_dev.db
 backend/uploads/
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-wal
+*.db-shm
+/backups/
+backend/backups/
 
 # Env vars (bloqueia também .env.development, .env.*.local etc.)
 .env*
 **/.env*
 !**/.env.example
 !**/.env.production.example
+!**/.env.*.example
+
+# Chaves privadas, credenciais e assinaturas de builds
+*.key
+*.pem
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+id_rsa
+id_ed25519
+credentials.json
+*service-account*.json
 
 # Native (gerado pelo expo)
 ios/
@@ -24,15 +54,48 @@ android/
 
 # Editor / OS
 .DS_Store
+Thumbs.db
+Desktop.ini
 .vscode/
 .idea/
 *.log
+*.swp
+*.swo
+*~
 
 # Cache
 .cache/
+.metro-health-check*
+.eslintcache
+.prettiercache
 *.tsbuildinfo
 .vercel
 .git-commit-msg.txt
 
+# Resultados de testes e relatórios locais
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+
+# Arquivos temporários e ferramentas locais
+tmp/
+temp/
+*.tmp
+*.tmp.*
+*.bak
+*.orig
+*.rej
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
 # Planos locais / rascunhos de implementacao
 .local-plans/
+
+# Documentação local — manter fora do Git por decisão do responsável
+/docs/

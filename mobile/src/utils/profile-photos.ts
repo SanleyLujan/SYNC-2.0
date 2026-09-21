@@ -3,6 +3,12 @@ export function profileGallery(user: { profilePhotos?: string[] | null; avatarUr
   return [...new Set(photos.length ? photos : user.avatarUrl ? [user.avatarUrl] : [])].slice(0, 5);
 }
 
+// Chat uses the same first photo as Discovery, then the avatar if an image fails.
+export function profilePreviewPhoto(user: Parameters<typeof profileGallery>[0] | null, failed: string[] = []) {
+  if (!user) return null;
+  return [profileGallery(user)[0], user.avatarUrl].find(photo => photo && !failed.includes(photo)) || null;
+}
+
 export function replaceGalleryPhoto(photos: string[], index: number | null, photo: string) {
   if (index === null) return [...photos, photo].slice(0, 5);
   return photos.map((value, i) => i === index ? photo : value);

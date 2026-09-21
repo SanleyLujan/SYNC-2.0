@@ -11,4 +11,4 @@ documentação canônica:
 Não adicione instruções de infraestrutura neste arquivo; atualize apenas
 `DOCUMENTACAO.md` para evitar configurações divergentes.
 
-**Última revisão:** 2026-08-30
+**Última revisão:** 11/09/2026

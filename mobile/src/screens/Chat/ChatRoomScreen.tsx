@@ -1,5 +1,5 @@
 // ChatRoom — read receipts, voice messages (expo-av), real block/report
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,10 +18,10 @@ import {
   Modal,
   Linking,
 } from 'react-native';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChatStackParamList } from '../../navigation/types';
-import { Message } from '../../types';
+import { Message, User } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { socketService, SocketStatus } from '../../services/socket.service';
 import { chatOutbox } from '../../services/chat-outbox.service';
@@ -37,6 +37,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
 import { useHaptic } from '../../hooks/useHaptic';
 import * as ExpoLocation from 'expo-location';
+import { profilePreviewPhoto } from '../../utils/profile-photos';
 
 type Props = {
   navigation: NativeStackNavigationProp<ChatStackParamList, 'ChatRoom'>;
@@ -47,8 +48,26 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useThemeStore((state) => state.theme);
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const { matchId, userName, userId: otherUserId } = route.params as any;
+  const { matchId, userName, userId: otherUserId } = route.params;
   const { user } = useAuthStore();
+  const [otherProfile, setOtherProfile] = useState<User | null>(null);
+  const [failedPhotos, setFailedPhotos] = useState<string[]>([]);
+  const currentProfile = otherProfile?.id === otherUserId ? otherProfile : null;
+  const displayName = currentProfile?.name || userName;
+  const headerPhoto = profilePreviewPhoto(currentProfile, failedPhotos);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setOtherProfile(null);
+    setFailedPhotos([]);
+    if (otherUserId) {
+      api.get(`/users/${otherUserId}`).then(({ data }) => {
+        if (active && data?.id === otherUserId) setOtherProfile(data);
+      }).catch(() => {
+        // A missing/private profile or a network failure must not prevent chatting.
+      });
+    }
+    return () => { active = false; };
+  }, [otherUserId, user?.id]));
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -599,13 +618,26 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
         <TouchableOpacity
           style={styles.headerInfo}
           activeOpacity={0.7}
+          onPress={() => navigation.navigate('UserProfile', { userId: otherUserId })}
+          disabled={!otherUserId}
           accessibilityRole="button"
-          accessibilityLabel={`Conversa com ${userName}`}
+          accessibilityLabel={`Ver perfil de ${displayName}`}
+          accessibilityHint="Abre o perfil completo e a galeria de fotos"
         >
           <View style={styles.headerAvatar}>
-            <LinearGradient colors={theme.gradientPrimary} style={styles.headerAvatarImg}>
-              <Text style={styles.headerAvatarInitial}>{userName?.[0]?.toUpperCase() || '?'}</Text>
-            </LinearGradient>
+            {headerPhoto ? (
+              <Image
+                key={headerPhoto}
+                source={{ uri: headerPhoto }}
+                style={styles.headerAvatarImg}
+                resizeMode="cover"
+                onError={() => setFailedPhotos(current => [...new Set([...current, headerPhoto])])}
+              />
+            ) : (
+              <LinearGradient colors={theme.gradientPrimary} style={styles.headerAvatarImg}>
+                <Text style={styles.headerAvatarInitial}>{displayName?.[0]?.toUpperCase() || '?'}</Text>
+              </LinearGradient>
+            )}
             <View
               style={[
                 styles.headerOnlineDot,
@@ -613,8 +645,8 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
               ]}
             />
           </View>
-          <View>
-            <Text style={styles.headerTitle}>{userName}</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.headerTitle} numberOfLines={1}>{displayName}</Text>
             <Text
               style={[
                 styles.headerSubtitle,
@@ -628,6 +660,7 @@ export default function ChatRoomScreen({ navigation, route }: Props) {
                 : 'Offline'}
             </Text>
           </View>
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerAction}

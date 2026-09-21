@@ -1,4 +1,8 @@
-# Gamificação v1 — 08/09/2026
+# Gamificação v1 — regras e implantação
+
+**Implementação inicial:** 08/09/2026 · **Revisão documental:** 11/09/2026 · **Código-base:** `ba0ea43`.
+
+Referências: [documentação principal](../DOCUMENTACAO.md#gamificacao) e [plano dos 42 tópicos](../PLANO_CORRECOES_42_TOPICOS.md). Itens 25–30 continuam amarelos, conforme configuração/migrations e validação no ambiente.
 
 Implementa itens 26, 27 e 30 do plano na raiz. Não altera o nível esportivo declarado (`beginner`/`intermediate`/`advanced`): nível de XP é separado.
 
@@ -10,11 +14,11 @@ Implementa itens 26, 27 e 30 do plano na raiz. Não altera o nível esportivo de
 - Catálogo de 45 objetivos, seleção estável por UUID/dia e esportes; de uma a três missões, com objetivo universal. A mesma atividade pode avançar mais de uma missão. A seleção do dia fica congelada no ledger: alterar o perfil não sorteia de novo.
 - Somente atividades concluídas iniciadas após a ativação da regra contam. Tempo limitado pelo intervalo real e pausas. Atividades sobrepostas não recebem crédito duplo. Caminhada/corrida/trilha/ciclismo precisam de distância plausível; velocidades médias impossíveis são rejeitadas para recompensa. GPS falso e cronômetro ligado sem exercício não podem ser eliminados totalmente em web apps.
 - Desafios: matches sem bloqueio, aceite explícito, até 3 convites/desafios ativos por pessoa, duração 5/10/15 min ou caminhada/corrida/trilha 0,5/1/1,5/2 km ou ciclismo 1/2/3 km. Prazo 1/3/7 dias a partir do convite. Cada pessoa cumpre o seu objetivo; sem vencedor por rapidez. Só contam atividades iniciadas após o aceite e terminadas antes do prazo. Expiração não retira o XP já ganho por quem cumpriu.
-- Conquistas continuam sendo medalhas (item 25 ainda pendente), sem prometer novo XP à parte do teto. O saldo legado previamente mostrado pela API de conquistas é preservado uma vez, pelo maior entre esse saldo e `users.totalXP`. Estimativas locais antigas por estatísticas não eram saldo persistido e não são convertidas.
+- Conquistas continuam sendo medalhas (item 25 ampliado no código, ainda pendente de validação operacional), sem prometer novo XP à parte do teto. O saldo legado previamente mostrado pela API de conquistas é preservado uma vez, pelo maior entre esse saldo e `users.totalXP`. Estimativas locais antigas por estatísticas não eram saldo persistido e não são convertidas.
 
 ## Implantação / instalação do zero
 
-Migration `1788900000000-Gamification.ts`: cria `gamification_rewards`, adiciona `users.gamificationStartedAt` e `challenges.acceptedAt/ruleVersion`. Em produção, o backend com `DB_SYNCHRONIZE=false` aplica migrations no início, conforme configuração existente. A migration depende das tabelas-base e migrations anteriores. Em instalação nova, seguir primeiro o procedimento da base no README.
+Migration `1788900000000-Gamification.ts`: cria `gamification_rewards`, adiciona `users.gamificationStartedAt` e `challenges.acceptedAt/ruleVersion`. Em produção, o backend com `DB_SYNCHRONIZE=false` aplica migrations no início, conforme configuração existente. A migration depende das tabelas-base e migrations anteriores. Em instalação nova, seguir o [bootstrap controlado da base](../DOCUMENTACAO.md#operacao-e-recuperacao): as migrations incrementais não substituem um schema-base, e o app não deve ser liberado antes do endurecimento de permissões.
 
 **Atenção:** desafios legados pendentes/aceitos são expirados pela migration porque permitiam metas livres e autodeclaração. Histórico concluído é preservado. Não reeditar a migration já aplicada para reabrir desafios antigos.
 

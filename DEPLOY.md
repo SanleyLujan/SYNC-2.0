@@ -11,4 +11,4 @@ centralizado em:
 Produção atual: [frontend](https://sync-2-0-blush.vercel.app) e
 [healthcheck do backend](https://sync-backend-o2zc.onrender.com/health).
 
-**Última revisão:** 2026-08-30
+**Última revisão:** 11/09/2026

@@ -1,13 +1,15 @@
 # Preparação do Supabase
 
-Estes arquivos fazem parte da configuração oficial de uma instalação nova do Sync.
+**Revisão documental:** 11/09/2026.
+
+Estes arquivos fazem parte da configuração oficial do Sync. Ver [operação e instalação](../../DOCUMENTACAO.md#operacao-e-recuperacao). Não contêm credenciais reais.
 
 ## Banco totalmente novo
 
 1. Crie o projeto no Supabase e copie a connection string do **Session Pooler**.
 2. No SQL Editor, execute `01-configurar-admin-e-verificacao.sql`. Ele cria o bucket privado mesmo que a tabela `users` ainda não exista.
-3. No primeiro deploy do backend contra um banco vazio, use `DB_SYNCHRONIZE=true` uma única vez para criar o schema-base.
-4. Assim que o primeiro deploy terminar, altere para `DB_SYNCHRONIZE=false` e faça novo deploy. A partir daí, somente migrations versionadas devem evoluir o schema.
+3. Em base dedicada totalmente vazia, com o aplicativo ainda indisponível ao público, no primeiro deploy use `DB_SYNCHRONIZE=true` uma única vez para criar o schema-base.
+4. Assim que o primeiro deploy terminar, altere para `DB_SYNCHRONIZE=false` e faça novo deploy. A partir daí, somente migrations versionadas devem evoluir o schema. Conferir a aplicação de RLS e permissões antes de liberar usuários. As migrations existentes são incrementais e não constituem uma migration inicial completa.
 5. Configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KYC_BUCKET=identity-verification` e `CPF_HASH_SALT` somente no backend/Render.
 6. Cadastre normalmente a futura conta administrativa.
 7. Troque o placeholder de email em `02-promover-usuario-admin.sql` e execute o arquivo. A consulta final precisa mostrar a conta com `isAdmin=true`.

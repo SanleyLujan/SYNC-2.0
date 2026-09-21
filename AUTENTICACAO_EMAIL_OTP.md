@@ -8,4 +8,4 @@ validação foram centralizados em:
 - [Autenticação e identidade](./DOCUMENTACAO.md#autenticacao-e-identidade)
 - [Documentação técnica e operacional](./DOCUMENTACAO.md)
 
-**Última revisão:** 2026-08-30
+**Última revisão:** 11/09/2026

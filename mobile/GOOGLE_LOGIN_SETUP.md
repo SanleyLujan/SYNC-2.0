@@ -1,11 +1,7 @@
-# Ativação do login com Google
+# Login com Google — referência e limite atual
 
-> Este arquivo é mantido apenas para compatibilidade com links antigos.
+O backend possui troca de token Google, mas a revisão de 11/09/2026 não confirmou fluxo ativo integrado na interface. Não anunciar o login Google como entregue apenas por existir endpoint.
 
-Credenciais Google Cloud, origens autorizadas, variáveis do Render, dependências Expo
-e roteiro de ativação estão centralizados em:
+Configuração e limites em [autenticação e identidade](../DOCUMENTACAO.md#autenticacao-e-identidade). A ativação completa exige implementação/verificação de cliente, audience, origens, sessão e teste por plataforma; nenhuma credencial real deve ser colocada neste documento.
 
-- [Autenticação e identidade](../DOCUMENTACAO.md#autenticacao-e-identidade)
-- [Documentação técnica e operacional](../DOCUMENTACAO.md)
-
-**Última revisão:** 2026-08-30
+**Última revisão:** 11/09/2026
