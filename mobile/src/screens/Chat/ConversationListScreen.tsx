@@ -21,6 +21,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
+import SectionHeader from '../../components/layout/SectionHeader';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
@@ -187,69 +188,22 @@ export default function ConversationListScreen({ navigation }: Props) {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingTop: 60, backgroundColor: theme.background }]}>
-        <SkeletonList count={7} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <View style={[styles.emptyIconWrap, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
-          <Ionicons name="wifi-outline" size={40} color={theme.primary} />
-        </View>
-        <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Erro ao carregar</Text>
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Verifique sua conexão e tente novamente.</Text>
-        <TouchableOpacity
-          style={[styles.ctaBtn, { shadowColor: theme.primary }]}
-          onPress={() => { setLoading(true); loadConversations(); }}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={theme.gradientPrimary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaBtnInner}
-          >
-            <Ionicons name="refresh" size={18} color="#fff" />
-            <Text style={styles.ctaBtnText}>Tentar novamente</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Gradient header */}
-      <LinearGradient
-        colors={theme.mode === 'dark'
-          ? ['#071427', '#040B16', theme.background]
-          : ['#FFFFFF', '#F9FAFC', theme.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
-      >
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Mensagens</Text>
-          {totalUnread > 0 && (
-            <LinearGradient
-              colors={theme.gradientPrimary}
-              style={styles.headerBadge}
-            >
-              <Text style={styles.headerBadgeText}>{totalUnread}</Text>
-            </LinearGradient>
-          )}
-        </View>
+  const header = (
+    <SectionHeader
+      title="Mensagens"
+      subtitle={totalUnread > 0
+        ? `${totalUnread} ${totalUnread === 1 ? 'mensagem não lida' : 'mensagens não lidas'}`
+        : 'Converse e combine o próximo treino.'}
+      actions={!loading && !error && (
         <TouchableOpacity
           style={[
             styles.searchBtn,
             { backgroundColor: theme.surface, borderColor: theme.border },
             showSearch && { backgroundColor: theme.primary, borderColor: theme.primary },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel={showSearch ? 'Fechar busca de conversas' : 'Buscar conversas'}
+          accessibilityState={{ expanded: showSearch }}
           onPress={() => {
             setShowSearch(!showSearch);
             if (showSearch) setSearchQuery('');
@@ -261,7 +215,52 @@ export default function ConversationListScreen({ navigation }: Props) {
             <Ionicons name="search-outline" size={20} color={theme.textPrimary} />
           )}
         </TouchableOpacity>
-      </LinearGradient>
+      )}
+    />
+  );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {header}
+        <SkeletonList count={7} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {header}
+        <View style={[styles.center, { backgroundColor: theme.background }]}>
+          <View style={[styles.emptyIconWrap, { backgroundColor: theme.primarySoft, borderColor: theme.primary + '35' }]}>
+            <Ionicons name="wifi-outline" size={40} color={theme.primary} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Erro ao carregar</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Verifique sua conexão e tente novamente.</Text>
+          <TouchableOpacity
+            style={[styles.ctaBtn, { shadowColor: theme.primary }]}
+            onPress={() => { setLoading(true); loadConversations(); }}
+            activeOpacity={0.7}
+          >
+            <LinearGradient
+              colors={theme.gradientPrimary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.ctaBtnInner}
+            >
+              <Ionicons name="refresh" size={18} color="#fff" />
+              <Text style={styles.ctaBtnText}>Tentar novamente</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {header}
 
       {/* Animated search bar */}
       <Animated.View style={[
@@ -276,6 +275,7 @@ export default function ConversationListScreen({ navigation }: Props) {
           <Ionicons name="search" size={18} color={theme.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.textPrimary }]}
+            accessibilityLabel="Buscar conversas por nome"
             placeholder="Buscar conversas..."
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
@@ -357,42 +357,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ──────────────────────────────────────────────────────────────
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  headerTitle: {
-    fontSize: fontSize.xxl,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.5,
-  },
-  headerBadge: {
-    minWidth: 26,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  headerBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#fff',
-  },
   searchBtn: {
     width: 40,
     height: 40,
