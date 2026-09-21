@@ -19,6 +19,7 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import SwipeCard from '../../components/cards/SwipeCard';
+import SectionHeader from '../../components/layout/SectionHeader';
 import { fetchCurrentWeather, WeatherData, getExerciseRecommendation, getRandomQuote, MotivationalQuote } from '../../services/external-apis';
 import { getCurrentLocation } from '../../services/location.service';
 import { useAuthStore } from '../../store/authStore';
@@ -448,191 +449,43 @@ export default function DiscoveryScreen({ navigation }: Props) {
     </Modal>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Buscando pessoas...</Text>
-      </View>
-    );
-  }
-
-  const currentUser = users[currentIndex];
-  const nextUser = users[currentIndex + 1];
-
-  if (!currentUser) {
-    startPulse();
-    // Caso especial: usuário sem localização cadastrada
-    if (!hasLocation) {
-      return (
-        <View style={[styles.center, { backgroundColor: theme.background }]}>
-          <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
-            <LinearGradient
-              colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
-              style={styles.emptyIconGradient}
-            >
-              <View style={styles.emptyIcon}>
-                <Ionicons name="location-outline" size={44} color={theme.primary} />
-              </View>
-            </LinearGradient>
-          </Animated.View>
-          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Complete sua localização</Text>
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-            Sem sua localização não conseguimos encontrar atletas próximos.{'\n'}
-            Leva menos de 5 segundos.
-          </Text>
-          <TouchableOpacity
-            style={styles.refreshBtn}
-            onPress={async () => {
-              try {
-                const coords = await getCurrentLocation();
-                await api.put('/users/location', {
-                  latitude: coords.latitude,
-                  longitude: coords.longitude,
-                });
-                const fresh = await api.get('/users/me');
-                useAuthStore.getState().setUser(fresh.data);
-                loadUsers();
-              } catch (e) {
-                console.log('location update failed', e);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={theme.gradientPrimary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.refreshBtnGradient}
-            >
-              <Ionicons name="locate" size={18} color={colors.white} />
-              <Text style={styles.refreshText}>Ativar localização</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    // Falha de carregamento (rede/servidor) — distinto do "ninguém por perto"
-    if (loadError) {
-      return (
-        <View style={[styles.center, { backgroundColor: theme.background }]}>
-          <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
-            <LinearGradient
-              colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
-              style={styles.emptyIconGradient}
-            >
-              <View style={styles.emptyIcon}>
-                <Ionicons name="cloud-offline-outline" size={44} color={theme.primary} />
-              </View>
-            </LinearGradient>
-          </Animated.View>
-          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Não foi possível carregar</Text>
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-            Verifique sua conexão e tente de novo.{'\n'}
-            Seus atletas próximos aparecem aqui.
-          </Text>
-          <TouchableOpacity
-            style={styles.refreshBtn}
-            onPress={loadUsers}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Tentar novamente"
-          >
-            <LinearGradient
-              colors={theme.gradientPrimary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.refreshBtnGradient}
-            >
-              <Ionicons name="refresh" size={18} color={colors.white} />
-              <Text style={styles.refreshText}>Tentar novamente</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
-          <LinearGradient
-            colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
-            style={styles.emptyIconGradient}
-          >
-            <View style={styles.emptyIcon}>
-              <Ionicons name="search-outline" size={44} color={theme.primary} />
-            </View>
-          </LinearGradient>
-        </Animated.View>
-        <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Ninguem por perto</Text>
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-          Tente expandir o raio de busca ou volte mais tarde.{'\n'}
-          Novos perfis aparecem todos os dias!
-        </Text>
-        {quote && (
-          <Text style={[styles.quoteEmpty, { color: theme.primary }]}>"{quote.text}" - {quote.author}</Text>
-        )}
-        <TouchableOpacity style={styles.refreshBtn} onPress={loadUsers} activeOpacity={0.7}>
-          <LinearGradient
-            colors={theme.gradientPrimary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.refreshBtnGradient}
-          >
-            <Ionicons name="refresh" size={18} color={colors.white} />
-            <Text style={styles.refreshText}>Tentar novamente</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+  const header = (
+    <SectionHeader
+      title="Descobrir"
+      actions={
         <TouchableOpacity
-          style={styles.adjustFiltersBtn}
+          style={[styles.filterBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => setShowFilters(true)}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Filtros de descoberta"
         >
-          <Ionicons name="options-outline" size={16} color={theme.primary} />
-          <Text style={[styles.adjustFiltersText, { color: theme.primary }]}>Ajustar filtros</Text>
+          <Ionicons name="options-outline" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
-        {renderFilterModal()}
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Gradient header */}
-      <LinearGradient
-        colors={theme.mode === 'dark'
-          ? ['#071427', '#040B16']
-          : ['#FFFFFF', '#F9FAFC']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56) }]}
-      >
+      }
+    >
+      <View style={styles.headerFooter}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Descobrir</Text>
-          {/* Perfil completo — só aparece se ainda dá pra completar */}
           {profileCompletion < 100 && (
             <TouchableOpacity style={styles.completionBadge} onPress={() => navigation.getParent()?.navigate('ProfileTab')} activeOpacity={0.7}>
               <Ionicons name="person-circle-outline" size={13} color={theme.textSecondary} />
-              <View style={styles.completionBarBg}>
+              <View style={[styles.completionBarBg, { backgroundColor: theme.border }]}>
                 <View style={[styles.completionBarFill, { width: `${profileCompletion}%` }]} />
               </View>
-              <Text style={styles.completionText}>Perfil {profileCompletion}%</Text>
+              <Text style={[styles.completionText, { color: theme.textSecondary }]}>Perfil {profileCompletion}%</Text>
             </TouchableOpacity>
           )}
+          {profileCompletion >= 100 && <Text style={{ color: theme.textSecondary, fontSize: 12 }}>Encontre sua próxima parceria.</Text>}
         </View>
         <View style={styles.headerRight}>
-          {/* Weather mini badge */}
-          {weather && recommendation && (
-            <View style={[styles.weatherMini, { borderColor: recommendation.color + '30' }]}>
-              <Ionicons name={weather.weatherIcon as any} size={14} color={recommendation.color} />
-              <Text style={styles.weatherMiniTemp}>{weather.temperature}°</Text>
-            </View>
-          )}
           {/* Likes received (Tinder Gold-style) */}
           {likesReceivedCount > 0 && (
             <TouchableOpacity
-              style={styles.matchBadgeBtn}
+              style={[styles.matchBadgeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('LikesReceived')}
+              accessibilityRole="button"
+              accessibilityLabel="Ver curtidas recebidas"
             >
               <Ionicons name="star" size={20} color="#F59E0B" />
               <View style={[styles.matchBadge, { backgroundColor: '#F59E0B' }]}>
@@ -645,9 +498,11 @@ export default function DiscoveryScreen({ navigation }: Props) {
           {/* New matches badge */}
           {newMatchCount > 0 && (
             <TouchableOpacity
-              style={styles.matchBadgeBtn}
+              style={[styles.matchBadgeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
               activeOpacity={0.7}
               onPress={() => navigation.getParent()?.navigate('ChatTab')}
+              accessibilityRole="button"
+              accessibilityLabel="Ver novos matches"
             >
               <Ionicons name="heart" size={20} color={colors.likeGreen} />
               <Animated.View style={[styles.matchBadge, { transform: [{ scale: matchBadgeScale }] }]}>
@@ -657,17 +512,176 @@ export default function DiscoveryScreen({ navigation }: Props) {
               </Animated.View>
             </TouchableOpacity>
           )}
+        </View>
+      </View>
+    </SectionHeader>
+  );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {header}
+        <View style={[styles.center, { backgroundColor: theme.background }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Buscando pessoas...</Text>
+        </View>
+        {renderFilterModal()}
+      </View>
+    );
+  }
+
+  const currentUser = users[currentIndex];
+  const nextUser = users[currentIndex + 1];
+
+  if (!currentUser) {
+    startPulse();
+    // Caso especial: usuário sem localização cadastrada
+    if (!hasLocation) {
+      return (
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+          {header}
+          <View style={[styles.center, { backgroundColor: theme.background }]}>
+            <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
+              <LinearGradient
+                colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
+                style={styles.emptyIconGradient}
+              >
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="location-outline" size={44} color={theme.primary} />
+                </View>
+              </LinearGradient>
+            </Animated.View>
+            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Complete sua localização</Text>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              Sem sua localização não conseguimos encontrar atletas próximos.{'\n'}
+              Leva menos de 5 segundos.
+            </Text>
+            <TouchableOpacity
+              style={styles.refreshBtn}
+              onPress={async () => {
+                try {
+                  const coords = await getCurrentLocation();
+                  await api.put('/users/location', {
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                  });
+                  const fresh = await api.get('/users/me');
+                  useAuthStore.getState().setUser(fresh.data);
+                  loadUsers();
+                } catch (e) {
+                  console.log('location update failed', e);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={theme.gradientPrimary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.refreshBtnGradient}
+              >
+                <Ionicons name="locate" size={18} color={colors.white} />
+                <Text style={styles.refreshText}>Ativar localização</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+          {renderFilterModal()}
+        </View>
+      );
+    }
+    // Falha de carregamento (rede/servidor) — distinto do "ninguém por perto"
+    if (loadError) {
+      return (
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+          {header}
+          <View style={[styles.center, { backgroundColor: theme.background }]}>
+            <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
+              <LinearGradient
+                colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
+                style={styles.emptyIconGradient}
+              >
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="cloud-offline-outline" size={44} color={theme.primary} />
+                </View>
+              </LinearGradient>
+            </Animated.View>
+            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Não foi possível carregar</Text>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              Verifique sua conexão e tente de novo.{'\n'}
+              Seus atletas próximos aparecem aqui.
+            </Text>
+            <TouchableOpacity
+              style={styles.refreshBtn}
+              onPress={loadUsers}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Tentar novamente"
+            >
+              <LinearGradient
+                colors={theme.gradientPrimary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.refreshBtnGradient}
+              >
+                <Ionicons name="refresh" size={18} color={colors.white} />
+                <Text style={styles.refreshText}>Tentar novamente</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+          {renderFilterModal()}
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {header}
+        <View style={[styles.center, { backgroundColor: theme.background }]}>
+          <Animated.View style={[styles.emptyIconOuter, { transform: [{ scale: emptyPulse }] }]}>
+            <LinearGradient
+              colors={[theme.primarySoft, theme.mode === 'dark' ? 'rgba(3,9,20,0)' : 'rgba(255,255,255,0)']}
+              style={styles.emptyIconGradient}
+            >
+              <View style={styles.emptyIcon}>
+                <Ionicons name="search-outline" size={44} color={theme.primary} />
+              </View>
+            </LinearGradient>
+          </Animated.View>
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Ninguem por perto</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            Tente expandir o raio de busca ou volte mais tarde.{'\n'}
+            Novos perfis aparecem todos os dias!
+          </Text>
+          {quote && (
+            <Text style={[styles.quoteEmpty, { color: theme.primary }]}>"{quote.text}" - {quote.author}</Text>
+          )}
+          <TouchableOpacity style={styles.refreshBtn} onPress={loadUsers} activeOpacity={0.7}>
+            <LinearGradient
+              colors={theme.gradientPrimary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.refreshBtnGradient}
+            >
+              <Ionicons name="refresh" size={18} color={colors.white} />
+              <Text style={styles.refreshText}>Tentar novamente</Text>
+            </LinearGradient>
+          </TouchableOpacity>
           <TouchableOpacity
-            style={styles.filterBtn}
+            style={styles.adjustFiltersBtn}
             onPress={() => setShowFilters(true)}
             activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Filtros de descoberta"
           >
-            <Ionicons name="options-outline" size={22} color={theme.textPrimary} />
+            <Ionicons name="options-outline" size={16} color={theme.primary} />
+            <Text style={[styles.adjustFiltersText, { color: theme.primary }]}>Ajustar filtros</Text>
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+        {renderFilterModal()}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {header}
 
       {/* Weather workout suggestion card — shown when data is available and not dismissed */}
       {weather && recommendation && !weatherCardDismissed && (
@@ -680,7 +694,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
               <Text style={[styles.weatherSuggestionTitle, { color: recommendation.color }]}>
                 {weather.temperature}° · {recommendation.message}
               </Text>
-              <Text style={styles.weatherSuggestionSub} numberOfLines={1}>
+              <Text style={[styles.weatherSuggestionSub, { color: theme.textSecondary }]} numberOfLines={1}>
                 {recommendation.tips[0]}
               </Text>
               {recommendation.bestActivities.length > 0 && (
@@ -840,14 +854,7 @@ const styles = StyleSheet.create({
     color: colors.dark.secondaryText,
     marginTop: spacing.md,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 56, // fallback; overridden dynamically with insets.top in JSX
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
+  headerFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   headerLeft: {
     flexDirection: 'column',
     alignItems: 'flex-start',
@@ -862,12 +869,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     flexShrink: 0,
-  },
-  headerTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: '800',
-    color: colors.dark.text,
-    letterSpacing: 0.2,
   },
   completionBadge: {
     flexDirection: 'row',
@@ -892,23 +893,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.dark.secondaryText,
   },
-  weatherMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  weatherMiniTemp: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.dark.text,
-  },
-
   // Weather suggestion card
   weatherSuggestionCard: {
     flexDirection: 'row',

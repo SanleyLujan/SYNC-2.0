@@ -15,7 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SectionHeader from '../../components/layout/SectionHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { useThemeStore } from '../../store/themeStore';
@@ -37,7 +37,6 @@ const infoAlert = (title: string, message?: string) => {
 type Tab = 'mine' | 'discover' | 'ranking';
 
 export default function GroupsScreen({ navigation }: any) {
-  const insets = useSafeAreaInsets();
   const theme = useThemeStore((s) => s.theme);
   const [tab, setTab] = useState<Tab>('mine');
   const [mine, setMine] = useState<GroupSummary[]>([]);
@@ -174,22 +173,32 @@ export default function GroupsScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient
-        colors={theme.mode === 'dark'
-          ? ['#071427', '#040B16', theme.background]
-          : ['#FFFFFF', '#F9FAFC', theme.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 56), borderBottomColor: theme.divider }]}
-      >
-        <TouchableOpacity onPress={() => navigation?.goBack?.()} style={[styles.backBtn, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
-          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>Grupos</Text>
-        <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.primary, shadowColor: theme.primary }]} onPress={() => setShowCreate(true)}>
-          <Ionicons name="add" size={22} color={theme.primaryText} />
-        </TouchableOpacity>
-      </LinearGradient>
+      <SectionHeader
+        title="Grupos"
+        subtitle="Seu ritmo fica melhor em companhia."
+        actions={
+          <>
+            {navigation?.getState?.().index > 0 && (
+              <TouchableOpacity
+                style={[styles.headerBackButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={() => navigation.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel="Voltar"
+              >
+                <Ionicons name="arrow-back" size={20} color={theme.textPrimary} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.createBtn, { backgroundColor: theme.primary, shadowColor: theme.primary }]}
+              onPress={() => setShowCreate(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Criar grupo"
+            >
+              <Ionicons name="add" size={22} color={theme.primaryText} />
+            </TouchableOpacity>
+          </>
+        }
+      />
 
       <View style={styles.tabs}>
         {([
@@ -237,7 +246,7 @@ export default function GroupsScreen({ navigation }: any) {
           <View style={[styles.modalSheet, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Novo grupo</Text>
-              <TouchableOpacity onPress={() => setShowCreate(false)}>
+              <TouchableOpacity onPress={() => setShowCreate(false)} accessibilityRole="button" accessibilityLabel="Fechar criação de grupo">
                 <Ionicons name="close" size={24} color={theme.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -317,27 +326,7 @@ export default function GroupsScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0F' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  title: { flex: 1, fontSize: fontSize.xxl, fontWeight: '800', color: colors.dark.text },
+  headerBackButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   createBtn: {
     backgroundColor: '#FF6B35',
     width: 38, height: 38, borderRadius: 19,

@@ -14,6 +14,8 @@ import {
   Linking,
   AccessibilityInfo,
 } from 'react-native';
+import SectionHeader from '../../components/layout/SectionHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, HeatLayer, Polyline } from '../../components/map/SyncMap';
 import { planRoute, RouteResult } from '../../services/routing.service';
 import RoutePlannerPanel from '../../components/map/RoutePlannerPanel';
@@ -87,7 +89,9 @@ const sportColors: Record<string, string> = {
 
 export default function MapMainScreen({ navigation }: Props) {
   const theme = useThemeStore((s) => s.theme);
-  const [headerHeight, setHeaderHeight] = useState(116);
+  const insets = useSafeAreaInsets();
+  const controlsTop = Math.max(insets.top, 12);
+  const [headerHeight, setHeaderHeight] = useState(200);
   const [events, setEvents] = useState<EventType[]>([]);
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
   const [sportPlaces, setSportPlaces] = useState<SportPlace[]>([]);
@@ -384,38 +388,41 @@ export default function MapMainScreen({ navigation }: Props) {
   // Sem localização real ainda: mostra estado de empty/erro centralizado
   if (!region) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center', padding: spacing.lg }]}>
-        {loading ? (
-          <>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '600' }}>
-              Procurando sua localização...
-            </Text>
-            <Text style={{ color: theme.textSecondary, marginTop: 4, fontSize: fontSize.xs, textAlign: 'center' }}>
-              Permita o acesso ao GPS pra ver eventos perto de você.
-            </Text>
-          </>
-        ) : (
-          <>
-            <Ionicons name="location-outline" size={56} color={theme.primary} />
-            <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700', textAlign: 'center' }}>
-              {locationError || 'Sem acesso à sua localização'}
-            </Text>
-            <Text style={{ color: theme.textSecondary, marginTop: spacing.xs, fontSize: fontSize.xs, textAlign: 'center', maxWidth: 320 }}>
-              {Platform.OS === 'web'
-                ? 'Clique no cadeado da barra de endereço e libere "Localização".'
-                : 'Vá em Ajustes do dispositivo → Sync → Localização e ative.'}
-            </Text>
-            <TouchableOpacity
-              style={{ marginTop: spacing.lg, backgroundColor: theme.primary, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
-              onPress={initLocation}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="refresh" size={18} color={colors.white} />
-              <Text style={{ color: colors.white, fontWeight: '700' }}>Tentar novamente</Text>
-            </TouchableOpacity>
-          </>
-        )}
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <SectionHeader title="Mapa" subtitle="Explore os treinos perto de você" />
+        <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', padding: spacing.lg }]}>
+          {loading ? (
+            <>
+              <ActivityIndicator size="large" color={theme.primary} />
+              <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '600' }}>
+                Procurando sua localização...
+              </Text>
+              <Text style={{ color: theme.textSecondary, marginTop: 4, fontSize: fontSize.xs, textAlign: 'center' }}>
+                Permita o acesso ao GPS pra ver eventos perto de você.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="location-outline" size={56} color={theme.primary} />
+              <Text style={{ color: theme.textPrimary, marginTop: spacing.md, fontSize: fontSize.md, fontWeight: '700', textAlign: 'center' }}>
+                {locationError || 'Sem acesso à sua localização'}
+              </Text>
+              <Text style={{ color: theme.textSecondary, marginTop: spacing.xs, fontSize: fontSize.xs, textAlign: 'center', maxWidth: 320 }}>
+                {Platform.OS === 'web'
+                  ? 'Clique no cadeado da barra de endereço e libere "Localização".'
+                  : 'Vá em Ajustes do dispositivo → Sync → Localização e ative.'}
+              </Text>
+              <TouchableOpacity
+                style={{ marginTop: spacing.lg, backgroundColor: theme.primary, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                onPress={initLocation}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="refresh" size={18} color={colors.white} />
+                <Text style={{ color: colors.white, fontWeight: '700' }}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
     );
   }
@@ -562,7 +569,7 @@ export default function MapMainScreen({ navigation }: Props) {
       <TouchableOpacity
         style={[
           styles.routeBtn,
-          { top: (Platform.OS === 'ios' ? 54 : 40) + headerHeight + 8 },
+          { top: controlsTop + headerHeight + 8 },
           { backgroundColor: theme.surface, borderColor: theme.border },
           routeMode && { backgroundColor: theme.primary, borderColor: theme.primary },
         ]}
@@ -606,119 +613,119 @@ export default function MapMainScreen({ navigation }: Props) {
       )}
 
       {/* Top bar — faixa rolável pra não sobrepor os chips no celular */}
-      <View style={styles.topControls} onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)} pointerEvents="box-none">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator
-        style={styles.topBar}
-        contentContainerStyle={styles.topBarContent}
-      >
-        {/* Location name */}
-        {locationName ? (
-          <View style={[styles.locationChip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Ionicons name="location" size={14} color={theme.primary} />
-            <Text style={[styles.locationText, { color: theme.textPrimary }]} numberOfLines={1}>{locationName}</Text>
-          </View>
-        ) : null}
-
-        {/* Weather chip */}
-        {weather && (
-          <TouchableOpacity
-            style={[styles.weatherChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
-            onPress={() => setShowWeatherPanel(!showWeatherPanel)}
-            activeOpacity={0.7}
+      <View style={[styles.topControls, { top: controlsTop }]} onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)} pointerEvents="box-none">
+        <SectionHeader
+          title="Mapa"
+          subtitle={locationName || 'Explore os treinos perto de você'}
+          compact
+          actions={
+            weather && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Ver previsão do tempo"
+                style={[styles.weatherChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={() => setShowWeatherPanel(!showWeatherPanel)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={weather.weatherIcon as any}
+                  size={18}
+                  color={recommendation?.color || colors.primary}
+                />
+                <Text style={[styles.weatherTemp, { color: theme.textPrimary }]}>{weather.temperature}°</Text>
+                {recommendation && (
+                  <View style={[styles.weatherDot, { backgroundColor: recommendation.color }]} />
+                )}
+              </TouchableOpacity>
+            )
+          }
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.topBar}
+            contentContainerStyle={styles.topBarContent}
           >
-            <Ionicons
-              name={weather.weatherIcon as any}
-              size={18}
-              color={recommendation?.color || colors.primary}
-            />
-            <Text style={[styles.weatherTemp, { color: theme.textPrimary }]}>{weather.temperature}°</Text>
-            {recommendation && (
-              <View style={[styles.weatherDot, { backgroundColor: recommendation.color }]} />
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Heatmap toggle */}
-        <TouchableOpacity
-          style={[
-            styles.locationChip,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-            showHeatmap && { backgroundColor: theme.primary, borderColor: theme.primary },
-          ]}
-          onPress={() => setShowHeatmap((v) => !v)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="flame" size={14} color={showHeatmap ? theme.primaryText : theme.primary} />
-          <Text style={[styles.locationText, { color: theme.textPrimary }, showHeatmap && { color: theme.primaryText }]}>
-            Heatmap{showHeatmap && heatmapPoints.length ? ` (${heatmapPoints.length})` : ''}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Atletas: opt-in e com localização aproximada */}
-        <TouchableOpacity
-          style={[
-            styles.locationChip,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-            showPeopleOnMap && { backgroundColor: theme.primary, borderColor: theme.primary },
-          ]}
-          onPress={() => {
-            const next = !showPeopleOnMap;
-            setShowPeopleOnMap(next);
-            if (next && userCoords) {
-              loadNearbyUsers(userCoords.latitude, userCoords.longitude);
-            } else {
-              setNearbyUsers([]);
-            }
-          }}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={showPeopleOnMap ? 'Ocultar atletas do mapa' : 'Mostrar atletas próximos no mapa'}
-        >
-          <Ionicons name="people" size={14} color={showPeopleOnMap ? theme.primaryText : theme.primary} />
-          <Text style={[styles.locationText, { color: theme.textPrimary }, showPeopleOnMap && { color: theme.primaryText }]}>Atletas</Text>
-        </TouchableOpacity>
-
-        {/* Territórios — jogo de conquista */}
-        <TouchableOpacity
-          style={[styles.locationChip, { backgroundColor: theme.surface, borderColor: '#FCD34D' }]}
-          onPress={() => navigation.push('Territory')}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir territórios"
-        >
-          <Ionicons name="flag" size={14} color="#FCD34D" />
-          <Text style={[styles.locationText, { color: '#FCD34D' }]}>Territórios</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Filter row */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.filterRow}>
-          {filters.map((f) => (
+            {/* Heatmap toggle */}
             <TouchableOpacity
-              key={f.label}
               style={[
-                styles.filterChip,
+                styles.locationChip,
                 { backgroundColor: theme.surface, borderColor: theme.border },
-                filter === f.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+                showHeatmap && { backgroundColor: theme.primary, borderColor: theme.primary },
               ]}
-              onPress={() => handleFilterPress(f.id)}
+              onPress={() => setShowHeatmap((v) => !v)}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name={f.icon}
-                size={16}
-                color={filter === f.id ? theme.primaryText : theme.textPrimary}
-              />
-              <Text style={[styles.filterText, { color: theme.textPrimary }, filter === f.id && { color: theme.primaryText }]}>
-                {f.label}
+              <Ionicons name="flame" size={14} color={showHeatmap ? theme.primaryText : theme.primary} />
+              <Text style={[styles.locationText, { color: theme.textPrimary }, showHeatmap && { color: theme.primaryText }]}>
+                Heatmap{showHeatmap && heatmapPoints.length ? ` (${heatmapPoints.length})` : ''}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+
+            {/* Atletas: opt-in e com localização aproximada */}
+            <TouchableOpacity
+              style={[
+                styles.locationChip,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+                showPeopleOnMap && { backgroundColor: theme.primary, borderColor: theme.primary },
+              ]}
+              onPress={() => {
+                const next = !showPeopleOnMap;
+                setShowPeopleOnMap(next);
+                if (next && userCoords) {
+                  loadNearbyUsers(userCoords.latitude, userCoords.longitude);
+                } else {
+                  setNearbyUsers([]);
+                }
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={showPeopleOnMap ? 'Ocultar atletas do mapa' : 'Mostrar atletas próximos no mapa'}
+            >
+              <Ionicons name="people" size={14} color={showPeopleOnMap ? theme.primaryText : theme.primary} />
+              <Text style={[styles.locationText, { color: theme.textPrimary }, showPeopleOnMap && { color: theme.primaryText }]}>Atletas</Text>
+            </TouchableOpacity>
+
+            {/* Territórios — jogo de conquista */}
+            <TouchableOpacity
+              style={[styles.locationChip, { backgroundColor: theme.surface, borderColor: '#FCD34D' }]}
+              onPress={() => navigation.push('Territory')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir territórios"
+            >
+              <Ionicons name="flag" size={14} color={theme.mode === 'dark' ? '#FCD34D' : '#A16207'} />
+              <Text style={[styles.locationText, { color: theme.mode === 'dark' ? '#FCD34D' : '#A16207' }]}>Territórios</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SectionHeader>
+
+        {/* Filter row */}
+        <View style={styles.filterContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {filters.map((f) => (
+              <TouchableOpacity
+                key={f.label}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                  filter === f.id && { backgroundColor: theme.primary, borderColor: theme.primary },
+                ]}
+                onPress={() => handleFilterPress(f.id)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={f.icon}
+                  size={16}
+                  color={filter === f.id ? theme.primaryText : theme.textPrimary}
+                />
+                <Text style={[styles.filterText, { color: theme.textPrimary }, filter === f.id && { color: theme.primaryText }]}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </View>
 
       {/* Weather panel */}
@@ -726,7 +733,7 @@ export default function MapMainScreen({ navigation }: Props) {
         <Animated.View
           style={[
             styles.weatherPanel,
-            { top: (Platform.OS === 'ios' ? 54 : 40) + headerHeight + 8 },
+            { top: controlsTop + headerHeight + 8 },
             {
               opacity: weatherAnim,
               transform: [{
@@ -749,8 +756,8 @@ export default function MapMainScreen({ navigation }: Props) {
               <View style={styles.weatherMainInfo}>
                 <Ionicons name={weather.weatherIcon as any} size={36} color={recommendation.color} />
                 <View style={styles.weatherTempBlock}>
-                  <Text style={styles.weatherTempLarge}>{weather.temperature}°C</Text>
-                  <Text style={styles.weatherDesc}>{weather.weatherDescription}</Text>
+                  <Text style={[styles.weatherTempLarge, { color: theme.textPrimary }]}>{weather.temperature}°C</Text>
+                  <Text style={[styles.weatherDesc, { color: theme.textSecondary }]}>{weather.weatherDescription}</Text>
                 </View>
               </View>
               <TouchableOpacity onPress={() => setShowWeatherPanel(false)}>
@@ -761,19 +768,19 @@ export default function MapMainScreen({ navigation }: Props) {
             <View style={styles.weatherDetails}>
               <View style={styles.weatherDetailItem}>
                 <Ionicons name="water-outline" size={16} color={theme.textSecondary} />
-                <Text style={styles.weatherDetailText}>{weather.humidity}%</Text>
+                <Text style={[styles.weatherDetailText, { color: theme.textSecondary }]}>{weather.humidity}%</Text>
               </View>
               <View style={styles.weatherDetailItem}>
                 <Ionicons name="speedometer-outline" size={16} color={theme.textSecondary} />
-                <Text style={styles.weatherDetailText}>{weather.windSpeed} km/h</Text>
+                <Text style={[styles.weatherDetailText, { color: theme.textSecondary }]}>{weather.windSpeed} km/h</Text>
               </View>
               <View style={styles.weatherDetailItem}>
                 <Ionicons name="sunny-outline" size={16} color={theme.textSecondary} />
-                <Text style={styles.weatherDetailText}>UV {weather.uvIndex}</Text>
+                <Text style={[styles.weatherDetailText, { color: theme.textSecondary }]}>UV {weather.uvIndex}</Text>
               </View>
               <View style={styles.weatherDetailItem}>
                 <Ionicons name="thermometer-outline" size={16} color={theme.textSecondary} />
-                <Text style={styles.weatherDetailText}>Sens. {weather.feelsLike}°</Text>
+                <Text style={[styles.weatherDetailText, { color: theme.textSecondary }]}>Sens. {weather.feelsLike}°</Text>
               </View>
             </View>
 
@@ -1146,7 +1153,6 @@ const styles = StyleSheet.create({
   },
   topControls: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 54 : 40,
     left: 0,
     right: 0,
   },
@@ -1155,11 +1161,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   topBarContent: {
-    paddingVertical: 8,
+    paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   locationChip: {
     flexDirection: 'row',
