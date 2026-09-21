@@ -7,20 +7,19 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, fontSize, borderRadius } from '../../theme';
+import { spacing, fontSize, borderRadius } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
+import SectionHeader from '../../components/layout/SectionHeader';
+import { SPORTS } from '../../types';
+import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { matchingApi, LikeReceivedItem } from '../../services/matching.service';
-import EmptyState from '../../components/ui/EmptyState';
 import Skeleton from '../../components/ui/Skeleton';
 import Avatar from '../../components/ui/Avatar';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const ACCENT = '#FF6B35';
 
 function relativeDate(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -36,6 +35,7 @@ function relativeDate(iso: string): string {
 
 export default function LikesReceivedScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
   const navigation = useNavigation<any>();
   const haptic = useHaptic();
   const [items, setItems] = useState<LikeReceivedItem[]>([]);
@@ -91,39 +91,33 @@ export default function LikesReceivedScreen() {
     [actioning, haptic, navigation],
   );
 
-  const HeaderBar = () => (
-    <LinearGradient
-      colors={['#15152E', '#0E0E1E', '#0A0A0F']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-      style={[styles.header, { paddingTop: Math.max(insets.top + 10, 44) }]}
-    >
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={styles.backBtn}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel="Voltar"
-      >
-        <Ionicons name="arrow-back" size={22} color="#fff" />
-      </TouchableOpacity>
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Text style={styles.title}>Quem te curtiu</Text>
-        {items.length > 0 && (
-          <Text style={styles.subtitle}>{items.length} {items.length === 1 ? 'curtida' : 'curtidas'} pendentes</Text>
-        )}
-      </View>
-      <View style={{ width: 38 }} />
-    </LinearGradient>
+  const header = (
+    <SectionHeader
+      title="Quem te curtiu"
+      subtitle={items.length > 0
+        ? `${items.length} ${items.length === 1 ? 'curtida pendente' : 'curtidas pendentes'}`
+        : 'Uma curtida pode virar parceria.'}
+      actions={
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+        >
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
+        </TouchableOpacity>
+      }
+    />
   );
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <HeaderBar />
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {header}
         <View style={{ padding: spacing.md, gap: spacing.md }}>
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} height={88} borderRadius={16} />
+            <Skeleton key={i} height={156} borderRadius={18} style={{ backgroundColor: theme.surfaceSecondary }} />
           ))}
         </View>
       </View>
@@ -131,87 +125,100 @@ export default function LikesReceivedScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <HeaderBar />
-
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {header}
       {items.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center' }}>
-          <EmptyState
-            icon="heart-outline"
-            title="Nenhuma curtida pendente"
-            subtitle="Quando alguém te curtir, vai aparecer aqui. Continue se mostrando!"
-            ctaLabel="Voltar pra descoberta"
-            onCtaPress={() => navigation.goBack()}
-          />
+        <View style={styles.empty}>
+          <View style={[styles.emptyIcon, { backgroundColor: theme.primarySoft }]}>
+            <Ionicons name="heart-outline" size={40} color={theme.primary} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>Nenhuma curtida pendente</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            Quando alguém te curtir, vai aparecer aqui. Continue se mostrando!
+          </Text>
+          <TouchableOpacity
+            style={[styles.emptyButton, { backgroundColor: theme.primary }]}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar pra descoberta"
+          >
+            <Text style={[styles.buttonText, { color: theme.primaryText }]}>Voltar pra descoberta</Text>
+            <Ionicons name="arrow-forward" size={18} color={theme.primaryText} />
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => item.likeId}
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + spacing.lg }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} colors={[theme.primary]} />
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
-              {item.user.avatarUrl ? (
-                <Avatar uri={item.user.avatarUrl} size={56} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarFallback]}>
-                  <Text style={styles.initial}>{item.user.name?.[0]?.toUpperCase()}</Text>
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, shadowOpacity: theme.mode === 'light' ? 0.07 : 0.2 }]}>
+              <View style={styles.profileRow}>
+                <View>
+                  {item.user.avatarUrl ? (
+                    <Avatar uri={item.user.avatarUrl} size={56} style={{ backgroundColor: theme.surfaceSecondary }} />
+                  ) : (
+                    <View style={[styles.avatarFallback, { backgroundColor: theme.primarySoft }]}>
+                      <Text style={[styles.initial, { color: theme.primary }]}>{item.user.name?.[0]?.toUpperCase()}</Text>
+                    </View>
+                  )}
+                  {item.isSuperLike && (
+                    <View style={[styles.superBadge, { backgroundColor: theme.blue, borderColor: theme.surface }]} accessibilityLabel="Supercurtida">
+                      <Ionicons name="star" size={11} color={theme.primaryText} />
+                    </View>
+                  )}
                 </View>
-              )}
-
-              {item.isSuperLike && (
-                <View style={styles.superBadge}>
-                  <Ionicons name="star" size={11} color="#fff" />
+                <View style={styles.profileInfo}>
+                  <Text style={[styles.name, { color: theme.textPrimary }]} numberOfLines={2}>{item.user.name}</Text>
+                  {!!item.user.bio && (
+                    <Text style={[styles.bio, { color: theme.textSecondary }]} numberOfLines={2}>{item.user.bio}</Text>
+                  )}
+                  {!!item.user.sports?.length && (
+                    <View style={styles.sportsRow}>
+                      {item.user.sports.slice(0, 3).map((sport) => (
+                        <View key={sport} style={[styles.sportPill, { backgroundColor: theme.primarySoft }]}>
+                          <Text style={[styles.sportText, { color: theme.mode === 'light' ? '#A83246' : '#9DC4FF' }]}>
+                            {SPORTS.find((s) => s.id === sport)?.label || sport}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
-              )}
-
-              <View style={{ flex: 1, marginLeft: spacing.md }}>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                  <Text style={styles.name} numberOfLines={1}>{item.user.name}</Text>
-                  <Text style={styles.time}>{relativeDate(item.createdAt)}</Text>
-                </View>
-                {!!item.user.bio && (
-                  <Text style={styles.bio} numberOfLines={2}>{item.user.bio}</Text>
-                )}
-                {!!item.user.sports && item.user.sports.length > 0 && (
-                  <View style={styles.sportsRow}>
-                    {item.user.sports.slice(0, 3).map((s) => (
-                      <View key={s} style={styles.sportPill}>
-                        <Text style={styles.sportTxt}>{s}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
               </View>
-
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.actionPass]}
-                  onPress={() => respond(item, 'pass')}
-                  disabled={!!actioning[item.likeId]}
-                  hitSlop={6}
-                >
-                  {actioning[item.likeId] ? (
-                    <ActivityIndicator size="small" color="#999" />
-                  ) : (
-                    <Ionicons name="close" size={20} color="#9CA3AF" />
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.actionLike]}
-                  onPress={() => respond(item, 'like')}
-                  disabled={!!actioning[item.likeId]}
-                  hitSlop={6}
-                >
-                  {actioning[item.likeId] ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Ionicons name="heart" size={20} color="#fff" />
-                  )}
-                </TouchableOpacity>
+              <View style={[styles.cardFooter, { borderTopColor: theme.divider }]}>
+                <Text style={[styles.time, { color: theme.textSecondary }]}>{relativeDate(item.createdAt)}</Text>
+                <View style={styles.actions}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                    onPress={() => respond(item, 'pass')}
+                    disabled={!!actioning[item.likeId]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Passar curtida de ${item.user.name}`}
+                    accessibilityState={{ disabled: !!actioning[item.likeId], busy: !!actioning[item.likeId] }}
+                  >
+                    {actioning[item.likeId]
+                      ? <ActivityIndicator size="small" color={theme.textSecondary} />
+                      : <Ionicons name="close" size={18} color={theme.textSecondary} />}
+                    <Text style={[styles.buttonText, { color: theme.textSecondary }]}>Passar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: theme.primary, borderColor: theme.primary }]}
+                    onPress={() => respond(item, 'like')}
+                    disabled={!!actioning[item.likeId]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Curtir ${item.user.name}`}
+                    accessibilityState={{ disabled: !!actioning[item.likeId], busy: !!actioning[item.likeId] }}
+                  >
+                    {actioning[item.likeId]
+                      ? <ActivityIndicator size="small" color={theme.primaryText} />
+                      : <Ionicons name="heart" size={18} color={theme.primaryText} />}
+                    <Text style={[styles.buttonText, { color: theme.primaryText }]}>Curtir</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           )}
@@ -222,90 +229,27 @@ export default function LikesReceivedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0F' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // paddingTop dinâmico via insets no JSX (notch/safe-area)
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: { fontSize: fontSize.lg, fontWeight: '800', color: '#fff' },
-  subtitle: { fontSize: 11, color: '#FF6B35', fontWeight: '600', marginTop: 2 },
-
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.055)',
-    borderRadius: 18,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    position: 'relative',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#252540',
-  },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initial: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  superBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 56,
-    backgroundColor: ACCENT,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#0A0A0F',
-  },
-  name: { color: '#fff', fontSize: fontSize.md, fontWeight: '800', flex: 1 },
-  time: { color: '#8E8EA0', fontSize: 11 },
-  bio: { color: '#B8B8CC', fontSize: 12, marginTop: 3, lineHeight: 16 },
-  sportsRow: { flexDirection: 'row', gap: 4, marginTop: 6, flexWrap: 'wrap' },
-  sportPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(255,107,53,0.16)',
-    borderRadius: 8,
-  },
-  sportTxt: { color: '#FFB07A', fontSize: 10, fontWeight: '700' },
-
-  actions: { flexDirection: 'row', gap: 8, marginLeft: spacing.sm },
-  actionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionPass: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  actionLike: { backgroundColor: ACCENT },
+  container: { flex: 1 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  card: { borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 2 },
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  profileInfo: { flex: 1, minWidth: 0 },
+  avatarFallback: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  initial: { fontSize: 22, fontWeight: '800' },
+  superBadge: { position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  name: { fontSize: fontSize.md, fontWeight: '800' },
+  bio: { fontSize: 12, marginTop: 4, lineHeight: 17 },
+  sportsRow: { flexDirection: 'row', gap: 4, marginTop: 8, flexWrap: 'wrap' },
+  sportPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  sportText: { fontSize: 11, fontWeight: '600' },
+  cardFooter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTopWidth: 1, marginTop: 14, paddingTop: 12 },
+  time: { fontSize: 11 },
+  actions: { flexDirection: 'row', gap: 8 },
+  actionBtn: { minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  buttonText: { fontSize: 12, fontWeight: '700' },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
+  emptyIcon: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
+  emptyTitle: { fontSize: fontSize.lg, fontWeight: '700', textAlign: 'center' },
+  emptyText: { fontSize: fontSize.sm, textAlign: 'center', lineHeight: 21, marginTop: spacing.sm, maxWidth: 320 },
+  emptyButton: { minHeight: 44, marginTop: spacing.lg, paddingHorizontal: spacing.lg, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 },
 });
