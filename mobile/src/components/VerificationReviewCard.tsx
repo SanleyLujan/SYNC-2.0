@@ -4,12 +4,18 @@ import { Image } from 'expo-image';
 import api from '../services/api';
 import { confirmAsync } from '../utils/confirm';
 import { showToast } from './ui/Toast';
+import { useThemeStore } from '../store/themeStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const documents = [['selfie', 'Selfie'], ['documentFront', 'Documento · frente'], ['documentBack', 'Documento · verso']] as const;
 type Slot = typeof documents[number][0];
 
 export default function VerificationReviewCard({ request, onReviewed, onRefresh }: { request: any; onReviewed: () => void; onRefresh: () => void }) {
   const { width, height } = useWindowDimensions();
+  const theme = useThemeStore((s) => s.theme);
+  const insets = useSafeAreaInsets();
+  const dangerText = theme.mode === 'light' ? '#B91C1C' : '#FCA5A5';
+  const successText = theme.mode === 'light' ? '#087F5B' : theme.success;
   const [selected, setSelected] = useState<Slot | null>(null);
   const [seen, setSeen] = useState<Partial<Record<Slot, boolean>>>({});
   const [imageError, setImageError] = useState(false);
@@ -44,37 +50,37 @@ export default function VerificationReviewCard({ request, onReviewed, onRefresh 
     } finally { submitting.current = false; setBusy(false); }
   };
   const canApprove = !busy && !expired && !imageError && !request.imageError && documents.every(([key]) => seen[key]);
-  const button = { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#525269', alignItems: 'center' as const };
-  return <View style={{ paddingVertical: 16, gap: 12, borderTopWidth: 1, borderTopColor: '#343447' }}>
-    <Text style={{ color: '#fff', fontWeight: '700' }}>{request.user?.name || 'Usuário'}</Text>
-    <Text style={{ color: '#b8b8ca', fontSize: 12 }}>Enviado em {new Date(request.createdAt).toLocaleString('pt-BR')}</Text>
-    <Text style={{ color: '#b8b8ca', fontSize: 12 }}>Abra e confira as três imagens antes de aprovar. Links privados expiram em 5 minutos.</Text>
-    {(expired || request.imageError || imageError) && <Text accessibilityRole="alert" style={{ color: '#FCA5A5' }}>{expired ? 'As imagens expiraram. Atualize para continuar.' : request.imageError || 'Falha ao carregar uma imagem. Atualize os documentos.'}</Text>}
+  const button = { padding: 12, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceSecondary, alignItems: 'center' as const, justifyContent: 'center' as const };
+  return <View style={{ paddingVertical: 16, gap: 12, borderTopWidth: 1, borderTopColor: theme.divider }}>
+    <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{request.user?.name || 'Usuário'}</Text>
+    <Text style={{ color: theme.textSecondary, fontSize: 12 }}>Enviado em {new Date(request.createdAt).toLocaleString('pt-BR')}</Text>
+    <Text style={{ color: theme.textSecondary, fontSize: 12 }}>Abra e confira as três imagens antes de aprovar. Links privados expiram em 5 minutos.</Text>
+    {(expired || request.imageError || imageError) && <Text accessibilityRole="alert" style={{ color: dangerText }}>{expired ? 'As imagens expiraram. Atualize para continuar.' : request.imageError || 'Falha ao carregar uma imagem. Atualize os documentos.'}</Text>}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {documents.map(([key, label]) => <TouchableOpacity key={key} accessibilityRole="button" accessibilityLabel={`Abrir ${label}`} disabled={busy || expired || !request.images?.[key]} onPress={() => { setSelected(key); setZoom(false); setImageLoading(true); }} style={{ flexGrow: 1, flexBasis: 100, gap: 6 }}>
-        {!expired && request.images?.[key] && <Image source={{ uri: request.images[key] }} cachePolicy="none" contentFit="contain" style={{ width: '100%', height: 110, backgroundColor: '#171725' }} onError={() => setImageError(true)} />}
-        <Text style={{ color: seen[key] ? '#86EFAC' : '#ddd', fontSize: 12 }}>{label}{seen[key] ? ' · conferida' : ''}</Text>
+        {!expired && request.images?.[key] && <Image source={{ uri: request.images[key] }} cachePolicy="none" contentFit="contain" style={{ width: '100%', height: 110, backgroundColor: theme.surfaceSecondary, borderRadius: 8, borderWidth: 1, borderColor: theme.border }} onError={() => setImageError(true)} />}
+        <Text style={{ color: seen[key] ? successText : theme.textSecondary, fontSize: 12 }}>{label}{seen[key] ? ' · conferida' : ''}</Text>
       </TouchableOpacity>)}
     </View>
-    <TouchableOpacity disabled={busy} onPress={onRefresh} style={button}><Text style={{ color: '#b8d7ff' }}>Atualizar documentos</Text></TouchableOpacity>
-    <TextInput accessibilityLabel="Motivo da recusa" placeholder="Motivo da recusa (obrigatório para recusar)" placeholderTextColor="#a5a5b8" value={reason} onChangeText={setReason} maxLength={300} multiline editable={!busy} style={{ color: '#fff', borderWidth: 1, borderColor: '#525269', borderRadius: 10, padding: 12, minHeight: 80 }} />
+    <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={onRefresh} style={button}><Text style={{ color: theme.textPrimary }}>Atualizar documentos</Text></TouchableOpacity>
+    <TextInput accessibilityLabel="Motivo da recusa" placeholder="Motivo da recusa (obrigatório para recusar)" placeholderTextColor={theme.placeholder} value={reason} onChangeText={setReason} maxLength={300} multiline editable={!busy} style={{ color: theme.textPrimary, backgroundColor: theme.input, borderWidth: 1, borderColor: theme.border, borderRadius: 10, padding: 12, minHeight: 80, textAlignVertical: 'top' }} />
     <View style={{ flexDirection: 'row', gap: 8 }}>
-      <TouchableOpacity disabled={busy || expired || !reason.trim()} onPress={() => void review('reject')} style={[button, { flex: 1, opacity: busy || expired || !reason.trim() ? 0.4 : 1 }]}><Text style={{ color: '#FCA5A5' }}>Recusar</Text></TouchableOpacity>
-      <TouchableOpacity disabled={!canApprove} onPress={() => void review('approve')} style={[button, { flex: 1, opacity: canApprove ? 1 : 0.4 }]}><Text style={{ color: '#86EFAC' }}>Aprovar selo</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" disabled={busy || expired || !reason.trim()} onPress={() => void review('reject')} style={[button, { flex: 1, borderColor: theme.danger, backgroundColor: theme.dangerSoft, opacity: busy || expired || !reason.trim() ? 0.4 : 1 }]}><Text style={{ color: dangerText }}>Recusar</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" disabled={!canApprove} onPress={() => void review('approve')} style={[button, { flex: 1, borderColor: theme.success, backgroundColor: theme.successSoft, opacity: canApprove ? 1 : 0.4 }]}><Text style={{ color: successText }}>Aprovar selo</Text></TouchableOpacity>
     </View>
-    {busy && <ActivityIndicator accessibilityLabel="Salvando análise" />}
+    {busy && <ActivityIndicator accessibilityLabel="Salvando análise" color={theme.primary} />}
     <Modal visible={!!selected} onRequestClose={() => setSelected(null)} animationType="fade">
-      <View style={{ flex: 1, backgroundColor: '#10101d', paddingTop: 40 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 16 }}>
-          <TouchableOpacity accessibilityRole="button" onPress={() => setSelected(null)}><Text style={{ color: '#fff' }}>Fechar</Text></TouchableOpacity>
-          <Text style={{ color: '#fff' }}>{documents.find(([key]) => key === selected)?.[1]}</Text>
-          <TouchableOpacity accessibilityRole="button" onPress={() => setZoom(!zoom)}><Text style={{ color: '#fff' }}>{zoom ? 'Reduzir' : 'Ampliar'}</Text></TouchableOpacity>
+      <View style={{ flex: 1, backgroundColor: theme.background, paddingTop: Math.max(insets.top, 16), paddingBottom: insets.bottom }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 16, backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.divider }}>
+          <TouchableOpacity accessibilityRole="button" style={button} onPress={() => setSelected(null)}><Text style={{ color: theme.textPrimary }}>Fechar</Text></TouchableOpacity>
+          <Text style={{ color: theme.textPrimary, flex: 1, textAlign: 'center' }}>{documents.find(([key]) => key === selected)?.[1]}</Text>
+          <TouchableOpacity accessibilityRole="button" style={button} onPress={() => setZoom(!zoom)}><Text style={{ color: theme.textPrimary }}>{zoom ? 'Reduzir' : 'Ampliar'}</Text></TouchableOpacity>
         </View>
-        {imageLoading && <ActivityIndicator accessibilityLabel="Carregando documento" />}
+        {imageLoading && <ActivityIndicator accessibilityLabel="Carregando documento" color={theme.primary} />}
         <ScrollView><ScrollView horizontal>
           {selected && !expired && <Image key={request.images?.[selected]} source={{ uri: request.images?.[selected] }} cachePolicy="none" contentFit="contain" style={{ width: width * (zoom ? 2 : 1), height: (height - 140) * (zoom ? 2 : 1) }} onLoad={() => { setImageLoading(false); setSeen(current => ({ ...current, [selected]: true })); }} onError={() => { setImageLoading(false); setImageError(true); setSeen(current => ({ ...current, [selected]: false })); }} />}
         </ScrollView></ScrollView>
-        {imageError && <Text style={{ color: '#FCA5A5', padding: 16 }}>Não foi possível carregar. Feche e atualize os documentos.</Text>}
+        {imageError && <Text style={{ color: dangerText, padding: 16 }}>Não foi possível carregar. Feche e atualize os documentos.</Text>}
       </View>
     </Modal>
   </View>;
