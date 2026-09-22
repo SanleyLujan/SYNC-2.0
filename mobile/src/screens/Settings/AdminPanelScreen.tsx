@@ -1,16 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import VerificationReviewCard from '../../components/VerificationReviewCard';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { fontSize, spacing, borderRadius } from '../../theme';
+import { AppTheme } from '../../theme/colors';
+import { useThemeStore } from '../../store/themeStore';
+import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 
 export default function AdminPanelScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeStore((s) => s.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [dashboard, setDashboard] = useState<any>(null);
   const [reports, setReports] = useState<any>(null);
   const [moderation, setModeration] = useState<any>(null);
@@ -65,19 +70,19 @@ export default function AdminPanelScreen({ navigation }: any) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
-      <LinearGradient colors={['#15152E', '#0E0E1E', '#0A0A0F']} style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}>
-        <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#fff" />
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + spacing.lg }}>
+      <LinearGradient colors={[theme.surfaceElevated, theme.surface, theme.background]} style={[styles.header, { paddingTop: Math.max(insets.top + 10, 28) }]}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Voltar" onPress={() => navigation?.goBack?.()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={20} color={theme.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Admin</Text>
-        <TouchableOpacity onPress={load} style={styles.backBtn}>
-          <Ionicons name="refresh" size={18} color="#fff" />
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Atualizar painel administrativo" onPress={load} style={styles.backBtn}>
+          <Ionicons name="refresh" size={18} color={theme.textPrimary} />
         </TouchableOpacity>
       </LinearGradient>
 
       {loading ? (
-        <View style={styles.loading}><ActivityIndicator size="large" color="#FF6B35" /></View>
+        <View style={styles.loading}><ActivityIndicator size="large" color={theme.primary} /></View>
       ) : loadError ? (
         <View style={styles.section}>
           <Text style={styles.itemText}>Não foi possível carregar o painel. A fila não está disponível para análise.</Text>
@@ -159,7 +164,7 @@ export default function AdminPanelScreen({ navigation }: any) {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Verificação de perfis · pendentes</Text>
-            <Text style={[styles.itemText, moderation?.verificationStorage?.available === false && { color: '#FCA5A5' }]}>{moderation?.verificationStorage?.message}</Text>
+            <Text style={[styles.itemText, moderation?.verificationStorage?.available === false && styles.dangerText]}>{moderation?.verificationStorage?.message}</Text>
             {!!moderation?.verificationError && <Text accessibilityRole="alert" style={styles.dangerText}>{moderation.verificationError}</Text>}
             {(moderation?.verifications || []).map((r: any) => <VerificationReviewCard key={r.id} request={r} onReviewed={() => void load()} onRefresh={() => void load()} />)}
             {!moderation?.verificationError && (moderation?.verifications || []).length === 0 && <Text style={styles.empty}>Nenhum pedido de verificação pendente.</Text>}
@@ -181,32 +186,28 @@ export default function AdminPanelScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0F' },
+const createStyles = (theme: AppTheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
-  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
-  title: { color: '#fff', fontSize: fontSize.xl, fontWeight: '900' },
+  backBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: theme.surfaceSecondary, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+  title: { color: theme.textPrimary, fontSize: fontSize.xl, fontWeight: '900' },
   loading: { paddingTop: 120, alignItems: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, padding: spacing.md },
-  metricCard: { width: '48%', backgroundColor: 'rgba(255,255,255,0.055)', borderRadius: borderRadius.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: spacing.md },
-  metricValue: { color: '#FF6B35', fontSize: 24, fontWeight: '900' },
-  metricLabel: { color: colors.dark.secondaryText, fontSize: 12, marginTop: 4 },
-  section: { marginHorizontal: spacing.md, marginBottom: spacing.md, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: borderRadius.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: spacing.md },
-  sectionTitle: { color: '#fff', fontSize: 15, fontWeight: '800', marginBottom: spacing.sm },
-  line: { color: 'rgba(255,255,255,0.72)', fontSize: 13, marginBottom: 6 },
-  item: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
-  itemTitle: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  itemSub: { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 },
-  itemText: { color: 'rgba(255,255,255,0.72)', fontSize: 12, marginTop: 6 },
-  empty: { color: 'rgba(255,255,255,0.45)', fontSize: 12, paddingVertical: spacing.sm },
-  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  neutralBtn: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
-  neutralText: { color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700' },
-  dangerBtn: { flex: 1, borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
-  dangerText: { color: '#F87171', fontSize: 11, fontWeight: '800' },
-  approveBtn: { flex: 1, borderWidth: 1, borderColor: 'rgba(34,197,94,0.4)', backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
-  approveText: { color: '#22C55E', fontSize: 11, fontWeight: '800' },
+  metricCard: { flexGrow: 1, flexBasis: '45%', backgroundColor: theme.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: theme.border, borderTopWidth: 3, borderTopColor: theme.primary, padding: spacing.md },
+  metricValue: { color: theme.mode === 'light' ? '#A83246' : theme.primary, fontSize: 24, fontWeight: '900' },
+  metricLabel: { color: theme.textSecondary, fontSize: 12, marginTop: 4 },
+  section: { marginHorizontal: spacing.md, marginBottom: spacing.md, backgroundColor: theme.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: theme.border, padding: spacing.md },
+  sectionTitle: { color: theme.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: spacing.sm },
+  line: { color: theme.textSecondary, fontSize: 13, marginBottom: 6 },
+  item: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: theme.divider },
+  itemTitle: { color: theme.textPrimary, fontSize: 13, fontWeight: '800' },
+  itemSub: { color: theme.textSecondary, fontSize: 11, marginTop: 2 },
+  itemText: { color: theme.textSecondary, fontSize: 12, marginTop: 6 },
+  empty: { color: theme.textSecondary, fontSize: 12, paddingVertical: spacing.sm },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  neutralBtn: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceSecondary, borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center' },
+  neutralText: { color: theme.textPrimary, fontSize: 11, fontWeight: '700' },
+  dangerBtn: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: theme.danger, backgroundColor: theme.dangerSoft, borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center' },
+  dangerText: { color: theme.mode === 'light' ? '#B91C1C' : '#FCA5A5', fontSize: 11, fontWeight: '800' },
   postImage: { width: '100%', height: 140, borderRadius: 10, marginTop: spacing.sm },
-  kycImages: { flexDirection: 'row', gap: 6, marginTop: spacing.sm },
-  kycImage: { flex: 1, height: 90, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)' },
 });

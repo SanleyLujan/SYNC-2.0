@@ -231,12 +231,18 @@ export class ChatService {
   // calculamos última mensagem / não-lidas em queries à parte (robusto e
   // independente de dialeto SQL).
   async getConversations(userId: string) {
-    const conversations = await this.matchRepository
+    const matches = await this.matchRepository
       .createQueryBuilder('match')
       .leftJoinAndSelect('match.user1', 'user1')
       .leftJoinAndSelect('match.user2', 'user2')
       .where('match.user1_id = :userId OR match.user2_id = :userId', { userId })
       .getMany();
+
+    // Soft-deleted users are absent from joined relations. Do not return an
+    // actionable conversation without a peer or query its message history.
+    const conversations = matches.filter((match) =>
+      !!(match.user1_id === userId ? match.user2 : match.user1),
+    );
 
     const matchIds = conversations.map((m) => m.id);
     const unreadCounts: Record<string, number> = {};
