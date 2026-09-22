@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function relativeDate(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(diff)) return '';
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'agora';
   if (m < 60) return `${m} min`;

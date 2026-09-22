@@ -15,12 +15,12 @@ import { Image } from 'expo-image'; // cache em disco para avatares do chat
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChatStackParamList } from '../../navigation/types';
-import { Conversation } from '../../types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
+import { normalizeConversations, ConversationListItem } from '../../utils/social-lists';
 import SectionHeader from '../../components/layout/SectionHeader';
 import { SkeletonList } from '../../components/ui/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,7 +33,7 @@ type Props = {
 export default function ConversationListScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useThemeStore((s) => s.theme);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,7 +67,7 @@ export default function ConversationListScreen({ navigation }: Props) {
     setError(false);
     try {
       const { data } = await api.get('/chat/conversations');
-      setConversations(Array.isArray(data) ? data : []);
+      setConversations(normalizeConversations(data));
     } catch (err) {
       setError(true);
       setConversations([]);
@@ -84,6 +84,7 @@ export default function ConversationListScreen({ navigation }: Props) {
 
   const formatTime = (date: string) => {
     const d = new Date(date);
+    if (!Number.isFinite(d.getTime())) return '';
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
     if (diffDays === 0) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -101,7 +102,7 @@ export default function ConversationListScreen({ navigation }: Props) {
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
-  const renderItem = ({ item }: { item: Conversation }) => (
+  const renderItem = ({ item }: { item: ConversationListItem }) => (
     <TouchableOpacity
       style={[styles.item, item.unreadCount > 0 && { backgroundColor: theme.primarySoft }]}
       onPress={() =>

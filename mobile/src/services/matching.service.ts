@@ -1,4 +1,5 @@
 import api from './api';
+import { normalizeLikesReceived } from '../utils/social-lists';
 
 export interface LikeReceivedItem {
   likeId: string;
@@ -16,7 +17,7 @@ export interface LikeReceivedItem {
 
 export const matchingApi = {
   likesReceived: () =>
-    api.get<LikeReceivedItem[]>('/matching/likes-received').then((r) => r.data),
+    api.get<LikeReceivedItem[]>('/matching/likes-received').then((r) => normalizeLikesReceived(r.data)),
 
   likesReceivedCount: () =>
     api
