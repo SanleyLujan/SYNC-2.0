@@ -166,11 +166,6 @@ export default function LikesReceivedScreen() {
                       <Text style={[styles.initial, { color: theme.primary }]}>{item.user.name?.[0]?.toUpperCase()}</Text>
                     </View>
                   )}
-                  {item.isSuperLike && (
-                    <View style={[styles.superBadge, { backgroundColor: theme.blue, borderColor: theme.surface }]} accessibilityLabel="Supercurtida">
-                      <Ionicons name="star" size={11} color={theme.primaryText} />
-                    </View>
-                  )}
                 </View>
                 <View style={styles.profileInfo}>
                   <Text style={[styles.name, { color: theme.textPrimary }]} numberOfLines={2}>{item.user.name}</Text>
@@ -237,7 +232,6 @@ const styles = StyleSheet.create({
   profileInfo: { flex: 1, minWidth: 0 },
   avatarFallback: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   initial: { fontSize: 22, fontWeight: '800' },
-  superBadge: { position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   name: { fontSize: fontSize.md, fontWeight: '800' },
   bio: { fontSize: 12, marginTop: 4, lineHeight: 17 },
   sportsRow: { flexDirection: 'row', gap: 4, marginTop: 8, flexWrap: 'wrap' },

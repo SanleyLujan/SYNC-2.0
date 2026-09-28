@@ -1,3 +1,4 @@
+import { retainContentRemoval } from '../users/account-retention';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -251,7 +252,7 @@ export class GroupsService {
     const group = await this.groupRepo.findOne({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Grupo não encontrado');
     if (group.admin_id !== userId) throw new ForbiddenException('Só o admin pode deletar');
-    await this.groupRepo.remove(group);
+    await retainContentRemoval(this.groupRepo, group.id);
     return { ok: true };
   }
 }

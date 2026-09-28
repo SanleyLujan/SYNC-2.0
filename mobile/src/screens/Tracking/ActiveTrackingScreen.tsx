@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
-  Dimensions,
   AppState,
 } from 'react-native';
 import MapView, { Polyline, Marker } from '../../components/map/SyncMap';
@@ -38,7 +37,6 @@ import {
 } from '../../services/background-tracking.service';
 // HoldToFinishButton and ConfirmModal replaced by simple tap + Alert
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Props = {
   navigation: NativeStackNavigationProp<TrackingStackParamList, 'ActiveTracking'>;

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { UserBlock } from '../users/entities/user-block.entity';
 import { Like } from './entities/like.entity';
@@ -86,11 +86,15 @@ export class MatchingService {
 
     // IDs de usuarios que o user ja interagiu (like ou ignore)
     const alreadySwiped = await this.likeRepository.find({
-      where: { from_user_id: userId },
+      where: { from_user_id: userId, isLike: Not(IsNull()) },
       select: ['to_user_id'],
     });
     const swipedIds = new Set(alreadySwiped.map((l) => l.to_user_id));
     swipedIds.add(userId);
+    const matches = await this.matchRepository.find({
+      where: [{ user1_id: userId }, { user2_id: userId }], select: ['user1_id', 'user2_id'],
+    });
+    for (const match of matches) swipedIds.add(match.user1_id === userId ? match.user2_id : match.user1_id);
 
     // SEGURANÇA: exclui usuários bloqueados nos DOIS sentidos — quem você
     // bloqueou e quem te bloqueou não aparece mais no Descobrir.
@@ -185,80 +189,43 @@ export class MatchingService {
       throw new NotFoundException('Você não pode adicionar a si mesmo');
     }
 
-    const existingAction = await this.likeRepository.findOne({
-      where: { from_user_id: userId, to_user_id: dto.targetUserId },
-    });
-    if (existingAction) {
-      if (!dto.isLike) return { matched: false, alreadyActed: true };
-
-      const mutualLike = await this.likeRepository.findOne({
-        where: { from_user_id: dto.targetUserId, to_user_id: userId },
-      });
-      if (!mutualLike) return { matched: false, alreadyLiked: true };
-
-      const existingMatch = await this.matchRepository.findOne({
-        where: [
-          { user1_id: userId, user2_id: dto.targetUserId },
-          { user1_id: dto.targetUserId, user2_id: userId },
-        ],
-      });
-      if (existingMatch) return { matched: true, matchId: existingMatch.id };
-
-      const match = await this.matchRepository.save({
-        user1_id: userId,
-        user2_id: dto.targetUserId,
-      });
-      return { matched: true, matchId: match.id };
-    }
-
-    if (!dto.isLike) {
-      await this.likeRepository.save({
-        from_user_id: userId,
-        to_user_id: dto.targetUserId,
-        isSuperLike: false,
-      });
-      return { matched: false };
-    }
-
-    await this.likeRepository.save({
-      from_user_id: userId,
-      to_user_id: dto.targetUserId,
-      isSuperLike: dto.isSuperLike || false,
-    });
-
-    // Verificar se existe like mutuo (match!)
-    const mutualLike = await this.likeRepository.findOne({
-      where: {
-        from_user_id: dto.targetUserId,
-        to_user_id: userId,
-      },
-    });
-
-    if (mutualLike) {
-      try {
-        // Check if match already exists (race condition prevention)
-        const existingMatch = await this.matchRepository.findOne({
-          where: [
-            { user1_id: userId, user2_id: dto.targetUserId },
-            { user1_id: dto.targetUserId, user2_id: userId },
-          ],
-        });
-        if (existingMatch) {
-        return { matched: true, matchId: existingMatch.id };
-        }
-        const match = await this.matchRepository.save({
-          user1_id: userId,
-          user2_id: dto.targetUserId,
-        });
-        // Notifica AMBOS os usuários do novo match (fire-and-forget)
-        this.notifyMatch(userId, dto.targetUserId, match.id).catch(() => {});
-        return { matched: true, matchId: match.id };
-      } catch {
-        return { matched: false };
+    return this.likeRepository.manager.transaction(async manager => {
+      // Serialize both directions, including duplicate/retried requests.
+      const users = manager.getRepository(User).createQueryBuilder('u')
+        .where('u.id IN (:...ids)', { ids: [userId, dto.targetUserId] })
+        .andWhere('u.isActive = :active', { active: true }).orderBy('u.id', 'ASC');
+      if (manager.connection.options.type === 'postgres') users.setLock('pessimistic_write');
+      if ((await users.getMany()).length !== 2) throw new NotFoundException('Perfil indisponível');
+      const blocked = await manager.findOne(UserBlock, { where: [
+        { blocker_id: userId, blocked_id: dto.targetUserId },
+        { blocker_id: dto.targetUserId, blocked_id: userId },
+      ] });
+      if (blocked) throw new NotFoundException('Perfil indisponível');
+      const likes = manager.getRepository(Like);
+      const matches = manager.getRepository(Match);
+      const existing = await likes.findOne({ where: { from_user_id: userId, to_user_id: dto.targetUserId } });
+      // Retrying the same action keeps its original timestamp. A changed decision
+      // replaces the previous value and records when the new decision happened.
+      if (!existing || existing.isLike !== dto.isLike) {
+        await likes.save({ ...existing, from_user_id: userId, to_user_id: dto.targetUserId,
+          isLike: dto.isLike, isSuperLike: false, createdAt: new Date() });
       }
-    }
-
-    return { matched: false };
+      if (!dto.isLike) return { matched: false };
+      const mutual = await likes.findOne({ where: {
+        from_user_id: dto.targetUserId, to_user_id: userId, isLike: true,
+      } });
+      if (!mutual) return { matched: false };
+      const existingMatch = await matches.findOne({ where: [
+        { user1_id: userId, user2_id: dto.targetUserId },
+        { user1_id: dto.targetUserId, user2_id: userId },
+      ] });
+      if (existingMatch) return { matched: true, matchId: existingMatch.id };
+      const match = await matches.save({ user1_id: userId, user2_id: dto.targetUserId });
+      return { matched: true, matchId: match.id, newMatch: true };
+    }).then(result => {
+      if ('newMatch' in result) this.notifyMatch(userId, dto.targetUserId, result.matchId!).catch(() => {});
+      return { matched: result.matched, ...('matchId' in result ? { matchId: result.matchId } : {}) };
+    });
   }
 
   /** Push de novo match para ambos os usuários, com o nome um do outro */
@@ -287,7 +254,9 @@ export class MatchingService {
   async getNewMatchCount(userId: string): Promise<number> {
     const count = await this.matchRepository
       .createQueryBuilder('match')
-      .where('match.user1_id = :userId OR match.user2_id = :userId', { userId })
+      .innerJoin('match.user1', 'user1', 'user1.isActive = true')
+      .innerJoin('match.user2', 'user2', 'user2.isActive = true')
+      .where('(match.user1_id = :userId OR match.user2_id = :userId)', { userId })
       .andWhere('match.createdAt > :since', { since: new Date(Date.now() - 24 * 60 * 60 * 1000) })
       .getCount();
     return count;
@@ -297,8 +266,8 @@ export class MatchingService {
   async getMatches(userId: string) {
     const matches = await this.matchRepository
       .createQueryBuilder('match')
-      .leftJoinAndSelect('match.user1', 'user1')
-      .leftJoinAndSelect('match.user2', 'user2')
+      .innerJoinAndSelect('match.user1', 'user1', 'user1.isActive = true')
+      .innerJoinAndSelect('match.user2', 'user2', 'user2.isActive = true')
       .where('match.user1_id = :userId OR match.user2_id = :userId', {
         userId,
       })
@@ -320,8 +289,9 @@ export class MatchingService {
     // Likes recebidos
     const received = await this.likeRepository
       .createQueryBuilder('like')
-      .leftJoinAndSelect('like.fromUser', 'fromUser')
+      .innerJoinAndSelect('like.fromUser', 'fromUser', 'fromUser.isActive = true')
       .where('like.to_user_id = :userId', { userId })
+      .andWhere('like.isLike = :isLike', { isLike: true })
       .orderBy('like.createdAt', 'DESC')
       .limit(100)
       .getMany();
@@ -333,18 +303,22 @@ export class MatchingService {
       select: ['to_user_id'],
     });
     const respondedSet = new Set(myActions.map((l) => l.to_user_id));
+    const matches = await this.matchRepository.find({
+      where: [{ user1_id: userId }, { user2_id: userId }], select: ['user1_id', 'user2_id'],
+    });
+    for (const match of matches) respondedSet.add(match.user1_id === userId ? match.user2_id : match.user1_id);
 
     return received
       .filter((l) => !respondedSet.has(l.from_user_id))
       .map((l) => ({
         likeId: l.id,
         createdAt: l.createdAt,
-        isSuperLike: l.isSuperLike,
+        isLike: l.isLike,
         user: l.fromUser
           ? {
               id: l.fromUser.id,
               name: l.fromUser.name,
-              avatarUrl: l.fromUser.avatarUrl,
+              avatarUrl: l.fromUser.profilePhotos?.[0] || l.fromUser.avatarUrl,
               level: (l.fromUser as any).level,
               sports: (l.fromUser as any).sports,
               bio: l.fromUser.bio,

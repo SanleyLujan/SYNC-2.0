@@ -53,6 +53,5 @@ export function normalizeLikesReceived(data: unknown): LikeReceivedItem[] {
       likeId: item.likeId as string,
       user: displayPeer(item.user),
       createdAt: typeof item.createdAt === 'string' ? item.createdAt : '',
-      isSuperLike: item.isSuperLike === true,
     }));
 }

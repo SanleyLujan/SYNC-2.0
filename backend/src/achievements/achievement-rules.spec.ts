@@ -4,6 +4,8 @@ const social={matches:0,events:0,superLikes:0,kudos:0,comments:0,stories:0,messa
 describe('Achievement evidence',()=>{
   it('does not invent achievements for an empty account or unavailable weather',()=>{
     expect(achievementRules([],social)).toEqual([]); expect(AVAILABLE_ACHIEVEMENTS).not.toContain(A.RAIN_RUNNER);
+    expect(AVAILABLE_ACHIEVEMENTS).not.toContain(A.SUPER_LIKER);
+    expect(achievementRules([], { ...social, superLikes: 100 })).not.toContain(A.SUPER_LIKER);
   });
   it('separates cycling from running performance and uses local time',()=>{
     const a={sport:'cycling',startTime:new Date('2026-09-08T08:30:00Z'),distance:5000,duration:900,elevationGain:0};

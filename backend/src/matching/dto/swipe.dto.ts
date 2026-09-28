@@ -1,5 +1,5 @@
-import { IsUUID, IsBoolean, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsUUID, IsBoolean } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class SwipeDto {
   @ApiProperty({ description: 'ID do usuário alvo do swipe' })
@@ -10,8 +10,4 @@ export class SwipeDto {
   @IsBoolean()
   isLike: boolean;
 
-  @ApiPropertyOptional({ description: 'Super like (interesse especial)' })
-  @IsBoolean()
-  @IsOptional()
-  isSuperLike?: boolean;
 }

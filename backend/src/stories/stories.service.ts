@@ -115,15 +115,15 @@ export class StoriesService {
     const story = await this.storyRepo.findOne({ where: { id: storyId } });
     if (!story) throw new NotFoundException('Story não encontrado');
     if (story.user_id !== userId) throw new ForbiddenException('Sem permissão');
-    await this.storyRepo.delete(storyId);
+    await this.storyRepo.softDelete(storyId);
   }
 
   // Limpa stories expiradas (chamar via cron)
   async cleanupExpired(): Promise<{ deleted: number }> {
     const result = await this.storyRepo
       .createQueryBuilder()
-      .delete()
-      .where('expiresAt < :now', { now: new Date() })
+      .softDelete()
+      .where('"inactiveAt" IS NULL').andWhere('expiresAt < :now', { now: new Date() })
       .execute();
     return { deleted: result.affected ?? 0 };
   }

@@ -1,6 +1,7 @@
+import { retainContentRemoval } from '../users/account-retention';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, In, ILike } from 'typeorm';
+import { Repository, Not, In, ILike, IsNull } from 'typeorm';
 import { ActivityFeedPost } from './activity-feed.entity';
 import { UserBlock } from '../users/entities/user-block.entity';
 import { Match } from '../matching/entities/match.entity';
@@ -86,7 +87,9 @@ export class ActivityFeedService {
 
     const posts = await this.repo.find({
       relations: ['user'],
-      where: { user_id: In(Array.from(allowedUserIds)) },
+      // Filter in SQL, before pagination: a surviving match must not expose
+      // posts belonging to a deleted/deactivated account.
+      where: { user_id: In(Array.from(allowedUserIds)), user: { isActive: true, deletedAt: IsNull() } },
       order: { createdAt: 'DESC' },
       take: safeLimit,
       skip: (safePage - 1) * safeLimit,
@@ -111,7 +114,7 @@ export class ActivityFeedService {
     const safeLimit = Math.max(1, Math.min(limit, 50));
     const safePage = Math.max(1, Math.min(page, 1000));
     const posts = await this.repo.find({
-      where: { user_id: userId },
+      where: { user_id: userId, user: { isActive: true, deletedAt: IsNull() } },
       relations: ['user'],
       order: { createdAt: 'DESC' },
       take: safeLimit,
@@ -223,7 +226,7 @@ export class ActivityFeedService {
     const comment = await this.commentRepo.findOne({ where: { id: commentId, post_id: postId } });
     if (!comment) throw new NotFoundException('Comentário não encontrado');
     if (comment.user_id !== userId) throw new BadRequestException('Você não é dono deste comentário');
-    await this.commentRepo.remove(comment);
+    await retainContentRemoval(this.commentRepo, comment.id);
     await this.repo.decrement({ id: postId }, 'commentsCount', 1);
     return { ok: true };
   }
@@ -232,7 +235,7 @@ export class ActivityFeedService {
     const post = await this.repo.findOne({ where: { id: postId } });
     if (!post) throw new NotFoundException('Post não encontrado');
     if (post.user_id !== userId) throw new BadRequestException('Você não é dono deste post');
-    await this.repo.remove(post);
+    await retainContentRemoval(this.repo, post.id);
     return { ok: true };
   }
 
@@ -281,7 +284,9 @@ export class ActivityFeedService {
   }
 
   private async assertPostVisible(postId: string, viewerId: string): Promise<ActivityFeedPost> {
-    const post = await this.repo.findOne({ where: { id: postId } });
+    const post = await this.repo.findOne({
+      where: { id: postId, user: { isActive: true, deletedAt: IsNull() } },
+    });
     if (!post) throw new NotFoundException('Post não encontrado');
     const allowedUserIds = await this.getAllowedFeedUserIds(viewerId);
     if (!allowedUserIds.has(post.user_id)) {

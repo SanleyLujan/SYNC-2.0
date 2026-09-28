@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -29,6 +30,10 @@ export enum NotificationType {
 @Index(['user_id', 'createdAt']) // list unread notifications by user
 @Index(['user_id', 'isRead'])   // unread count badge
 export class Notification {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

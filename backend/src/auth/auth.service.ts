@@ -65,7 +65,7 @@ export class AuthService {
     this.assertStrongPassword(dto.password);
 
     const email = dto.email.toLowerCase().trim();
-    const existing = await this.userRepository.findOne({ where: { email } });
+    const existing = await this.userRepository.findOne({ where: { email }, withDeleted: true });
 
     // ANTI-ENUMERAÇÃO: se já existe, ainda retornamos sucesso aparente porém
     // sem criar conta. Para o atacante, o tempo de resposta é equivalente.

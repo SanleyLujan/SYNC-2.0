@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 // Tempo de um usuário num segment — popula o leaderboard (KOM/QOM).
 import {
   Entity,
@@ -14,6 +15,10 @@ import { Segment } from './segment.entity';
 @Entity('segment_efforts')
 @Index(['segmentId', 'elapsedSec'])
 export class SegmentEffort {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @Column({ default: false })
   verified: boolean;
 

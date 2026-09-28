@@ -4,7 +4,6 @@ import { normalizeLikesReceived } from '../utils/social-lists';
 export interface LikeReceivedItem {
   likeId: string;
   createdAt: string;
-  isSuperLike: boolean;
   user: {
     id: string;
     name: string;
@@ -24,12 +23,11 @@ export const matchingApi = {
       .get<{ count: number }>('/matching/likes-received/count')
       .then((r) => r.data.count),
 
-  swipe: (toUserId: string, action: 'like' | 'super_like' | 'pass') =>
+  swipe: (toUserId: string, action: 'like' | 'pass') =>
     api
       .post<{ matched: boolean; matchId?: string; alreadyLiked?: boolean }>('/matching/swipe', {
         targetUserId: toUserId,
         isLike: action !== 'pass',
-        isSuperLike: action === 'super_like',
       })
       .then((r) => r.data),
 };

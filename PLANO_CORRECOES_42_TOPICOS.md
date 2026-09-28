@@ -1,5 +1,9 @@
 # Plano de correções — 42 tópicos prioritários
 
+## Atualização — 28/09/2026
+
+Foto principal alinhada à galeria; super like removido; decisão de curtir/passar persistida em `likes.islike`; exclusão substituída por desativação com retenção transacional do conteúdo; dimensões do navegador ajustadas. SQL/migration e comportamento do legado descritos em [curtidas e contas inativas](backend/sql/README.md). O responsável confirmou a execução manual do SQL em 28/09/2026 e autorizou o envio do código ao Git; o deploy ainda não foi verificado. A exclusão de documentos ao excluir a conta, mencionada em revisões anteriores, foi retirada; os documentos permanecem privados. Os estados globais dos 42 tópicos não são alterados por esta entrega.
+
 **Data de criação do acompanhamento:** 02/09/2026
 
 **Última atualização:** 14/09/2026

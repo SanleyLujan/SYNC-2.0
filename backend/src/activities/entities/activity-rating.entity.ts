@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 // Rating pós-treino estilo Adidas Running Club.
 // Energy: como se sentiu. Satisfaction: como achou o treino. Fatigue: nível de cansaço.
 // Tudo opcional — usuário pode skip.
@@ -18,6 +19,10 @@ export type RatingScale = 1 | 2 | 3 | 4 | 5;
 @Entity('activity_ratings')
 @Unique(['activity_id', 'user_id'])
 export class ActivityRating {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

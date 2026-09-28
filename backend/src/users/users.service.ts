@@ -1,8 +1,8 @@
+import { retainInactiveContent } from './account-retention';
 import { Like as ProfileLike } from '../matching/entities/like.entity';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like as ILike, LessThan } from 'typeorm';
-import { Logger } from '@nestjs/common';
+import { Repository, Like as ILike } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserBlock } from './entities/user-block.entity';
 import { BannedCpf } from './entities/banned-cpf.entity';
@@ -64,68 +64,19 @@ export class UsersService {
     };
   }
 
-  /**
-   * LGPD/GDPR: anonimiza usuário (não deleta para preservar integridade
-   * referencial de atividades em grupos/eventos públicos).
-   */
-  /**
-   * Exclusão de conta LGPD — soft-delete real:
-   * 1. Anonimiza TODO o PII imediatamente (privacy-first)
-   * 2. Marca deletedAt (@DeleteDateColumn) → TypeORM exclui de find/findOne
-   *    automaticamente, então o usuário some do app e não consegue mais logar
-   * 3. O purge definitivo (hard-delete da linha) roda por cron após 30 dias
-   *    — ver purgeDeletedAccounts()
-   */
-  async anonymizeUser(userId: string): Promise<{ ok: true; message: string }> {
-    const fake = `deleted-${userId.slice(0, 8)}-${Date.now()}`;
-    await this.userRepository.update(userId, {
-      name: 'Usuário Removido',
-      email: `${fake}@deleted.sync`,
-      bio: null,
-      avatarUrl: null,
-      bannerUrl: null,
-      profilePhotos: null,
-      birthDate: null,
-      sports: null,
-      objectives: null,
-      hobbies: null,
-      availability: null,
-      latitude: null,
-      longitude: null,
-      city: null,
-      weightKg: null,
-      heightCm: null,
-      gender: null,
-      isActive: false,
-      twoFactorSecret: null,
-      twoFactorEnabled: false,
-      deletedAt: new Date(), // soft-delete: some de todas as queries
-    } as any);
-    return {
-      ok: true,
-      message:
-        'Conta excluída e anonimizada conforme LGPD. Dados serão apagados definitivamente em 30 dias.',
-    };
-  }
-
-  /**
-   * Purga definitiva: hard-delete de contas soft-deletadas há mais de 30 dias.
-   * Chamado por cron diário. Retorna quantas foram removidas.
-   */
-  async purgeDeletedAccounts(graceDays = 30): Promise<number> {
-    const cutoff = new Date(Date.now() - graceDays * 86_400_000);
-    // withDeleted: precisa ver os soft-deletados para purgá-los de vez
-    const stale = await this.userRepository.find({
-      where: { deletedAt: LessThan(cutoff) },
-      withDeleted: true,
-      select: ['id'],
+  /** Deactivate atomically, retaining account and related evidence in the database. */
+  async deactivateAccount(userId: string): Promise<{ ok: true; message: string }> {
+    await this.userRepository.manager.transaction(async manager => {
+      await manager.getRepository(User).update(userId, {
+        isActive: false, isProfileVisible: false, deletedAt: new Date(),
+        pushNotificationsEnabled: false, emailNotificationsEnabled: false,
+        inAppNotificationsEnabled: false,
+        resetPasswordToken: null, resetPasswordExpires: null,
+        emailVerificationToken: null, emailVerificationExpires: null,
+      });
+      await retainInactiveContent(manager);
     });
-    if (stale.length === 0) return 0;
-    const ids = stale.map((u) => u.id);
-    // delete() físico (hard) — remove a linha definitivamente
-    await this.userRepository.delete(ids);
-    new Logger('UsersService').log(`Purga LGPD: ${ids.length} conta(s) removida(s) definitivamente`);
-    return ids.length;
+    return { ok: true, message: 'Conta desativada. Seu perfil e conteúdo não aparecem mais no app. Os registros permanecem inativos na base por segurança.' };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {
@@ -324,7 +275,7 @@ export class UsersService {
     )));
 
     const pending = await this.userRepository.manager.getRepository(ProfileLike).find({
-      where: { from_user_id: currentUserId }, select: ['to_user_id'],
+      where: { from_user_id: currentUserId, isLike: true }, select: ['to_user_id'],
     });
     const pendingIds = new Set(pending.map(l => l.to_user_id));
     return {
@@ -384,7 +335,7 @@ export class UsersService {
       order: { createdAt: 'DESC' },
     });
 
-    return blocks.map((block) => ({
+    return blocks.filter(block => block.blocked?.isActive).map((block) => ({
       id: block.blocked.id,
       name: block.blocked.name,
       avatarUrl: block.blocked.avatarUrl,

@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   TouchableWithoutFeedback,
   TouchableOpacity,
 } from 'react-native';
@@ -17,8 +16,7 @@ import CompatibilityBadge from './CompatibilityBadge';
 import { calculateMatchCompatibility } from '../../utils/matchCompatibility';
 import { useAuthStore } from '../../store/authStore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 40;
+import { useAppDimensions } from '../../hooks/useAppDimensions';
 
 const LEVEL_CONFIG: Record<SportLevel, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   beginner: { label: 'Iniciante', icon: 'leaf', color: '#4ADE80' },
@@ -46,6 +44,8 @@ interface SwipeCardProps {
 }
 
 function SwipeCardInner({ user, cardHeight, onOpenProfile }: SwipeCardProps) {
+  const { width } = useAppDimensions();
+  const cardWidth = width - 40;
   const me = useAuthStore((s) => s.user);
   const [photoIndex, setPhotoIndex] = useState(0);
 
@@ -94,10 +94,10 @@ function SwipeCardInner({ user, cardHeight, onOpenProfile }: SwipeCardProps) {
   };
 
   // Respect cardHeight prop so the card never overflows cardsContainer
-  const computedHeight = cardHeight && cardHeight > 0 ? cardHeight : CARD_WIDTH * 1.38;
+  const computedHeight = cardHeight && cardHeight > 0 ? cardHeight : cardWidth * 1.38;
 
   return (
-    <View style={[styles.card, { height: computedHeight }]}>
+    <View style={[styles.card, { width: cardWidth, height: computedHeight }]}>
       {/* Photo */}
       <Image
         source={
@@ -260,8 +260,6 @@ export default SwipeCard;
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
-    height: CARD_WIDTH * 1.38,
     borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: '#1A1A2E',

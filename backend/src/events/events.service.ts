@@ -1,3 +1,4 @@
+import { retainContentRemoval } from '../users/account-retention';
 import {
   Injectable,
   NotFoundException,
@@ -208,7 +209,7 @@ export class EventsService {
     if (event.creator_id !== userId) {
       throw new ForbiddenException('Apenas o criador pode cancelar o evento');
     }
-    await this.eventRepository.delete(eventId);
+    await retainContentRemoval(this.eventRepository, eventId);
   }
 
   async getMyEvents(userId: string) {
@@ -305,6 +306,6 @@ export class EventsService {
       throw new ForbiddenException('Você só pode deletar seus próprios comentários');
     }
 
-    await this.commentRepository.delete(commentId);
+    await retainContentRemoval(this.commentRepository, commentId);
   }
 }

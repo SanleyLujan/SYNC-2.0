@@ -1,9 +1,14 @@
+import { DeleteDateColumn } from 'typeorm';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Event } from './event.entity';
 
 @Entity('event_comments')
 export class EventComment {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

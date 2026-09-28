@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { FeedComment } from './feed-comment.entity';
 import { User } from '../users/entities/user.entity';
@@ -5,6 +6,10 @@ import { User } from '../users/entities/user.entity';
 @Entity('feed_comment_reactions')
 @Unique(['comment_id', 'user_id', 'emoji'])
 export class FeedCommentReaction {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

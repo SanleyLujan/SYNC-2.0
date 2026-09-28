@@ -1,3 +1,4 @@
+import { retainContentRemoval } from '../users/account-retention';
 import { TerritoryService } from '../territory/territory.service';
 import { AchievementsService } from '../achievements/achievements.service';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
@@ -178,7 +179,7 @@ export class ActivitiesService {
     const comment = await this.commentRepository.findOne({ where: { id: commentId } });
     if (!comment) throw new NotFoundException('Comentário não encontrado');
     if (comment.user_id !== userId) throw new BadRequestException('Sem permissão');
-    await this.commentRepository.delete(commentId);
+    await retainContentRemoval(this.commentRepository, commentId);
   }
 
   // === COMMENT REACTIONS ===

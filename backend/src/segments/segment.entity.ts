@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 // Segments estilo Strava — trecho de rota com ranking (KOM/QOM).
 import {
   Entity,
@@ -12,6 +13,10 @@ import { User } from '../users/entities/user.entity';
 
 @Entity('segments')
 export class Segment {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @Column({ type: 'simple-json', nullable: true })
   geometry: Array<{ latitude: number; longitude: number }> | null;
 

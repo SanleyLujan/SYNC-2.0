@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Animated,
   PanResponder,
-  Dimensions,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Platform,
@@ -31,8 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHaptic } from '../../hooks/useHaptic';
 import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+import { useAppDimensions } from '../../hooks/useAppDimensions';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'Discovery'>;
@@ -56,6 +55,9 @@ const SPORT_FILTER_OPTIONS = [
 ];
 
 export default function DiscoveryScreen({ navigation }: Props) {
+  const { width: SCREEN_WIDTH } = useAppDimensions();
+  const swipeThresholdRef = useRef(SCREEN_WIDTH * 0.25);
+  swipeThresholdRef.current = SCREEN_WIDTH * 0.25;
   const insets = useSafeAreaInsets();
   const theme = useThemeStore((s) => s.theme);
   const haptic = useHaptic();
@@ -142,7 +144,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
     }
   };
 
-  const handleSwipe = async (direction: 'left' | 'right', isSuperLike = false) => {
+  const handleSwipe = async (direction: 'left' | 'right') => {
     const currentUser = users[currentIndex];
     if (!currentUser) return;
 
@@ -188,7 +190,6 @@ export default function DiscoveryScreen({ navigation }: Props) {
           const res = await api.post('/matching/swipe', {
             targetUserId: currentUser.id,
             isLike,
-            isSuperLike,
           });
           data = res.data;
           lastErr = null;
@@ -248,20 +249,20 @@ export default function DiscoveryScreen({ navigation }: Props) {
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       // Só captura o gesto se houver movimento horizontal/vertical relevante
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 || Math.abs(g.dy) > 12,
-      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 12 || Math.abs(g.dy) > 12,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy),
+      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderMove: (_, gesture) => {
         position.setValue({ x: gesture.dx, y: gesture.dy });
       },
       onPanResponderRelease: (_, gesture) => {
         const isTap = Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6;
-        if (gesture.dx > SWIPE_THRESHOLD) {
+        if (gesture.dx > swipeThresholdRef.current) {
           // Arrastar pra DIREITA = curtir (like / OK)
           handleSwipeRef.current('right');
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
+        } else if (gesture.dx < -swipeThresholdRef.current) {
           // Arrastar pra ESQUERDA = passar (nope)
           handleSwipeRef.current('left');
-        } else if (gesture.dy < -SWIPE_THRESHOLD || isTap) {
+        } else if (gesture.dy < -swipeThresholdRef.current || isTap) {
           // Swipe pra cima OU toque simples no card = abrir o perfil completo (estilo Tinder)
           const user = usersRef.current[currentIndexRef.current];
           if (user) {
@@ -487,7 +488,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
               accessibilityRole="button"
               accessibilityLabel="Ver curtidas recebidas"
             >
-              <Ionicons name="star" size={20} color="#F59E0B" />
+              <Ionicons name="heart-outline" size={20} color="#F59E0B" />
               <View style={[styles.matchBadge, { backgroundColor: '#F59E0B' }]}>
                 <Text style={styles.matchBadgeText}>
                   {likesReceivedCount > 9 ? '9+' : likesReceivedCount}
@@ -680,7 +681,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
       {header}
 
       {/* Weather workout suggestion card — shown when data is available and not dismissed */}
@@ -793,21 +794,6 @@ export default function DiscoveryScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionBtn, styles.superBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-          onPress={() => handleSwipe('right', true)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={`Super like em ${currentUser?.name || ''}`}
-        >
-          <LinearGradient
-            colors={['#2E7BFF', '#5B2EFF']}
-            style={styles.superBtnGradient}
-          >
-            <Ionicons name="star" size={24} color={colors.white} />
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.actionBtn, styles.likeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => handleSwipe('right')}
           activeOpacity={0.7}
@@ -833,7 +819,7 @@ export default function DiscoveryScreen({ navigation }: Props) {
       </LinearGradient>
 
       {renderFilterModal()}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -979,6 +965,7 @@ const styles = StyleSheet.create({
   },
   cardsContainer: {
     flex: 1,
+    minHeight: 360,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1053,26 +1040,6 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     borderWidth: 2,
     borderColor: colors.dislikeRed + '25',
-  },
-  superBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    padding: 0,
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-    elevation: 6,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  superBtnGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 26,
   },
   likeBtn: {
     width: 64,
@@ -1173,6 +1140,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     backgroundColor: '#0E0E1A',
     borderTopWidth: 1,
     borderLeftWidth: 1,

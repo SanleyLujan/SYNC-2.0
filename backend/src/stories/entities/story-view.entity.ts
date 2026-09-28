@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -14,6 +15,10 @@ import { Story } from './story.entity';
 @Entity('story_views')
 @Unique(['story_id', 'viewer_id'])
 export class StoryView {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

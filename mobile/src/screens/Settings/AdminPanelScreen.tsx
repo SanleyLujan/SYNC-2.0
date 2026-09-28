@@ -153,7 +153,7 @@ export default function AdminPanelScreen({ navigation }: any) {
                   <TouchableOpacity style={styles.neutralBtn} onPress={() => review(`/admin/post-reports/${r.id}`, { decision: 'dismiss' }, 'Descartar esta denúncia?')}>
                     <Text style={styles.neutralText}>Descartar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.dangerBtn} onPress={() => review(`/admin/post-reports/${r.id}`, { decision: 'remove' }, 'Remover definitivamente esta publicação?', true)}>
+                  <TouchableOpacity style={styles.dangerBtn} onPress={() => review(`/admin/post-reports/${r.id}`, { decision: 'remove' }, 'Ocultar esta publicação e preservar o registro na base?', true)}>
                     <Text style={styles.dangerText}>Remover post</Text>
                   </TouchableOpacity>
                 </View>

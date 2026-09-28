@@ -28,13 +28,16 @@ export class RankingService {
     return `${prefix}:${parts.map((p) => p ?? 'all').join(':')}`;
   }
 
-  private getFromCache(key: string): any | null {
+  private async getFromCache(key: string): Promise<any | null> {
     const entry = this.cache.get(key);
     if (!entry) return null;
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return null;
     }
+    const ids = entry.data.map((row: any) => row.userId);
+    const active = await this.userRepository.find({ where: { id: In(ids), isActive: true }, select: ['id'] });
+    if (active.length !== ids.length) { this.cache.delete(key); return null; }
     return entry.data;
   }
 
@@ -45,7 +48,7 @@ export class RankingService {
   // Ranking mensal por distância total — filtrado por cidade + esporte
   async getMonthlyRanking(city?: string, month?: number, year?: number, sport?: string) {
     const cacheKey = this.getCacheKey('monthly', city, month, year, sport);
-    const cached = this.getFromCache(cacheKey);
+    const cached = await this.getFromCache(cacheKey);
     if (cached) return cached;
 
     const now = new Date();

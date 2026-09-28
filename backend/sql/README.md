@@ -4,6 +4,10 @@
 
 Estes arquivos fazem parte da configuração oficial do Sync. Ver [operação e instalação](../../DOCUMENTACAO.md#operacao-e-recuperacao). Não contêm credenciais reais.
 
+## Atualização de 28/09/2026 — curtidas e contas inativas
+
+Para instalações existentes, usar [`2026-09-28-likes-e-contas-inativas.sql`](2026-09-28-likes-e-contas-inativas.sql) antes do backend novo, ou a migration equivalente `1790553600000`. Inclui `likes.islike` e `inactiveAt` em 29 tabelas relacionadas. Curtidas antigas sem decisão comprovável ficam com `islike = NULL`; novas decisões gravam `true` ou `false`. Os registros de contas desativadas são preservados e ocultados das consultas do app. O responsável confirmou a execução manual do SQL em 28/09/2026; essa confirmação não equivale a uma verificação remota do banco ou do deploy.
+
 ## Banco totalmente novo
 
 1. Crie o projeto no Supabase e copie a connection string do **Session Pooler**.

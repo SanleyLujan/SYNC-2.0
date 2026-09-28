@@ -1,0 +1,145 @@
+-- Executar ANTES de publicar o backend novo. Reexecutável.
+-- islike: true = curtiu; false = passou; NULL = legado indeterminado.
+-- Não converte ações antigas ambíguas em curtidas. createdAt registra a decisão.
+-- inactiveAt preenchido = conteúdo preservado e oculto no app.
+BEGIN;
+
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "isActive" boolean NOT NULL DEFAULT true;
+
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp;
+
+ALTER TABLE "likes" ADD COLUMN IF NOT EXISTS "islike" boolean;
+
+UPDATE "likes" SET "islike" = true WHERE "islike" IS NULL AND "isSuperLike" = true;
+
+ALTER TABLE "likes" ALTER COLUMN "islike" SET DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS "IDX_likes_received_positive" ON "likes" ("to_user_id", "createdAt") WHERE "islike" = true;
+
+ALTER TABLE "likes" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "matches" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "activities" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "activity_feed_posts" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "segments" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "stories" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "follows" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "activity_points" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "activity_comments" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "activity_kudos" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "activity_ratings" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "comment_reactions" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "feed_likes" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "feed_comments" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "feed_comment_reactions" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "event_participants" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "event_comments" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "group_members" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "group_join_requests" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "segment_efforts" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "story_views" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "challenges" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "user_achievements" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "gamification_rewards" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "push_tokens" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+ALTER TABLE "notifications" ADD COLUMN IF NOT EXISTS "inactiveAt" timestamp;
+
+UPDATE "likes" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("from_user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("to_user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "matches" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user1_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("user2_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "activities" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "activity_feed_posts" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("activity_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activities" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "groups" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("admin_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "events" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("creator_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "segments" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("created_by" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "stories" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("activity_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activities" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "messages" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("sender_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("match_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "matches" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "follows" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("follower_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("following_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "activity_points" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("activity_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activities" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "activity_comments" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("activity_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activities" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "activity_kudos" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("activity_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activities" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "activity_ratings" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("activity_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activities" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "comment_reactions" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("comment_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activity_comments" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "feed_likes" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("post_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activity_feed_posts" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "feed_comments" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("post_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activity_feed_posts" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "feed_comment_reactions" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("comment_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "feed_comments" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "event_participants" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("event_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "events" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "event_comments" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("event_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "events" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "group_members" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("group_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "groups" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "group_join_requests" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("group_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "groups" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "segment_efforts" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("segment_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "segments" WHERE "inactiveAt" IS NOT NULL) OR CAST("activity_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "activities" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "story_views" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("viewer_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("story_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "stories" WHERE "inactiveAt" IS NOT NULL));
+
+UPDATE "challenges" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("challenger_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL) OR CAST("challenged_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "user_achievements" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "gamification_rewards" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "push_tokens" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "notifications" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL));
+
+UPDATE "notifications" SET "inactiveAt" = CURRENT_TIMESTAMP WHERE "inactiveAt" IS NULL AND (EXISTS (SELECT 1 FROM "users" source WHERE ("isActive" = false OR "deletedAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "matches" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "activities" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "activity_comments" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "activity_feed_posts" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "feed_comments" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "events" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "groups" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "challenges" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%') OR EXISTS (SELECT 1 FROM "stories" source WHERE ("inactiveAt" IS NOT NULL) AND "notifications"."data" LIKE '%' || CAST(source."id" AS varchar) || '%'));
+
+UPDATE "refresh_tokens" SET "revoked" = true WHERE CAST("user_id" AS varchar) IN (SELECT CAST("id" AS varchar) FROM "users" WHERE "isActive" = false OR "deletedAt" IS NOT NULL);
+
+UPDATE "groups" SET "memberCount" = (SELECT COUNT(*) FROM "group_members" m WHERE CAST(m."group_id" AS varchar) = CAST("groups"."id" AS varchar) AND m."inactiveAt" IS NULL), "totalDistanceKm" = (SELECT COALESCE(SUM(m."contributedKm"), 0) FROM "group_members" m WHERE CAST(m."group_id" AS varchar) = CAST("groups"."id" AS varchar) AND m."inactiveAt" IS NULL), "totalActivities" = (SELECT COALESCE(SUM(m."contributedActivities"), 0) FROM "group_members" m WHERE CAST(m."group_id" AS varchar) = CAST("groups"."id" AS varchar) AND m."inactiveAt" IS NULL) WHERE "inactiveAt" IS NULL;
+
+UPDATE "activity_feed_posts" SET "likesCount" = (SELECT COUNT(*) FROM "feed_likes" l WHERE CAST(l."post_id" AS varchar) = CAST("activity_feed_posts"."id" AS varchar) AND l."inactiveAt" IS NULL), "commentsCount" = (SELECT COUNT(*) FROM "feed_comments" c WHERE CAST(c."post_id" AS varchar) = CAST("activity_feed_posts"."id" AS varchar) AND c."inactiveAt" IS NULL) WHERE "inactiveAt" IS NULL;
+
+UPDATE "segments" SET "best_user_id" = (SELECT e."user_id" FROM "segment_efforts" e WHERE CAST(e."segment_id" AS varchar) = CAST("segments"."id" AS varchar) AND e."inactiveAt" IS NULL AND e."verified" = true ORDER BY e."elapsed_sec", e."createdAt" LIMIT 1), "bestTimeSec" = (SELECT MIN(e."elapsed_sec") FROM "segment_efforts" e WHERE CAST(e."segment_id" AS varchar) = CAST("segments"."id" AS varchar) AND e."inactiveAt" IS NULL AND e."verified" = true), "attemptsCount" = (SELECT COUNT(*) FROM "segment_efforts" e WHERE CAST(e."segment_id" AS varchar) = CAST("segments"."id" AS varchar) AND e."inactiveAt" IS NULL AND e."verified" = true) WHERE "inactiveAt" IS NULL;
+
+COMMIT;

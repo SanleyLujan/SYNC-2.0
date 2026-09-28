@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -14,6 +15,10 @@ import { User } from '../../users/entities/user.entity';
 @Entity('likes')
 @Unique(['fromUser', 'toUser'])
 export class Like {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -31,7 +36,11 @@ export class Like {
   @Column()
   to_user_id: string;
 
-  // Super like indica interesse especial
+  // null = ação legada cujo tipo não foi registrado; nunca conta como like.
+  @Column({ name: 'islike', type: 'boolean', nullable: true, default: false })
+  isLike: boolean | null;
+
+  // Histórico apenas: o app não oferece mais super like.
   @Column({ default: false })
   isSuperLike: boolean;
 

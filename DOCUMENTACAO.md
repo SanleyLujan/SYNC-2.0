@@ -374,7 +374,7 @@ Há configuração Vercel na raiz e em mobile, não idênticas. Conferir Root Di
 
 ### Controles presentes
 
-Hash de senha; rotação de refresh/revogação HTTP; guards e checagens de dono/match/bloqueio/ADM; DTOs com whitelist; rate limits; Helmet e CORS explícito; privacidade de rotas; opt-in competitivo; identidade privada reencodada; auditoria; migrations RLS/revogação de privilégios; exclusão/anonimização e rotina de purga.
+Hash de senha; rotação de refresh/revogação HTTP; guards e checagens de dono/match/bloqueio/ADM; DTOs com whitelist; rate limits; Helmet e CORS explícito; privacidade de rotas; opt-in competitivo; identidade privada reencodada; auditoria; migrations RLS/revogação de privilégios; desativação com retenção de registros inativos (sem purga automática; ver [ajustes de 28/09/2026](backend/sql/README.md)).
 
 ### Limitações que não podem ser omitidas
 
@@ -455,7 +455,7 @@ Fontes: [backend/.env.example](backend/.env.example), [mobile/.env.production.ex
 | Backend | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_IDS | Validação opcional Google, sem garantia de botão integrado |
 | Backend | SWAGGER_USER, SWAGGER_PASS | Configurar juntos ou manter documentação desativada em produção |
 | Backend | SENTRY_DSN, SENTRY_RELEASE, RENDER_GIT_COMMIT | Telemetria/release; não prova monitoramento ativo |
-| Backend | PURGE_DISABLED, REMINDERS_DISABLED | Jobs; desativar muda retenção/lembretes |
+| Backend | REMINDERS_DISABLED | Desativa lembretes; a purga automática de contas foi retirada |
 | Backend | SEED_TOKEN | Carga fictícia; desnecessária para uso normal/TCC |
 | Legado | SUBSCRIPTION_DEMO | Não oferece cobrança com módulo desmontado |
 | Público | EXPO_PUBLIC_API_URL | Base da API com/sem /api; injetada no build |

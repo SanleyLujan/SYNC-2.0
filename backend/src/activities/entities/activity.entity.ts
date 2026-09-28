@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -13,6 +14,10 @@ import { ActivityPoint } from './activity-point.entity';
 // Atividade esportiva registrada (tipo Strava)
 @Entity('activities')
 export class Activity {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @Column({ default: false })
   segmentsOptIn: boolean;
 

@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Platform } from 'react-native';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { APP_MAX_WIDTH } from './src/hooks/useAppDimensions';
 import RootNavigator from './src/navigation/RootNavigator';
 import LiveViewScreen from './src/screens/Live/LiveViewScreen';
 import VerifyEmailScreen from './src/screens/Auth/VerifyEmailScreen';
@@ -142,7 +143,7 @@ export default function App() {
         <View
           style={
             isWeb
-              ? { flex: 1, width: '100%', maxWidth: 480, backgroundColor: theme.background, overflow: 'hidden' }
+              ? { flex: 1, width: '100%', maxWidth: APP_MAX_WIDTH, backgroundColor: theme.background, overflow: 'hidden' }
               : { flex: 1 }
           }
         >

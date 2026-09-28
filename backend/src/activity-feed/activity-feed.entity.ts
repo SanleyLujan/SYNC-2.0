@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -13,6 +14,10 @@ import { User } from '../users/entities/user.entity';
 @Index(['createdAt'])          // feed() sorts by createdAt DESC
 @Index(['user_id', 'createdAt']) // byUser() filters by user_id + sorts
 export class ActivityFeedPost {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

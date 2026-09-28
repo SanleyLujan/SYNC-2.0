@@ -235,7 +235,7 @@ export class ChatService {
       .createQueryBuilder('match')
       .leftJoinAndSelect('match.user1', 'user1')
       .leftJoinAndSelect('match.user2', 'user2')
-      .where('match.user1_id = :userId OR match.user2_id = :userId', { userId })
+      .where('(match.user1_id = :userId OR match.user2_id = :userId)', { userId })
       .getMany();
 
     // Soft-deleted users are absent from joined relations. Do not return an

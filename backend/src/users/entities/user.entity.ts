@@ -198,7 +198,7 @@ export class User {
   updatedAt: Date;
 
   // Soft-delete LGPD: quando preenchido, o TypeORM exclui o registro de
-  // find/findOne automaticamente. O purge definitivo roda por cron após 30 dias.
+  // find/findOne automaticamente. Registros permanecem inativos para segurança.
   @DeleteDateColumn({ select: false })
   deletedAt: Date | null;
 

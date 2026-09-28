@@ -103,7 +103,7 @@ export default function SettingsScreen({ navigation }: any) {
   const handleDeleteAccount = async () => {
     const ok = await confirmAsync(
       'Apagar conta?',
-      'Sua conta será anonimizada e excluída (LGPD). Irreversível.',
+      'Sua conta será desativada e seu perfil e conteúdo deixarão de aparecer no app. Os registros serão mantidos inativos na base por segurança.',
       { confirmText: 'Apagar', destructive: true },
     );
     if (!ok) return;

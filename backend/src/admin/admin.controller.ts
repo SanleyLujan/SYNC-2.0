@@ -1,3 +1,4 @@
+import { retainInactiveContent } from '../users/account-retention';
 import { BadRequestException, Body, Controller, Get, Header, NotFoundException, Param, Put, UseGuards, ForbiddenException, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -146,9 +147,10 @@ export class AdminController {
     if (!['dismiss', 'deactivate'].includes(body?.decision)) throw new BadRequestException('Decisão inválida');
     if (body.decision === 'deactivate') {
       if (report.reported_id === user.id) throw new BadRequestException('Um administrador não pode desativar a própria conta');
-      await this.users.update(report.reported_id, { isActive: false });
-      // Conteúdo da conta deixa de ser exibido imediatamente.
-      await this.posts.delete({ user_id: report.reported_id });
+      await this.users.manager.transaction(async manager => {
+        await manager.getRepository(User).update(report.reported_id, { isActive: false, isProfileVisible: false });
+        await retainInactiveContent(manager);
+      });
     }
     await this.reports.update(id, {
       status: body.decision === 'dismiss' ? ModerationStatus.DISMISSED : ModerationStatus.ACTIONED,
@@ -174,7 +176,13 @@ export class AdminController {
     const report = await this.postReports.findOne({ where: { id } });
     if (!report) throw new NotFoundException('Denúncia não encontrada');
     if (!['dismiss', 'remove'].includes(body?.decision)) throw new BadRequestException('Decisão inválida');
-    if (body.decision === 'remove') await this.posts.delete(report.post_id);
+    if (body.decision === 'remove') {
+      await this.posts.manager.transaction(async manager => {
+        await manager.getRepository(ActivityFeedPost).softDelete(report.post_id);
+        await retainInactiveContent(manager);
+      });
+      await this.postReports.update(id, { status: ModerationStatus.ACTIONED, reviewed_by: user.id, reviewedAt: new Date() });
+    }
     else await this.postReports.update(id, { status: ModerationStatus.DISMISSED, reviewed_by: user.id, reviewedAt: new Date() });
     await this.audit.log({
       userId: user.id,

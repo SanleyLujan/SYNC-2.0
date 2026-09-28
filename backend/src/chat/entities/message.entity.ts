@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -14,6 +15,10 @@ import { Match } from '../../matching/entities/match.entity';
 @Index(['match_id', 'createdAt'])           // getMessages() + conversation sort
 @Index(['match_id', 'isRead', 'sender_id']) // batch unread count query
 export class Message {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -42,7 +47,7 @@ export class Message {
   isRead: boolean;
 
   // Reações: mapa emoji -> lista de userIds que reagiram. Ex.: { "🔥": ["u1"] }
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.NODE_ENV === 'production' ? 'jsonb' : 'simple-json', nullable: true })
   reactions: Record<string, string[]> | null;
 
   @CreateDateColumn()

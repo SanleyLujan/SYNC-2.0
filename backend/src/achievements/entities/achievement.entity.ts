@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -416,6 +417,10 @@ export const ACHIEVEMENT_INFO: Record<
 
 @Entity('user_achievements')
 export class UserAchievement {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @Column({ type: 'varchar', length: 120, nullable: true, unique: true })
   claimKey: string | null;
 

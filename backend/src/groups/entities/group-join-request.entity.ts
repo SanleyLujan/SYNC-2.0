@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -16,6 +17,10 @@ export type GroupJoinRequestStatus = 'pending' | 'approved' | 'rejected';
 @Entity('group_join_requests')
 @Unique(['group_id', 'user_id'])
 export class GroupJoinRequest {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

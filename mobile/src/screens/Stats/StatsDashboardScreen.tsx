@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,7 +17,6 @@ import { useThemeStore } from '../../store/themeStore';
 
 type Period = 'week' | 'month' | 'year';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 function formatDuration(s: number): string {
   const h = Math.floor(s / 3600);

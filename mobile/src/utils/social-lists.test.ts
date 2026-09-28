@@ -22,7 +22,7 @@ it('keeps valid likes, hides orphaned likes and normalizes optional display fiel
   expect(result.map(item => item.likeId)).toEqual(['valid', 'normal']);
   expect(result[0].user).toMatchObject({ sports: [], bio: undefined, avatarUrl: undefined });
   expect(result[1].user.sports).toEqual(['running']);
-  expect(result[1].isSuperLike).toBe(true);
+  expect(result[1]).not.toHaveProperty('isSuperLike');
 });
 
 it('does not expose malformed unread counts or message objects to rendering/search', () => {

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
-  Dimensions,
   Platform,
   Animated,
   Easing,
@@ -30,7 +29,6 @@ import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { getBackgroundTrackingContext } from '../../services/background-tracking.service';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Props = {
   navigation: NativeStackNavigationProp<TrackingStackParamList, 'TrackingMain'>;

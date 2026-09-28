@@ -15,6 +15,7 @@ import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { useThemeStore } from '../../store/themeStore';
 import VerifiedBadge from '../../components/VerifiedBadge';
+import { profilePreviewPhoto } from '../../utils/profile-photos';
 import ProfilePhotoGallery from '../../components/ProfilePhotoGallery';
 
 type Props = {
@@ -38,6 +39,8 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   const { userId } = route.params as { userId: string };
   const theme = useThemeStore((s) => s.theme);
   const [user, setUser] = useState<User | null>(null);
+  const [failedPhotos, setFailedPhotos] = useState<string[]>([]);
+  const heroPhoto = profilePreviewPhoto(user, failedPhotos);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [blocking, setBlocking] = useState(false);
@@ -66,10 +69,12 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     try {
       const { data } = await api.get(`/users/${userId}`);
       setUser(data);
+      setFailedPhotos([]);
       setFollowing(null);
       const status = await api.get('/follows/' + userId + '/status');
       setFollowing(!!status.data.isFollowing);
     } catch {
+      setUser(null);
       setError(true);
       showToast('Erro ao carregar perfil', 'error');
     } finally {
@@ -186,10 +191,11 @@ export default function UserProfileScreen({ navigation, route }: Props) {
         <View style={styles.heroWrap}>
           <Image
             source={
-              user.avatarUrl
-                ? { uri: user.avatarUrl }
+              heroPhoto
+                ? { uri: heroPhoto }
                 : require('../../assets/images/default-avatar.png')
             }
+            onError={() => { if (heroPhoto) setFailedPhotos(previous => [...previous, heroPhoto]); }}
             style={styles.heroImage}
             accessibilityLabel={`Foto de ${user.name}`}
             contentFit="cover"

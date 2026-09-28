@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity, PrimaryGeneratedColumn, Column,
   CreateDateColumn, ManyToOne, JoinColumn,
@@ -8,6 +9,10 @@ export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'completed' 
 
 @Entity('challenges')
 export class Challenge {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

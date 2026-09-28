@@ -1,3 +1,4 @@
+import { DeleteDateColumn } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -18,6 +19,10 @@ import { ActivityFeedPost } from './activity-feed.entity';
 @Entity('feed_likes')
 @Unique(['user_id', 'post_id'])
 export class FeedLike {
+  // Retained for security; excluded from ordinary ORM reads and joins.
+  @DeleteDateColumn({ nullable: true, select: false })
+  inactiveAt?: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

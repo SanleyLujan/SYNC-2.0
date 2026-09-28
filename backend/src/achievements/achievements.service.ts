@@ -41,7 +41,7 @@ export class AchievementsService {
     for (const a of unlocked) if (!unique.has(a.type)) unique.set(a.type, a);
     // Keep previously earned awards, even if no longer offered to new users.
     const catalog = [...new Set([...AVAILABLE_ACHIEVEMENTS, ...unique.keys()])];
-    return catalog.map(type => unique.has(type) ? this.present(unique.get(type)!) :
+    return catalog.filter(type => type !== AchievementType.SUPER_LIKER).map(type => unique.has(type) ? this.present(unique.get(type)!) :
       { id: type, type, unlockedAt: null, ...ACHIEVEMENT_INFO[type], xp: 0 });
   }
 
@@ -52,7 +52,7 @@ export class AchievementsService {
         select: ['sport','startTime','distance','duration','elevationGain'] }),
       this.matchRepository.createQueryBuilder('m').where('m.user1_id = :userId OR m.user2_id = :userId',{userId}).getCount(),
       this.eventRepository.count({ where:{creator_id:userId} }),
-      this.likeRepository.count({ where:{from_user_id:userId,isSuperLike:true} }),
+      Promise.resolve(0), // Super likes are retained only as historical data.
       manager.getRepository(ActivityKudos).createQueryBuilder('k').innerJoin('k.activity','a').where('a.user_id = :userId AND k.user_id != :userId',{userId}).getCount(),
       Promise.all([FeedComment, ActivityComment, EventComment].map(target => manager.getRepository(target).count({where:{user_id:userId}}))).then(counts => counts.reduce((a,b)=>a+b,0)),
       manager.getRepository(Story).count({where:{user_id:userId}}),

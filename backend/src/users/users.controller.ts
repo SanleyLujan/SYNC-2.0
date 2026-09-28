@@ -18,7 +18,6 @@ import { ReportUserDto } from './dto/report-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
-import { VerificationService } from '../verification/verification.service';
 
 /** true se for uma URL de mídia (novo fluxo via /api/media) e não base64 */
 function isMediaUrl(s: string): boolean {
@@ -30,7 +29,6 @@ function isMediaUrl(s: string): boolean {
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly verificationService: VerificationService,
   ) {}
 
   @Get('me')
@@ -209,18 +207,16 @@ export class UsersController {
     return {
       generatedAt: new Date().toISOString(),
       user: full,
-      note: 'Este JSON contém todos os dados pessoais armazenados sobre você. Para deletar permanentemente, use DELETE /users/me.',
+      note: 'Este JSON contém todos os dados pessoais armazenados sobre você. Para desativar sua conta e ocultar seu conteúdo, use DELETE /users/me.',
     };
   }
 
   @Delete('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Deletar minha conta permanentemente (LGPD/GDPR)' })
+  @ApiOperation({ summary: 'Desativar minha conta e reter registros inativos' })
   async deleteMe(@CurrentUser() user: User) {
-    // Soft delete: anonimiza ao invés de remover (preserva integridade de atividades em grupos)
-    await this.verificationService.removeForUser(user.id);
-    return this.usersService.anonymizeUser(user.id);
+    return this.usersService.deactivateAccount(user.id);
   }
 
   @Get(':id')

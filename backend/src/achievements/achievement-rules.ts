@@ -3,7 +3,7 @@ import { dayKey, DAY_ZONE } from '../gamification/rules';
 import { shiftDay, summarizeStats } from '../stats/stats-rules';
 
 // These need evidence not stored by the app; never advertise them as achievable.
-export const UNAVAILABLE_ACHIEVEMENTS = new Set<A>([A.SUNRISE_RUN, A.RAIN_RUNNER, A.HEAT_WARRIOR,
+export const UNAVAILABLE_ACHIEVEMENTS = new Set<A>([A.SUPER_LIKER, A.SUNRISE_RUN, A.RAIN_RUNNER, A.HEAT_WARRIOR,
   A.COLD_HERO, A.CITY_EXPLORER, A.EVENT_PARTICIPANT_10, A.STORYTELLER, A.SHARED_LIVE]);
 export const AVAILABLE_ACHIEVEMENTS = Object.values(A).filter(a => !UNAVAILABLE_ACHIEVEMENTS.has(a));
 export interface AchievementActivity {
@@ -29,7 +29,7 @@ export function achievementRules(activities: AchievementActivity[], social: { ma
   check(A.MULTI_SPORT,sports>=3); check(A.ALL_ROUNDER,sports>=5);
   check(A.FIRST_MATCH,social.matches>=1); check(A.SOCIAL_BUTTERFLY,social.matches>=10); check(A.MATCHES_50,social.matches>=50);
   check(A.FIRST_EVENT,social.events>=1); check(A.EVENT_CREATOR,social.events>=5); check(A.EVENTS_HOSTED_10,social.events>=10);
-  check(A.SUPER_LIKER,social.superLikes>=10); check(A.FIRST_KUDOS,social.kudos>=1);
+  check(A.FIRST_KUDOS,social.kudos>=1);
   check(A.FIRST_COMMENT,social.comments>=1); check(A.FIRST_STORY,social.stories>=1); check(A.CHATTY,social.messages>=100);
   check(A.PROFILE_COMPLETE,social.profileComplete); check(A.FLASH_EVENT,social.flash>=1);
   const hourFormat = new Intl.DateTimeFormat('en-GB',{ timeZone:DAY_ZONE,hour:'2-digit',hourCycle:'h23' });

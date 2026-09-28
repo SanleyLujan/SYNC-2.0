@@ -92,7 +92,7 @@ export class NotificationsService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const result = await this.notificationRepository.delete({
+    const result = await this.notificationRepository.softDelete({
       user_id: userId,
       createdAt: LessThan(thirtyDaysAgo),
     });

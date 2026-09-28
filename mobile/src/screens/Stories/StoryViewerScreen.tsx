@@ -10,7 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
 import { Story, storiesService } from '../../services/stories.service';
 
-const { width: SW, height: SH } = Dimensions.get('window');
 const STORY_DURATION_MS = 6000;
 const ACCENT = '#FF6B35';
 
@@ -208,8 +207,8 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   media: {
-    width: SW,
-    height: SH,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
   },
   progressContainer: {

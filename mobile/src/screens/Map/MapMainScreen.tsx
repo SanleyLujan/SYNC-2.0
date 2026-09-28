@@ -10,7 +10,6 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
-  Dimensions,
   Linking,
   AccessibilityInfo,
 } from 'react-native';
@@ -34,7 +33,6 @@ import { showToast } from '../../components/ui/Toast';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAccessibilityStore } from '../../store/accessibilityStore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Props = {
   navigation: NativeStackNavigationProp<MapStackParamList, 'MapMain'>;
@@ -1182,7 +1180,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 4,
-    maxWidth: SCREEN_WIDTH * 0.5,
+    maxWidth: '50%',
   },
   locationText: {
     fontSize: fontSize.xs,
