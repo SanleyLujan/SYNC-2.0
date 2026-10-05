@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Share,
   Platform,
-  ActionSheetIOS,
   Animated,
   Pressable,
   Easing,
@@ -26,8 +25,6 @@ import { TrackingStackParamList } from '../../navigation/types';
 import { Activity } from '../../types';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import api from '../../services/api';
 import { feedApi } from '../../services/feed.service';
 import { segmentsApi } from '../../services/segments.service';
@@ -39,7 +36,7 @@ import { useHaptic } from '../../hooks/useHaptic';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import PostWorkoutRatingModal from '../../components/PostWorkoutRatingModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { confirmAsync } from '../../utils/confirm';
+import WorkoutImageModal from '../../components/WorkoutImageModal';
 import { useThemeStore } from '../../store/themeStore';
 import { isDistanceActivity } from '../../utils/activity-metrics';
 
@@ -106,6 +103,8 @@ function ActivitySummaryInner({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  const [caption, setCaption] = useState('');
+  const [showImageModal, setShowImageModal] = useState(false);
   // Criar segmento a partir desta rota
   const [showSegModal, setShowSegModal] = useState(false);
   const [segName, setSegName] = useState('');
@@ -245,85 +244,9 @@ function ActivitySummaryInner({ navigation, route }: Props) {
     } catch {}
   };
 
-  const generateGpx = (): string => {
-    if (!activity?.points?.length) return '';
-    const points = activity.points
-      .map(
-        (p) =>
-          `    <trkpt lat="${p.latitude}" lon="${p.longitude}">\n      <time>${p.timestamp}</time>${p.altitude != null ? `\n      <ele>${p.altitude}</ele>` : ''}\n    </trkpt>`,
-      )
-      .join('\n');
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Sync App">\n  <trk>\n    <name>${activity.sport} - ${new Date(activity.startTime).toLocaleDateString('pt-BR')}</name>\n    <trkseg>\n${points}\n    </trkseg>\n  </trk>\n</gpx>`;
-  };
-
-  const generateCsv = (): string => {
-    if (!activity?.points?.length) return '';
-    const header = 'latitude,longitude,altitude,timestamp';
-    const rows = activity.points.map((p) => `${p.latitude},${p.longitude},${p.altitude ?? ''},${p.timestamp}`);
-    return [header, ...rows].join('\n');
-  };
-
-  const handleExport = () => {
-    if (!activity) return;
-    const doExport = async (format: 'gpx' | 'csv') => {
-      const content = format === 'gpx' ? generateGpx() : generateCsv();
-      if (!content) {
-        showToast('Esta atividade não tem pontos GPS para exportar.', 'error');
-        return;
-      }
-      const filename = `atividade_${activity.sport}_${new Date(activity.startTime).toISOString().slice(0, 10)}.${format}`;
-      try {
-        // Write to a temp file and share as actual file (works with Garmin, Strava, etc.)
-        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-        await FileSystem.writeAsStringAsync(fileUri, content, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: format === 'gpx' ? 'application/gpx+xml' : 'text/csv',
-            dialogTitle: `Exportar ${format.toUpperCase()}`,
-            UTI: format === 'gpx' ? 'com.topografix.gpx' : 'public.comma-separated-values-text',
-          });
-        } else {
-          // Fallback for web/simulators
-          await Share.share({ message: content, title: filename });
-        }
-      } catch {
-        showToast('Erro ao exportar arquivo', 'error');
-      }
-    };
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['Cancelar', 'Exportar GPX', 'Exportar CSV'], cancelButtonIndex: 0 },
-        (index) => {
-          if (index === 1) doExport('gpx');
-          if (index === 2) doExport('csv');
-        },
-      );
-    } else {
-      // Web/Android: ActionSheet/Alert com vários botões não funciona no web,
-      // então escolhemos o formato em dois passos com confirmAsync.
-      (async () => {
-        const wantGpx = await confirmAsync(
-          'Exportar atividade',
-          'Exportar em GPX (compatível com Strava/Garmin)? Toque em Cancelar para escolher CSV.',
-          { confirmText: 'Exportar GPX' },
-        );
-        if (wantGpx) { doExport('gpx'); return; }
-        const wantCsv = await confirmAsync(
-          'Exportar CSV?',
-          'Planilha com os pontos GPS da atividade.',
-          { confirmText: 'Exportar CSV' },
-        );
-        if (wantCsv) doExport('csv');
-      })();
-    }
-  };
-
   // Escolhe uma foto pra anexar no post e já faz upload (URL pública)
   const pickPostPhoto = async () => {
-    if (uploadingPhoto) return;
+    if (uploadingPhoto || posting) return;
     try {
       if (Platform.OS !== 'web') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -379,7 +302,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
     try {
       await feedApi.publish({
         activityId: activity.id,
-        caption: `Mais um treino concluído! 🔥`,
+        caption: caption.trim() || undefined,
         photoUrl: photoUrl || undefined,
         distanceKm: activity.distance / 1000,
         durationSeconds: activity.duration,
@@ -457,7 +380,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView showsVerticalScrollIndicator={false} bounces>
+      <ScrollView showsVerticalScrollIndicator={false} bounces keyboardShouldPersistTaps="handled">
 
         {/* ── Celebration Header ── */}
         <LinearGradient
@@ -649,6 +572,23 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
         {/* ── Actions ── */}
         <Animated.View style={[styles.actions, { opacity: headerFade }]}>
+          {!posted && (
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>Sua legenda (opcional)</Text>
+              <TextInput
+                accessibilityLabel="Legenda da publicação no feed"
+                value={caption}
+                onChangeText={setCaption}
+                editable={!posting}
+                multiline
+                maxLength={500}
+                placeholder="Como foi seu treino? Escreva sua mensagem…"
+                placeholderTextColor={theme.placeholder}
+                style={[styles.captionInput, { borderColor: theme.border, backgroundColor: theme.input, color: theme.textPrimary }]}
+              />
+              <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'right' }}>{caption.length}/500</Text>
+            </View>
+          )}
           {/* Foto opcional pra publicação */}
           {!posted && (
             photoUri ? (
@@ -661,6 +601,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
                 )}
                 <TouchableOpacity
                   style={styles.photoRemove}
+                  disabled={posting || uploadingPhoto}
                   onPress={() => { setPhotoUri(null); setPhotoUrl(null); }}
                   hitSlop={8}
                 >
@@ -668,7 +609,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPostPhoto} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPostPhoto} disabled={posting} activeOpacity={0.8}>
                 <Ionicons name="camera-outline" size={20} color={accent} />
                 <Text style={[styles.addPhotoText, { color: accent }]}>Adicionar foto à publicação</Text>
               </TouchableOpacity>
@@ -679,7 +620,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
           {!posted ? (
             <Pressable
               onPress={handlePostToFeed}
-              disabled={posting}
+              disabled={posting || uploadingPhoto}
               style={({ pressed }) => [styles.postBtn, { shadowColor: accent }, pressed && { opacity: 0.85 }]}
             >
               <LinearGradient colors={[accent, accentEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.postBtnInner}>
@@ -704,13 +645,11 @@ function ActivitySummaryInner({ navigation, route }: Props) {
             </View>
           )}
 
-          {/* Secondary: Export GPX */}
-          {activity.points && activity.points.length > 0 && (
-            <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: theme.primarySoft, borderColor: accent + '28' }]} onPress={handleExport}>
-              <Ionicons name="download-outline" size={18} color={accent} />
-              <Text style={[styles.secondaryBtnText, { color: accent }]}>Exportar rota (GPX / CSV)</Text>
-            </TouchableOpacity>
-          )}
+          {/* Exportação de imagem disponível também para treinos sem GPS. */}
+          <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: theme.primarySoft, borderColor: accent + '28' }]} onPress={() => setShowImageModal(true)}>
+            <Ionicons name="download-outline" size={18} color={accent} />
+            <Text style={[styles.secondaryBtnText, { color: accent }]}>Exportar imagem do treino</Text>
+          </TouchableOpacity>
 
           {/* Secondary: Criar segmento a partir desta rota */}
           {activity.points && activity.points.length > 1 && (
@@ -762,6 +701,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
         </Modal>
       </ScrollView>
 
+      <WorkoutImageModal visible={showImageModal} activity={activity} onClose={() => setShowImageModal(false)} />
       {/* Post-workout rating modal */}
       <PostWorkoutRatingModal
         visible={ratingModal && !!activity?.id}
@@ -1049,6 +989,7 @@ const styles = StyleSheet.create({
   },
 
   // Actions
+  captionInput: { minHeight: 110, padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 15, textAlignVertical: 'top' },
   actions: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
