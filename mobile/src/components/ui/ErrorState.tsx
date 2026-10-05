@@ -1,11 +1,11 @@
 // Estado de erro padrão — usado quando uma chamada de API falha, no lugar de
 // uma tela vazia/branca. Ícone + mensagem + botão "Tentar de novo".
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
+import { AppTheme, fontSize, spacing, borderRadius, typography } from '../../theme';
 
-const ACCENT = colors.danger;
+import { useThemeStore } from '../../store/themeStore';
 
 export default function ErrorState({
   title = 'Algo deu errado',
@@ -20,10 +20,13 @@ export default function ErrorState({
   retrying?: boolean;
   compact?: boolean;
 }) {
+  const theme = useThemeStore((state) => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <View style={[styles.container, compact && styles.compact]}>
       <View style={styles.iconWrap}>
-        <Ionicons name="cloud-offline-outline" size={compact ? 32 : 44} color={ACCENT} />
+        <Ionicons name="cloud-offline-outline" size={compact ? 32 : 44} color={theme.danger} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
@@ -36,7 +39,7 @@ export default function ErrorState({
           accessibilityRole="button"
           accessibilityLabel="Tentar de novo"
         >
-          <Ionicons name="refresh" size={16} color={colors.primaryText} />
+          <Ionicons name="refresh" size={16} color={theme.primaryText} />
           <Text style={styles.btnText}>{retrying ? 'Tentando…' : 'Tentar de novo'}</Text>
         </Pressable>
       )}
@@ -44,7 +47,7 @@ export default function ErrorState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -61,9 +64,9 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: theme.dangerSoft,
     borderWidth: 1,
-    borderColor: colors.danger,
+    borderColor: theme.danger,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
@@ -72,12 +75,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontFamily: typography.fontFamily,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: theme.textPrimary,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    color: theme.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
     lineHeight: 20,
@@ -88,13 +91,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: spacing.lg,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.primary,
     paddingHorizontal: spacing.xl,
     paddingVertical: 12,
     borderRadius: borderRadius.md,
   },
   btnText: {
-    color: colors.primaryText,
+    color: theme.primaryText,
     fontSize: 15,
     fontFamily: typography.fontFamily,
     fontWeight: '600',

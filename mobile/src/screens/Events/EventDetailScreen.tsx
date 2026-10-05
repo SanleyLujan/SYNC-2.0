@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MapStackParamList } from '../../navigation/types';
 import { Event as EventType } from '../../types';
 import { useAuthStore } from '../../store/authStore';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, AppTheme } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchCurrentWeather, WeatherData, getExerciseRecommendation } from '../../services/external-apis';
@@ -58,6 +59,8 @@ const sportColors: Record<string, string> = {
 };
 
 export default function EventDetailScreen({ navigation, route }: Props) {
+  const theme = useThemeStore((state) => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [event, setEvent] = useState<EventType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -225,14 +228,14 @@ export default function EventDetailScreen({ navigation, route }: Props) {
   if (loading || !event) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   const isFull = (event.participantCount || 0) >= event.maxParticipants;
   const spotsLeft = event.maxParticipants - (event.participantCount || 0);
-  const sportColor = sportColors[event.sport] || colors.primary;
+  const sportColor = sportColors[event.sport] || theme.primary;
   const recommendation = weather ? getExerciseRecommendation(weather) : null;
   const fillPercent = Math.min(100, ((event.participantCount || 0) / event.maxParticipants) * 100);
 
@@ -250,6 +253,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
           }}
           scrollEnabled={false}
           zoomEnabled={false}
+          userInterfaceStyle={theme.mode}
         >
           <Marker
             coordinate={{ latitude: event.latitude, longitude: event.longitude }}
@@ -268,15 +272,15 @@ export default function EventDetailScreen({ navigation, route }: Props) {
           style={styles.backBtn}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
-            <Ionicons name="share-outline" size={20} color="#fff" />
+            <Ionicons name="share-outline" size={20} color={theme.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.calendarBtn} onPress={handleAddToCalendar}>
-            <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
+            <Ionicons name="calendar-outline" size={20} color={theme.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -292,7 +296,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
             size={14}
             color={sportColor}
           />
-          <Text style={[styles.sportText, { color: sportColor }]}>
+          <Text style={[styles.sportText, { color: theme.textPrimary }]}>
             {event.sport.charAt(0).toUpperCase() + event.sport.slice(1)}
           </Text>
         </View>
@@ -302,8 +306,8 @@ export default function EventDetailScreen({ navigation, route }: Props) {
         {/* Info rows */}
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <View style={[styles.infoIconWrap, { backgroundColor: sportColor + '12' }]}>
-              <Ionicons name="calendar-outline" size={18} color={sportColor} />
+            <View style={[styles.infoIconWrap, { backgroundColor: theme.primarySoft }]}>
+              <Ionicons name="calendar-outline" size={18} color={theme.primary} />
             </View>
             <View>
               <Text style={styles.infoLabel}>Data e hora</Text>
@@ -321,8 +325,8 @@ export default function EventDetailScreen({ navigation, route }: Props) {
 
           {event.address && (
             <View style={styles.infoRow}>
-              <View style={[styles.infoIconWrap, { backgroundColor: sportColor + '12' }]}>
-                <Ionicons name="location-outline" size={18} color={sportColor} />
+              <View style={[styles.infoIconWrap, { backgroundColor: theme.primarySoft }]}>
+                <Ionicons name="location-outline" size={18} color={theme.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoLabel}>Local</Text>
@@ -332,8 +336,8 @@ export default function EventDetailScreen({ navigation, route }: Props) {
           )}
 
           <View style={styles.infoRow}>
-            <View style={[styles.infoIconWrap, { backgroundColor: sportColor + '12' }]}>
-              <Ionicons name="people-outline" size={18} color={sportColor} />
+            <View style={[styles.infoIconWrap, { backgroundColor: theme.primarySoft }]}>
+              <Ionicons name="people-outline" size={18} color={theme.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Participantes</Text>
@@ -349,7 +353,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
                     styles.participantBarFill,
                     {
                       width: `${fillPercent}%`,
-                      backgroundColor: fillPercent > 80 ? colors.warning : sportColor,
+                      backgroundColor: fillPercent > 80 ? theme.warning : sportColor,
                     },
                   ]}
                 />
@@ -366,7 +370,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
               <Text style={styles.weatherCardTemp}>
                 {weather.temperature}° - {weather.weatherDescription}
               </Text>
-              <Text style={[styles.weatherCardRec, { color: recommendation.color }]}>
+              <Text style={[styles.weatherCardRec, { color: theme.textSecondary }]}>
                 {recommendation.message}
               </Text>
             </View>
@@ -388,7 +392,9 @@ export default function EventDetailScreen({ navigation, route }: Props) {
             <TextInput
               style={styles.commentInput}
               placeholder="Escreva um comentario..."
-              placeholderTextColor={colors.secondaryText}
+              placeholderTextColor={theme.placeholder}
+              selectionColor={theme.primary}
+              keyboardAppearance={theme.mode}
               value={comment}
               onChangeText={setComment}
               maxLength={300}
@@ -398,13 +404,13 @@ export default function EventDetailScreen({ navigation, route }: Props) {
               onPress={handleAddComment}
               disabled={!comment.trim() || sendingComment}
             >
-              <Ionicons name="send" size={16} color={comment.trim() && !sendingComment ? colors.white : colors.secondaryText} />
+              <Ionicons name="send" size={16} color={comment.trim() && !sendingComment ? colors.white : theme.textSecondary} />
             </TouchableOpacity>
           </View>
           {comments.map((c) => (
             <View key={c.id} style={styles.commentItem}>
               <View style={styles.commentAvatar}>
-                <Ionicons name="person" size={14} color={colors.secondaryText} />
+                <Ionicons name="person" size={14} color={theme.textSecondary} />
               </View>
               <View style={styles.commentContent}>
                 <View style={styles.commentHeader}>
@@ -431,7 +437,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
         {isJoined ? (
           <View style={styles.footerJoined}>
             <View style={styles.joinedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+              <Ionicons name="checkmark-circle" size={20} color={theme.success} />
               <Text style={styles.joinedText}>Voce esta participando!</Text>
             </View>
             <TouchableOpacity
@@ -450,7 +456,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={isFull ? [colors.secondaryText, colors.secondaryText] : [sportColor, colors.primary]}
+              colors={isFull ? [theme.surfaceSecondary, theme.surfaceSecondary] : theme.gradientPrimary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.joinBtnGradient}
@@ -459,8 +465,8 @@ export default function EventDetailScreen({ navigation, route }: Props) {
                 <ActivityIndicator color={colors.white} />
               ) : (
                 <>
-                  <Ionicons name={isFull ? 'close-circle' : 'add-circle'} size={22} color={colors.white} />
-                  <Text style={styles.joinBtnText}>
+                  <Ionicons name={isFull ? 'close-circle' : 'add-circle'} size={22} color={isFull ? theme.textSecondary : theme.primaryText} />
+                  <Text style={[styles.joinBtnText, isFull && { color: theme.textSecondary }]}>
                     {isFull ? 'Evento lotado' : 'Participar do evento'}
                   </Text>
                 </>
@@ -473,16 +479,16 @@ export default function EventDetailScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: theme.background,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0A0A0F',
+    backgroundColor: theme.background,
   },
   mapContainer: {
     height: 200,
@@ -498,7 +504,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#0A0A0F',
+    borderColor: theme.background,
   },
   backBtn: {
     position: 'absolute',
@@ -507,9 +513,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(10,10,15,0.75)',
+    backgroundColor: theme.mapOverlay,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: theme.border,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
@@ -529,9 +535,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(10,10,15,0.75)',
+    backgroundColor: theme.mapOverlay,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: theme.border,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
@@ -544,9 +550,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(10,10,15,0.75)',
+    backgroundColor: theme.mapOverlay,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.35)',
+    borderColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
@@ -575,14 +581,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.xxl,
     fontWeight: '800',
-    color: '#fff',
+    color: theme.textPrimary,
     marginTop: spacing.sm,
     letterSpacing: 0.2,
   },
   infoCard: {
-    backgroundColor: 'rgba(255,255,255,0.055)',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginTop: spacing.lg,
@@ -607,20 +613,20 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: fontSize.xs,
-    color: 'rgba(255,255,255,0.4)',
+    color: theme.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   infoValue: {
     fontSize: fontSize.md,
-    color: '#fff',
+    color: theme.textPrimary,
     marginTop: 2,
     textTransform: 'capitalize',
   },
   participantBar: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: theme.divider,
     marginTop: 8,
     overflow: 'hidden',
   },
@@ -632,14 +638,14 @@ const styles = StyleSheet.create({
   weatherCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.045)',
+    backgroundColor: theme.card,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginTop: spacing.md,
     gap: spacing.md,
     borderLeftWidth: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: theme.border,
   },
   weatherCardContent: {
     flex: 1,
@@ -647,7 +653,7 @@ const styles = StyleSheet.create({
   weatherCardTemp: {
     fontSize: fontSize.sm,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.textPrimary,
   },
   weatherCardRec: {
     fontSize: fontSize.xs,
@@ -660,14 +666,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: fontSize.sm,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
+    color: theme.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: spacing.sm,
   },
   description: {
     fontSize: fontSize.md,
-    color: 'rgba(255,255,255,0.8)',
+    color: theme.textPrimary,
     lineHeight: 24,
   },
   // Comments
@@ -679,25 +685,25 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: theme.input,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     fontSize: fontSize.sm,
-    color: '#fff',
+    color: theme.textPrimary,
   },
   commentSendBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   commentSendBtnDisabled: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: theme.surfaceSecondary,
   },
   commentItem: {
     flexDirection: 'row',
@@ -708,17 +714,17 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.surfaceSecondary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   commentContent: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.055)',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
     borderRadius: borderRadius.sm,
     padding: spacing.sm,
   },
@@ -730,20 +736,20 @@ const styles = StyleSheet.create({
   commentUser: {
     fontSize: fontSize.sm,
     fontWeight: '700',
-    color: '#fff',
+    color: theme.textPrimary,
   },
   commentTime: {
     fontSize: fontSize.xs,
-    color: 'rgba(255,255,255,0.4)',
+    color: theme.textSecondary,
   },
   commentText: {
     fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.75)',
+    color: theme.textPrimary,
     lineHeight: 20,
   },
   noComments: {
     fontSize: fontSize.sm,
-    color: 'rgba(255,255,255,0.4)',
+    color: theme.textSecondary,
     textAlign: 'center',
     paddingVertical: spacing.md,
   },
@@ -751,9 +757,9 @@ const styles = StyleSheet.create({
   footer: {
     padding: spacing.lg,
     paddingBottom: Platform.OS === 'ios' ? spacing.xl : spacing.lg,
-    backgroundColor: '#0D0D1A',
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.07)',
+    borderTopColor: theme.divider,
   },
   joinBtn: {
     borderRadius: borderRadius.sm,
@@ -788,17 +794,17 @@ const styles = StyleSheet.create({
   joinedText: {
     fontSize: fontSize.md,
     fontWeight: '600',
-    color: colors.success,
+    color: theme.success,
   },
   leaveBtn: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.sm,
-    backgroundColor: colors.error + '10',
+    backgroundColor: theme.dangerSoft,
   },
   leaveBtnText: {
     fontSize: fontSize.sm,
     fontWeight: '600',
-    color: colors.error,
+    color: theme.danger,
   },
 });

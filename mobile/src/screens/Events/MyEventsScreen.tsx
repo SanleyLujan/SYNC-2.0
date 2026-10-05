@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MapStackParamList } from '../../navigation/types';
 import { Event as EventType } from '../../types';
-import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { colors, fontSize, spacing, borderRadius, AppTheme } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getSportImage, emptyImages } from '../../theme/images';
@@ -54,6 +55,8 @@ const sportColors: Record<string, string> = {
 type Tab = 'created' | 'participating';
 
 export default function MyEventsScreen({ navigation }: Props) {
+  const theme = useThemeStore((state) => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('created');
   const [created, setCreated] = useState<EventType[]>([]);
@@ -115,7 +118,7 @@ export default function MyEventsScreen({ navigation }: Props) {
   };
 
   const renderEvent = ({ item }: { item: EventType }) => {
-    const color = sportColors[item.sport] || colors.primary;
+    const color = sportColors[item.sport] || theme.primary;
     const isPast = new Date(item.date) < new Date();
     const isCreated = tab === 'created';
 
@@ -155,7 +158,7 @@ export default function MyEventsScreen({ navigation }: Props) {
           </Text>
           {item.address && (
             <Text style={styles.eventAddress} numberOfLines={1}>
-              <Ionicons name="location-outline" size={11} color={colors.dark.secondaryText} /> {item.address}
+              <Ionicons name="location-outline" size={11} color={theme.textSecondary} /> {item.address}
             </Text>
           )}
         </View>
@@ -171,7 +174,7 @@ export default function MyEventsScreen({ navigation }: Props) {
             <Ionicons
               name={isCreated ? 'trash-outline' : 'exit-outline'}
               size={18}
-              color={colors.error}
+              color={theme.danger}
             />
           </TouchableOpacity>
         )}
@@ -185,7 +188,7 @@ export default function MyEventsScreen({ navigation }: Props) {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient
-        colors={['#15152E', '#0E0E1E', '#0A0A0F']}
+        colors={[theme.surfaceElevated, theme.surface, theme.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}
@@ -196,7 +199,7 @@ export default function MyEventsScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Meus Eventos</Text>
         <TouchableOpacity
@@ -205,7 +208,7 @@ export default function MyEventsScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Criar novo evento"
         >
-          <Ionicons name="add" size={22} color="#fff" />
+          <Ionicons name="add" size={22} color={theme.primaryText} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -236,15 +239,15 @@ export default function MyEventsScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Erro ao carregar. Tocar para tentar novamente."
         >
-          <Ionicons name="cloud-offline-outline" size={16} color="#F87171" />
+          <Ionicons name="cloud-offline-outline" size={16} color={theme.danger} />
           <Text style={styles.errorBannerText}>Erro ao carregar seus eventos. Toque pra tentar de novo.</Text>
-          <Ionicons name="refresh" size={16} color="#F87171" />
+          <Ionicons name="refresh" size={16} color={theme.danger} />
         </TouchableOpacity>
       )}
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
@@ -257,8 +260,9 @@ export default function MyEventsScreen({ navigation }: Props) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#FF6B35"
-              colors={["#FF6B35"]}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+              progressBackgroundColor={theme.surface}
             />
           }
           ListEmptyComponent={
@@ -285,10 +289,10 @@ export default function MyEventsScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: theme.background,
   },
   center: {
     flex: 1,
@@ -298,10 +302,10 @@ const styles = StyleSheet.create({
   errorBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: spacing.lg, marginBottom: spacing.sm,
-    backgroundColor: 'rgba(248,113,113,0.10)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.25)',
+    backgroundColor: theme.dangerSoft, borderWidth: 1, borderColor: theme.danger,
     borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
-  errorBannerText: { flex: 1, color: '#F87171', fontSize: 13, fontWeight: '600' },
+  errorBannerText: { flex: 1, color: theme.danger, fontSize: 13, fontWeight: '600' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,32 +314,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: theme.divider,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.surfaceSecondary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: theme.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: fontSize.lg,
     fontWeight: '800',
-    color: '#fff',
+    color: theme.textPrimary,
     letterSpacing: 0.3,
   },
   addBtn: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#FF6B35',
+    backgroundColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FF6B35',
+    shadowColor: theme.primary,
     shadowOpacity: 0.5,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
@@ -343,9 +347,9 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#0A0A0F',
+    backgroundColor: theme.background,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: theme.divider,
   },
   tab: {
     flex: 1,
@@ -354,15 +358,15 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     borderBottomWidth: 2,
-    borderBottomColor: '#FF6B35',
+    borderBottomColor: theme.primary,
   },
   tabText: {
     fontSize: fontSize.sm,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.4)',
+    color: theme.textSecondary,
   },
   tabTextActive: {
-    color: '#FF6B35',
+    color: theme.primary,
     fontWeight: '700',
   },
   list: {
@@ -372,13 +376,13 @@ const styles = StyleSheet.create({
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.055)',
+    backgroundColor: theme.card,
     borderRadius: borderRadius.md,
     padding: 10,
     marginBottom: spacing.sm,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: theme.border,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.2,
@@ -417,25 +421,25 @@ const styles = StyleSheet.create({
   eventTitle: {
     fontSize: fontSize.md,
     fontWeight: '700',
-    color: '#fff',
+    color: theme.textPrimary,
   },
   eventDate: {
     fontSize: fontSize.xs,
-    color: '#FF6B35',
+    color: theme.primary,
     fontWeight: '600',
     marginTop: 2,
     textTransform: 'capitalize',
   },
   eventAddress: {
     fontSize: fontSize.xs,
-    color: 'rgba(255,255,255,0.45)',
+    color: theme.textSecondary,
     marginTop: 2,
   },
   actionBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.error + '10',
+    backgroundColor: theme.dangerSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -446,14 +450,14 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: fontSize.md,
-    color: colors.secondaryText,
+    color: theme.textSecondary,
     textAlign: 'center',
   },
   createBtn: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.primary,
     marginTop: spacing.sm,
   },
   createBtnText: {

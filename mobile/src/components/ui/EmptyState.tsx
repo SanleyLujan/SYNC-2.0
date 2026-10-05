@@ -1,11 +1,11 @@
 // EmptyState com ilustração — imagem dim + ícone + título + CTA
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ImageBackground, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fontSize, spacing, borderRadius, typography } from '../../theme';
+import { AppTheme, fontSize, spacing, borderRadius, typography } from '../../theme';
 
-const ACCENT = colors.primary;
+import { useThemeStore } from '../../store/themeStore';
 
 export default function EmptyState({
   icon = 'search-outline',
@@ -22,21 +22,24 @@ export default function EmptyState({
   ctaLabel?: string;
   onCtaPress?: () => void;
 }) {
+  const theme = useThemeStore((state) => state.theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <View style={styles.container}>
       {image ? (
         <ImageBackground source={{ uri: image }} style={styles.image} resizeMode="cover">
           <LinearGradient
-            colors={['rgba(18,18,22,0.25)', colors.background]}
+            colors={['rgba(18,18,22,0.25)', theme.background]}
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.iconBubble}>
-            <Ionicons name={icon as any} size={28} color={ACCENT} />
+            <Ionicons name={icon as any} size={28} color={theme.primary} />
           </View>
         </ImageBackground>
       ) : (
         <View style={styles.iconLarge}>
-          <Ionicons name={icon as any} size={48} color={ACCENT} />
+          <Ionicons name={icon as any} size={48} color={theme.primary} />
         </View>
       )}
 
@@ -49,13 +52,13 @@ export default function EmptyState({
           style={({ pressed }) => [styles.cta, pressed && { opacity: 0.85 }]}
         >
           <LinearGradient
-            colors={colors.gradientPrimary}
+            colors={theme.gradientPrimary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.ctaInner}
           >
             <Text style={styles.ctaText}>{ctaLabel}</Text>
-            <Ionicons name="arrow-forward" size={16} color={colors.primaryText} />
+            <Ionicons name="arrow-forward" size={16} color={theme.primaryText} />
           </LinearGradient>
         </Pressable>
       )}
@@ -63,7 +66,7 @@ export default function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
@@ -81,15 +84,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
     borderWidth: 2,
-    borderColor: colors.primarySoft,
+    borderColor: theme.primarySoft,
   },
   iconBubble: {
     width: 64,
     height: 64,
     borderRadius: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -97,9 +100,9 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
@@ -108,12 +111,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontFamily: typography.fontFamily,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: theme.textPrimary,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    color: theme.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
     lineHeight: 20,
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
-    shadowColor: ACCENT,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.24,
     shadowRadius: 12,
@@ -137,7 +140,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   ctaText: {
-    color: colors.primaryText,
+    color: theme.primaryText,
     fontSize: 15,
     fontFamily: typography.fontFamily,
     fontWeight: '600',
