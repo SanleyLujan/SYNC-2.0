@@ -40,8 +40,8 @@ const FAQ = [
     a: 'Sim! 5K em 8 semanas, 10K em 10 semanas, 21K em 12 semanas. Acesse Perfil → Planos de treino.',
   },
   {
-    q: 'Como exporto uma imagem do meu treino?',
-    a: 'Após finalizar a atividade, no resumo → "Exportar imagem do treino". Escolha fundo claro, escuro ou transparente e toque em "Exportar PNG". Você pode incluir o traçado GPS quando houver uma rota. No navegador, a imagem é baixada; no celular, escolha onde salvar ou compartilhar. O fundo transparente permite sobrepor os dados em outra foto usando um editor de imagens.',
+    q: 'Como exporto minha rota pra Strava/Garmin?',
+    a: 'Após finalizar atividade, no resumo → "Exportar GPX". O arquivo .gpx é compatível com Strava, Garmin Connect, etc.',
   },
   {
     q: 'Apaguei minha conta — posso recuperar?',
