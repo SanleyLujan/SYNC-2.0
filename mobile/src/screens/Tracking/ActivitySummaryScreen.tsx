@@ -246,7 +246,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
   // Escolhe uma foto pra anexar no post e já faz upload (URL pública)
   const pickPostPhoto = async () => {
-    if (uploadingPhoto) return;
+    if (uploadingPhoto || posting) return;
     try {
       if (Platform.OS !== 'web') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -601,6 +601,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
                 )}
                 <TouchableOpacity
                   style={styles.photoRemove}
+                  disabled={posting || uploadingPhoto}
                   onPress={() => { setPhotoUri(null); setPhotoUrl(null); }}
                   hitSlop={8}
                 >
@@ -608,7 +609,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPostPhoto} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPostPhoto} disabled={posting} activeOpacity={0.8}>
                 <Ionicons name="camera-outline" size={20} color={accent} />
                 <Text style={[styles.addPhotoText, { color: accent }]}>Adicionar foto à publicação</Text>
               </TouchableOpacity>
@@ -619,7 +620,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
           {!posted ? (
             <Pressable
               onPress={handlePostToFeed}
-              disabled={posting}
+              disabled={posting || uploadingPhoto}
               style={({ pressed }) => [styles.postBtn, { shadowColor: accent }, pressed && { opacity: 0.85 }]}
             >
               <LinearGradient colors={[accent, accentEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.postBtnInner}>
