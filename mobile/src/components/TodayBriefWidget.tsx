@@ -14,6 +14,7 @@ import {
   type AirQuality,
 } from '../services/external-apis';
 import { colors, fontSize, spacing, borderRadius } from '../theme';
+import { useThemeStore } from '../store/themeStore';
 
 const ACCENT = '#FF6B35';
 
@@ -25,6 +26,7 @@ type Props = {
 };
 
 export default function TodayBriefWidget({ latitude, longitude, weightKg = 70, preferredSport }: Props) {
+  const theme = useThemeStore(state => state.theme);
   const [sun, setSun] = useState<SunData | null>(null);
   const [aqi, setAqi] = useState<AirQuality | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function TodayBriefWidget({ latitude, longitude, weightKg = 70, p
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="small" color={ACCENT} />
+          <ActivityIndicator size="small" color={theme.primary} />
         </View>
       ) : (
         <>

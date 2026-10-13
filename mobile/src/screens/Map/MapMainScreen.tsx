@@ -1133,9 +1133,9 @@ export default function MapMainScreen({ navigation }: Props) {
 
       {/* Loading overlay */}
       {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Carregando mapa...</Text>
+        <View style={[styles.loadingOverlay, { backgroundColor: theme.mapOverlay }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Carregando mapa...</Text>
         </View>
       )}
     </View>

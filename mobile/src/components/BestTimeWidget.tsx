@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, spacing, borderRadius } from '../theme';
 import api from '../services/api';
+import { useThemeStore } from '../store/themeStore';
 
 const ACCENT = '#FF6B35';
 
@@ -50,6 +51,7 @@ export default function BestTimeWidget({
   longitude: number;
   apiBase?: string;
 }) {
+  const theme = useThemeStore(state => state.theme);
   const [data, setData] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
@@ -72,7 +74,7 @@ export default function BestTimeWidget({
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="small" color={ACCENT} />
+        <ActivityIndicator size="small" color={theme.primary} />
       </View>
     );
   }

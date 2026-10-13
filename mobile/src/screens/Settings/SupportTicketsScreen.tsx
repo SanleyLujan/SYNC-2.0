@@ -5,8 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import { colors, fontSize, spacing, borderRadius } from '../../theme';
+import { useThemeStore } from '../../store/themeStore';
 
 export default function SupportTicketsScreen({ navigation }: any) {
+  const theme = useThemeStore(state => state.theme);
   const insets = useSafeAreaInsets();
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function SupportTicketsScreen({ navigation }: any) {
   useEffect(() => { load(); }, []);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
+    <ScrollView style={[styles.container, loading && { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 80 }}>
       <LinearGradient colors={['#15152E', '#0E0E1E', '#0A0A0F']} style={[styles.header, { paddingTop: Math.max(insets.top + 10, 48) }]}>
         <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={20} color="#fff" />
@@ -37,7 +39,7 @@ export default function SupportTicketsScreen({ navigation }: any) {
         </TouchableOpacity>
       </LinearGradient>
       {loading ? (
-        <View style={styles.loading}><ActivityIndicator size="large" color="#FF6B35" /></View>
+        <View style={styles.loading}><ActivityIndicator size="large" color={theme.primary} /></View>
       ) : tickets.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="file-tray-outline" size={42} color="rgba(255,255,255,0.25)" />

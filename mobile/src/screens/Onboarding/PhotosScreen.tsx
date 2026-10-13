@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
 import { showToast } from '../../components/ui/Toast';
+import { useThemeStore } from '../../store/themeStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<OnboardingStackParamList, 'Photos'>;
@@ -54,6 +55,7 @@ function resizeForWeb(uri: string, size = 400): Promise<string> {
 }
 
 export default function PhotosScreen({ navigation }: Props) {
+  const theme = useThemeStore(state => state.theme);
   const onboardingStore = useOnboardingStore();
   const setUser = useAuthStore((state) => state.setUser);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -247,7 +249,7 @@ export default function PhotosScreen({ navigation }: Props) {
               accessibilityLabel={photos.length === 0 ? 'Adicionar fotos' : 'Adicionar mais fotos'}
             >
               {uploading ? (
-                <ActivityIndicator size="small" color={ACCENT} />
+                <ActivityIndicator size="small" color={theme.primary} />
               ) : (
                 <>
                   <LinearGradient

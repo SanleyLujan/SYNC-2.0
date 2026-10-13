@@ -1,3 +1,4 @@
+import LoadingState from '../../components/ui/LoadingState';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -345,10 +346,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator size="large" color={ACCENT} />
-        <Text style={styles.loadingText}>Salvando atividade…</Text>
-      </View>
+      <LoadingState message="Salvando atividade…" />
     );
   }
 

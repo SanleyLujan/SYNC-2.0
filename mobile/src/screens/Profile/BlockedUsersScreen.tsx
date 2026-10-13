@@ -19,6 +19,7 @@ import api from '../../services/api';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemeStore } from '../../store/themeStore';
 
 interface BlockedUser {
   id: string;
@@ -28,6 +29,7 @@ interface BlockedUser {
 }
 
 export default function BlockedUsersScreen({ navigation }: any) {
+  const theme = useThemeStore(state => state.theme);
   const insets = useSafeAreaInsets();
   const [blocked, setBlocked] = useState<BlockedUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,7 @@ export default function BlockedUsersScreen({ navigation }: any) {
         accessibilityLabel={`Desbloquear ${item.name}`}
       >
         {unblocking === item.id ? (
-          <ActivityIndicator size="small" color="#FF6B35" />
+          <ActivityIndicator size="small" color={theme.primary} />
         ) : (
           <Text style={styles.unblockText}>Desbloquear</Text>
         )}
@@ -170,8 +172,8 @@ export default function BlockedUsersScreen({ navigation }: any) {
       )}
 
       {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+        <View style={[styles.loadingWrap, { backgroundColor: theme.background }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
@@ -187,7 +189,7 @@ export default function BlockedUsersScreen({ navigation }: any) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); load(true); }}
-              tintColor="#FF6B35"
+              tintColor={theme.primary}
             />
           }
           showsVerticalScrollIndicator={false}

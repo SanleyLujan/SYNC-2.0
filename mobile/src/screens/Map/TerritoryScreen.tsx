@@ -1,3 +1,4 @@
+import LoadingState from '../../components/ui/LoadingState';
 // Jogo de conquista de territórios — mapa com células coloridas por dono,
 // ranking top-3 (pódio) e captura manual da área atual.
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -92,10 +93,7 @@ export default function TerritoryScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <View style={styles.loadingWrap}>
-        <ActivityIndicator size="large" color={ACCENT} />
-        <Text style={styles.loadingText}>Carregando territórios…</Text>
-      </View>
+      <LoadingState message="Carregando territórios…" />
     );
   }
 

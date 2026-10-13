@@ -1,3 +1,4 @@
+import LoadingState from '../../components/ui/LoadingState';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -76,9 +77,7 @@ export default function StatsScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.dark.accent} />
-      </View>
+      <LoadingState />
     );
   }
 

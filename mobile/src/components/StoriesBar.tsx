@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { storiesService, Story } from '../services/stories.service';
 import { useAuthStore } from '../store/authStore';
 import { colors, fontSize, spacing } from '../theme';
+import { useThemeStore } from '../store/themeStore';
 
 const ACCENT = '#FF6B35';
 
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export default function StoriesBar({ onAddStory, onOpenStory }: Props) {
+  const theme = useThemeStore(state => state.theme);
   const user = useAuthStore((s) => s.user);
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +105,7 @@ export default function StoriesBar({ onAddStory, onOpenStory }: Props) {
 
         {loading && grouped.length === 0 && (
           <View style={styles.loading}>
-            <ActivityIndicator size="small" color={ACCENT} />
+            <ActivityIndicator size="small" color={theme.primary} />
           </View>
         )}
 

@@ -1,3 +1,4 @@
+import LoadingState from '../../components/ui/LoadingState';
 // Tela pública de live tracking. Renderizada quando URL = /live/:token.
 // Não requer login.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -163,10 +164,7 @@ export default function LiveViewScreen({ token }: { token: string }) {
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={ACCENT} />
-        <Text style={styles.loadingText}>Conectando ao live...</Text>
-      </View>
+      <LoadingState message="Conectando ao live…" />
     );
   }
 

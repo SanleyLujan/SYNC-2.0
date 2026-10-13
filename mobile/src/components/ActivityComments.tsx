@@ -10,6 +10,7 @@ import Avatar from './ui/Avatar';
 import api from '../services/api';
 import { colors, fontSize, spacing, borderRadius } from '../theme';
 import { showToast } from './ui/Toast';
+import { useThemeStore } from '../store/themeStore';
 
 const ACCENT = '#FF6B35';
 
@@ -26,6 +27,7 @@ type Props = {
 };
 
 export default function ActivityComments({ activityId, currentUserId }: Props) {
+  const theme = useThemeStore(state => state.theme);
   const [comments, setComments] = useState<Comment[]>([]);
   const [kudosTotal, setKudosTotal] = useState(0);
   const [iLiked, setILiked] = useState(false);
@@ -133,7 +135,7 @@ export default function ActivityComments({ activityId, currentUserId }: Props) {
 
       {/* Lista */}
       {loading ? (
-        <ActivityIndicator color={ACCENT} style={{ marginTop: spacing.lg }} />
+        <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.lg }} />
       ) : comments.length === 0 ? (
         <Text style={styles.empty}>Seja o primeiro a comentar 💬</Text>
       ) : (

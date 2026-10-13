@@ -1,5 +1,6 @@
+import Logo from '../../components/Logo';
 import React, { useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, ScrollView, TouchableOpacity, AccessibilityInfo } from 'react-native';
+import { View, Text, StyleSheet, Animated, ScrollView, TouchableOpacity, AccessibilityInfo } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +14,7 @@ import { getTabBarHeight } from '../../navigation/MainTabNavigator';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useAuthStore } from '../../store/authStore';
+import { useAppDimensions } from '../../hooks/useAppDimensions';
 
 type Props = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'MatchScreen'>;
@@ -21,95 +23,38 @@ type Props = {
 
 export default function MatchScreen({ navigation, route }: Props) {
   const theme = useThemeStore(state => state.theme);
-  const styles = useMemo(() => createStyles(theme), [theme]);
+  const { height } = useAppDimensions();
+  const compact = height < 650;
+  const styles = useMemo(() => createStyles(theme, compact), [theme, compact]);
   const insets = useSafeAreaInsets();
   const { matchId, userName, userId, userAvatar } = route.params;
   const me = useAuthStore((s) => s.user);
   const myAvatar = me?.avatarUrl || (me as any)?.profilePhotos?.[0];
   const defaultAvatar = require('../../assets/images/default-avatar.png');
   const reduceMotion = useReduceMotion();
-  const heartScale = useRef(new Animated.Value(0)).current;
-  const heartRotate = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0)).current;
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const subtitleOpacity = useRef(new Animated.Value(0)).current;
   const buttonsOpacity = useRef(new Animated.Value(0)).current;
-  const sparkle1 = useRef(new Animated.Value(0)).current;
-  const sparkle2 = useRef(new Animated.Value(0)).current;
-  const sparkle3 = useRef(new Animated.Value(0)).current;
-
-  // Refs to hold loop animation handles for cleanup
-  const sparkle1LoopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const sparkle2LoopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const sparkle3LoopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const heartRotateLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    // Anuncia o match pra leitores de tela (acessibilidade)
-    AccessibilityInfo.announceForAccessibility?.(`Deu match com ${userName}! Vocês querem treinar juntos.`);
+    AccessibilityInfo.announceForAccessibility?.(`Deu Sync com ${userName}! Agora vocês podem combinar um treino.`);
 
     // Reduzir movimento: mostra tudo no estado final, sem animações
     if (reduceMotion) {
-      heartScale.setValue(1);
+      logoScale.setValue(1);
       titleOpacity.setValue(1);
       subtitleOpacity.setValue(1);
       buttonsOpacity.setValue(1);
       return;
     }
 
-    // Entrance animation sequence
-    Animated.sequence([
-      // Heart bounce in
-      Animated.spring(heartScale, {
-        toValue: 1,
-        friction: 3,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-      // Heart pulse
-      Animated.sequence([
-        Animated.timing(heartScale, {
-          toValue: 1.2,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(heartScale, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-
-    // Sparkle animations
-    const animateSparkle = (
-      sparkle: Animated.Value,
-      delay: number,
-      loopRef: React.MutableRefObject<Animated.CompositeAnimation | null>,
-    ) => {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(sparkle, {
-            toValue: 1,
-            duration: 600,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(sparkle, {
-            toValue: 0,
-            duration: 600,
-            easing: Easing.in(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-      loopRef.current = loop;
-      loop.start();
-    };
-
-    animateSparkle(sparkle1, 0, sparkle1LoopRef);
-    animateSparkle(sparkle2, 400, sparkle2LoopRef);
-    animateSparkle(sparkle3, 800, sparkle3LoopRef);
+    Animated.spring(logoScale, {
+      toValue: 1,
+      friction: 8,
+      tension: 70,
+      useNativeDriver: true,
+    }).start();
 
     // Title fade in
     Animated.timing(titleOpacity, {
@@ -135,33 +80,6 @@ export default function MatchScreen({ navigation, route }: Props) {
       useNativeDriver: true,
     }).start();
 
-    // Heart slow rotation
-    const heartLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(heartRotate, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(heartRotate, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    heartRotateLoopRef.current = heartLoop;
-    heartLoop.start();
-
-    // Stop all loops on unmount to prevent memory leaks
-    return () => {
-      sparkle1LoopRef.current?.stop();
-      sparkle2LoopRef.current?.stop();
-      sparkle3LoopRef.current?.stop();
-      heartRotateLoopRef.current?.stop();
-    };
   }, []);
 
   const goToChat = () => {
@@ -185,11 +103,6 @@ export default function MatchScreen({ navigation, route }: Props) {
     }
   };
 
-  const rotate = heartRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-5deg', '5deg'],
-  });
-
   return (
     <LinearGradient
       colors={[theme.background, theme.surfaceSecondary, theme.background]}
@@ -198,47 +111,36 @@ export default function MatchScreen({ navigation, route }: Props) {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: getTabBarHeight(insets.bottom) + 24 }]}>
-        {/* Sparkles */}
-        <Animated.View style={[styles.sparkle, styles.sparkle1, { opacity: sparkle1, transform: [{ scale: sparkle1 }] }]}>
-          <Ionicons name="star" size={20} color={theme.primary} />
-        </Animated.View>
-        <Animated.View style={[styles.sparkle, styles.sparkle2, { opacity: sparkle2, transform: [{ scale: sparkle2 }] }]}>
-          <Ionicons name="star" size={16} color={theme.primary} />
-        </Animated.View>
-        <Animated.View style={[styles.sparkle, styles.sparkle3, { opacity: sparkle3, transform: [{ scale: sparkle3 }] }]}>
-          <Ionicons name="star" size={24} color={theme.primary} />
-        </Animated.View>
-
-        {/* Duas fotos (você + match) com coração no meio */}
-        <Animated.View style={[styles.avatarsRow, { transform: [{ scale: heartScale }] }]}>
+        {/* Fotos separadas pela marca da conexão */}
+        <Animated.View style={[styles.avatarsRow, { transform: [{ scale: logoScale }] }]}>
           <Image
             source={myAvatar ? { uri: myAvatar } : defaultAvatar}
-            style={[styles.matchAvatar, { marginRight: -18 }]}
+            style={styles.matchAvatar}
             contentFit="cover"
           />
+          <View style={styles.logoBadge}>
+            <Logo size={compact ? 34 : 40} />
+          </View>
           <Image
             source={userAvatar ? { uri: userAvatar } : defaultAvatar}
-            style={[styles.matchAvatar, { marginLeft: -18 }]}
+            style={styles.matchAvatar}
             contentFit="cover"
           />
-          <Animated.View style={[styles.heartBadge, { transform: [{ rotate }] }]}>
-            <Ionicons name="heart" size={26} color="#fff" />
-          </Animated.View>
         </Animated.View>
 
         {/* Title */}
         <Animated.Text style={[styles.title, { opacity: titleOpacity }]}>
-          Deu Match!
+          Deu Sync
         </Animated.Text>
 
         {/* Subtitle */}
         <Animated.View style={{ opacity: subtitleOpacity }}>
           <Text style={styles.subtitle} numberOfLines={3}>
-            Você e <Text style={styles.userName}>{userName.length > 22 ? userName.slice(0, 22) + '…' : userName}</Text> querem treinar juntos!
+            Você e <Text style={styles.userName}>{userName.length > 22 ? userName.slice(0, 22) + '…' : userName}</Text> agora podem combinar um treino.
           </Text>
           <View style={styles.matchBadge}>
-            <Ionicons name="fitness" size={16} color={theme.textPrimary} />
-            <Text style={styles.matchBadgeText}>Parceiro de treino encontrado</Text>
+            <Ionicons name="barbell-outline" size={16} color={theme.textPrimary} />
+            <Text style={styles.matchBadgeText}>Conexão para treinar</Text>
           </View>
         </Animated.View>
 
@@ -266,7 +168,7 @@ export default function MatchScreen({ navigation, route }: Props) {
   );
 }
 
-const createStyles = (theme: AppTheme) => StyleSheet.create({
+const createStyles = (theme: AppTheme, compact: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -279,63 +181,35 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
-  heartGlow: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   avatarsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: compact ? 8 : 10,
   },
   matchAvatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: theme.primary,
+    width: compact ? 82 : 100,
+    height: compact ? 82 : 100,
+    borderRadius: compact ? 41 : 50,
+    borderWidth: 2,
+    borderColor: theme.border,
     backgroundColor: theme.primarySoft,
   },
-  heartBadge: {
-    position: 'absolute',
-    alignSelf: 'center',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: theme.primary,
+  logoBadge: {
+    width: compact ? 52 : 56,
+    height: compact ? 52 : 56,
+    borderRadius: compact ? 16 : 18,
+    backgroundColor: theme.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  sparkle: {
-    position: 'absolute',
-  },
-  sparkle1: {
-    top: '20%',
-    left: '15%',
-  },
-  sparkle2: {
-    top: '25%',
-    right: '15%',
-  },
-  sparkle3: {
-    top: '35%',
-    left: '25%',
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   title: {
-    fontSize: 52,
+    fontSize: compact ? 44 : 52,
     fontWeight: '800',
     color: theme.textPrimary,
-    marginTop: spacing.xl,
+    marginTop: compact ? spacing.md : spacing.xl,
   },
   subtitle: {
     fontSize: fontSize.lg,
@@ -367,7 +241,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   buttons: {
     width: '100%',
-    marginTop: spacing.xxl,
+    marginTop: compact ? spacing.lg : spacing.xxl,
     gap: spacing.md,
   },
   btn: {
@@ -379,6 +253,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   sendBtn: { backgroundColor: theme.primary },
-  sendText: { color: theme.mode === 'dark' ? theme.background : theme.textPrimary, fontWeight: '800', fontSize: 16 },
+  sendText: { color: theme.primaryText, fontWeight: '800', fontSize: 16 },
   continueText: { color: theme.textPrimary, fontWeight: '700', fontSize: 16 },
 });
