@@ -175,7 +175,7 @@ Não declarar “100% prontos” sem confirmar backend/frontend/migrations e exe
 - 🟢 **2, 3, 6, 10, 11, 14, 17, 18, 19, 20 e 22:** proteção de rotas/atividades e salas, recuperação de senha, GPS/cronômetro, metas/métricas/recordes, mensagens, preferências e descrição do Safety Center. Critérios e evidências no plano.
 - ⚫ **4, 5, 15 e 16:** Stripe/Premium, sensor Bluetooth e coach de áudio não devem ser descritos como entregues.
 - 🔵 **8:** parte das mídias permanece em disco efêmero no arranjo atual de hospedagem.
-- 🔵 **13:** tracking com PWA suspenso adiado. Manter tela aberta e dispositivo desbloqueado.
+- 🟡 **13:** registro PWA com recuperação local e retomada do GPS implementados em 26/10/2026. Aproveita fixes entregues em segundo plano; tela bloqueada/suspensão ainda podem interromper a rota. Falta validação em celulares reais.
 
 <a id="telas"></a>
 
@@ -325,7 +325,9 @@ Treino:
 - Calorias usam esporte, tempo e peso, com altura como fallback conservador; não são medição clínica.
 - Detalhe completo, comparação e GPX protegem proprietário. Heatmap é agregado/autenticado; live tem adesão e token temporário.
 - Aparição de pessoas depende de permissões/visibilidade. Centro do mapa não prova posição atual.
-- **PWA: manter tela aberta/desbloqueada.** Cache/restauração de contexto não garantem tracking com navegador suspenso.
+- **PWA (26/10/2026):** aceita os pontos GPS entregues enquanto a página estiver oculta, salva percurso/horários/pausas localmente por conta e renova a assinatura de localização ao voltar. A recarga recupera atividades com ou sem GPS; em falha de rede, usa a cópia local e reenvia os dados pendentes em ordem quando houver conexão. Logout/finalização limpam a recuperação. Falha de armazenamento gera aviso na tela.
+- **Lacunas:** intervalos acima de 15 segundos entre pontos registrados iniciam outro trecho. Mapa do treino, resumo, splits e GPX respeitam a separação e não atribuem distância ao intervalo desconhecido. Uma pausa automática é encerrada ao ocultar a página porque ausência de GPS não comprova imobilidade; pausas manuais são preservadas.
+- **Limite:** manter a tela aberta/desbloqueada melhora a cobertura. O navegador pode suspender o GPS e deixar trechos sem registro. A implementação e os testes locais não comprovam gravação contínua com tela bloqueada nem substituem ensaios em Android/iOS reais.
 
 <a id="gamificacao"></a>
 

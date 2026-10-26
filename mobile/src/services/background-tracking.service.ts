@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { clearWebTrackingRecovery } from './web-tracking-recovery.service';
 
 const BACKGROUND_LOCATION_TASK = 'sync-background-location';
 const TRACKING_CONTEXT_KEY = '@sync:active-tracking';
@@ -194,6 +195,7 @@ export function acknowledgeBackgroundPoints(activityId: string, timestamps: numb
 
 export async function stopBackgroundTracking(options: { clearQueue?: boolean; preserveContext?: boolean } = {}): Promise<void> {
   lifecycleGeneration++;
+  if (Platform.OS === 'web' && !options.preserveContext) clearWebTrackingRecovery();
   if (Platform.OS !== 'web') {
     try {
       if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)) {

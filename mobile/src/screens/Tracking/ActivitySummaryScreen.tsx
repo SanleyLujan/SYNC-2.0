@@ -40,6 +40,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WorkoutImageModal from '../../components/WorkoutImageModal';
 import { useThemeStore } from '../../store/themeStore';
 import { isDistanceActivity } from '../../utils/activity-metrics';
+import { splitRecordedRoute } from '../../utils/recorded-route';
 
 type Props = {
   navigation: NativeStackNavigationProp<TrackingStackParamList, 'ActivitySummary'>;
@@ -365,6 +366,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
   }
 
   const coordinates = activity.points?.map((p) => ({ latitude: p.latitude, longitude: p.longitude })) || [];
+  const routeSegments = splitRecordedRoute(activity.points || []);
   const calories = activity.calories ?? 0;
   const elevGain = Math.round(activity.elevationGain ?? 0);
   const distanceBased = isDistanceActivity(activity.sport);
@@ -451,7 +453,9 @@ function ActivitySummaryInner({ navigation, route }: Props) {
                 userInterfaceStyle="dark"
                 customMapStyle={darkMapStyle}
               >
-                <Polyline coordinates={coordinates} strokeColor={accent} strokeWidth={4} />
+                {routeSegments.map((segment, index) => segment.length > 1 ? (
+                  <Polyline key={`recorded-${index}`} coordinates={segment} strokeColor={accent} strokeWidth={4} />
+                ) : null)}
                 <Marker coordinate={coordinates[0]}>
                   <View style={[styles.mapDot, { backgroundColor: '#22C55E' }]}>
                     <Ionicons name="flag" size={9} color="#fff" />
@@ -468,6 +472,11 @@ function ActivitySummaryInner({ navigation, route }: Props) {
         )}
 
         {/* ── Stats Grid ── */}
+        {routeSegments.length > 1 && (
+          <Text style={{ color: theme.textSecondary, fontSize: 12, paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+            Percurso em trechos. A distância considera apenas os trechos registrados.
+          </Text>
+        )}
         <Animated.View style={[styles.statsSection, { opacity: headerFade, transform: [{ translateY: statsSlide }] }]}>
           <View style={styles.statsGrid}>
             <StatCard icon="time-outline" value={formatDuration(activity.duration ?? 0)} label="Tempo" />

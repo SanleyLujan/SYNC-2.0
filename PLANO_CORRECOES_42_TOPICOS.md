@@ -1,12 +1,21 @@
 # Plano de correções — 42 tópicos prioritários
 
+## Registro e recuperação do percurso PWA — 26/10/2026
+
+- Por solicitação do responsável, o item 13 passa de adiado a **parcial**, mantendo somente web/PWA e aceitando trechos sem registro quando o navegador suspende o GPS.
+- O treino aproveita fixes entregues com a página oculta, renova a assinatura de GPS ao voltar e preserva localmente percurso, início e pausas, inclusive em modalidades sem GPS. A recuperação é isolada por conta, sobrevive à recarga e mantém envios pendentes em falha de rede. Logout/finalização invalidam escritas tardias.
+- Pausas manuais persistem; pausa automática é encerrada ao ocultar a página. Ausência de GPS não é interpretada como prova de que a pessoa parou. Intervalos entre pontos acima de 15 segundos geram outro trecho; mapa/resumo/splits/GPX respeitam as lacunas, sem inventar distância.
+- Testes locais: suíte mobile completa com **86 testes em 25 suítes**, incluindo persistência, isolamento de conta, armazenamento indisponível, retorno ao app e rotas com lacunas. Script de regressão: `mobile/scripts/qa-tracking-recovery.cjs`, com API e GPS fictícios; capturas em `C:/SYNC/tracking-pwa-qa-20261026`.
+- Validação concluída: TypeScript mobile/backend, exportação Expo Web e **3 testes backend em 2 suítes** aprovados. No Edge, os cenários de percurso (fix oculto, lacuna, rede indisponível, pausa, recarga, sincronização, finalização e resumo) e academia (tempo em segundo plano, recarga e finalização) passaram. Capturas de percurso em 390×844 e 320×568; confirmar cobertura real em celulares continua pendente. `PLAYWRIGHT_MODULE` e `BROWSER_CHANNEL` configuram a biblioteca/canal do script.
+- Limites: gravação contínua com a tela bloqueada não é garantida, dados locais dependem do armazenamento do navegador e ainda faltam ensaios em celulares reais. Nenhum serviço pago, migração de banco ou versão nativa foi acrescentado. Alterações locais; publicação não executada nesta etapa.
+
 ## Atualização — 28/09/2026
 
 Foto principal alinhada à galeria; super like removido; decisão de curtir/passar persistida em `likes.islike`; exclusão substituída por desativação com retenção transacional do conteúdo; dimensões do navegador ajustadas. SQL/migration e comportamento do legado descritos em [curtidas e contas inativas](backend/sql/README.md). O responsável confirmou a execução manual do SQL em 28/09/2026 e autorizou o envio do código ao Git; o deploy ainda não foi verificado. A exclusão de documentos ao excluir a conta, mencionada em revisões anteriores, foi retirada; os documentos permanecem privados. Os estados globais dos 42 tópicos não são alterados por esta entrega.
 
 **Data de criação do acompanhamento:** 02/09/2026
 
-**Última atualização:** 14/09/2026
+**Última atualização:** 26/10/2026
 
 **Escopo:** auditoria funcional, correções solicitadas, transparência das funções mostradas ao usuário e segurança do aplicativo Sync.
 
@@ -67,7 +76,7 @@ Para repetir a verificação de interface: iniciar Expo Web na porta 8092 e exec
 | 10 | 🟢 | Perda dos últimos pontos GPS | A finalização aguarda o flush, envia a cópia local, reconcilia por timestamp sem duplicar e restaura o buffer se a persistência falhar. Coberto por teste. | Fazer teste de campo com sinal instável. |
 | 11 | 🟢 | Duração inclui contagem regressiva, pausas e “duas atividades” novas | A atividade nasce após o countdown, o tempo ativo desconta pausas, os eventos preservam seus horários e o histórico paginado não é mais interpretado como duas atividades em uma conta nova. | Validar uma sessão longa com várias pausas no deploy. |
 | 12 | 🟡 | Auto-pausa não pausa realmente | Lote 1: retomada calibrada por modalidade, inclusive caminhada leve; perda de sinal e pontos fora de ordem não são interpretados como parada. Desligar auto-pausa retoma apenas pausa automática, nunca a manual. Controle oculto em esportes incompatíveis; captura nativa solicita fixes estacionários. Lacuna longa inicia novo trecho sem inventar distância. | Calibrar em rua/celular e testar pausas com rede instável. Sincronização durável dos eventos de pausa offline ainda merece reforço; testes locais não comprovam limiares físicos. |
-| 13 | 🔵 | Tracking em segundo plano no web/PWA | Adiado em 08/09 após autorização do usuário para retirar caso complicado. A versão web orienta manter tela aberta e celular desbloqueado; mapa/GPS/treino normais preservados, sem promessa de funcionamento com tela bloqueada. Contexto de treino passa a sobreviver à reabertura web. Base nativa existente preservada, sem novo build/lançamento; fila só descarta pontos após confirmação REST, em lotes limitados. | Não tentar contornar limitações de segundo plano do navegador. Só retomar compromisso de tracking bloqueado após build nativo e ensaios físicos. A fila tem limite de 20 mil pontos e não garante recuperação de todos os cenários de encerramento do processo. |
+| 13 | 🟡 | Registro e retomada do percurso no web/PWA | Retomado em 26/10 por solicitação do responsável, aceitando lacunas. Aproveita fixes recebidos com página oculta, salva percurso/horários/pausas por conta, recupera após recarga e renova GPS ao voltar. Reenvio REST de pontos/pausas pendentes; trechos separados no mapa, resumo, splits e GPX. Base nativa preservada, sem lançamento. | Validar em Android/iOS reais. Tela aberta melhora cobertura; navegador suspenso pode interromper o GPS. Sem promessa de percurso completo ou recuperação após limpeza/falha do armazenamento local. |
 | 14 | 🟢 | Metas rápidas simuladas | Sem criar nova tabela: a meta usa colunas na atividade existente. Corrida/ciclismo recebem meta em distância; academia recebe meta em duração; o progresso é restaurado, alertado e persistido. | Aplicar a migration `1782300000000` e validar uma meta de cada tipo no aparelho. |
 | 15 | ⚫ | Sensor Bluetooth placeholder | Todo o acesso/convite visível para sensor BLE foi ocultado por enquanto. | Só reativar com integração BLE real, lista de compatibilidade e testes. |
 | 16 | ⚫ | Coach de áudio silencioso | Coach de áudio, o serviço silencioso e a falsa ação de leitura foram removidos; feedback tátil útil foi mantido. | Só restaurar com pacote, preferências, idioma, volume e fallback acessível realmente testados. |

@@ -11,6 +11,8 @@ export function onAppForegroundChange(listener: (active: boolean) => void) {
   const hidden = () => listener(false);
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', update);
+    document.addEventListener('freeze', hidden);
+    document.addEventListener('resume', update);
     window.addEventListener('pagehide', hidden);
     window.addEventListener('pageshow', update);
   }
@@ -18,6 +20,8 @@ export function onAppForegroundChange(listener: (active: boolean) => void) {
     subscription.remove();
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', update);
+      document.removeEventListener('freeze', hidden);
+      document.removeEventListener('resume', update);
       window.removeEventListener('pagehide', hidden);
       window.removeEventListener('pageshow', update);
     }

@@ -48,6 +48,8 @@ it('treats a hidden browser tab and page exit as inactive, then resumes on retur
     expect(listener).toHaveBeenLastCalledWith(true);
     windowEvents.get('pagehide')!(); expect(listener).toHaveBeenLastCalledWith(false);
     windowEvents.get('pageshow')!(); expect(listener).toHaveBeenLastCalledWith(true);
+    documentEvents.get('freeze')!(); expect(listener).toHaveBeenLastCalledWith(false);
+    documentEvents.get('resume')!(); expect(listener).toHaveBeenLastCalledWith(true);
     unsubscribe();
     expect(documentEvents.size).toBe(0); expect(windowEvents.size).toBe(0);
   } finally {

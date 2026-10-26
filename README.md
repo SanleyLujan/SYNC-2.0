@@ -2,7 +2,7 @@
 
 **App social esportivo · Autor: Sanley Lujan**
 
-**Documentação revisada em 11/09/2026**, com base no código `ba0ea43` e no plano dos 42 tópicos.
+**Documentação revisada em 11/09/2026**, com atualização do registro de atividades PWA em **26/10/2026** e acompanhamento no plano dos 42 tópicos.
 
 O SYNC combina registro de atividades, descoberta de parceiros, feed, eventos, grupos, chat e gamificação. A versão deste escopo é **web/PWA**, desenvolvida com **TypeScript, React Native, Expo 52 e React Native Web**. O backend usa **NestJS, Express, TypeORM e PostgreSQL**.
 
@@ -28,10 +28,12 @@ A documentação principal substitui descrições antigas do README. Para saber 
 ## Estado atual
 
 - 🟢 **11** itens resolvidos no código/validação registrada.
-- 🟡 **25** itens parciais ou condicionados a testes, configuração, migrations e/ou implementação.
+- 🟡 **26** itens parciais ou condicionados a testes, configuração, migrations e/ou implementação.
 - 🔴 **0** itens classificados como vermelhos na matriz vigente — não significa ausência de bugs.
 - ⚫ **4** ocultos/removidos: Stripe, Premium, sensor Bluetooth e coach de áudio.
-- 🔵 **2** adiados: persistência de parte das mídias e tracking contínuo com PWA suspenso.
+- 🔵 **1** adiado: persistência de parte das mídias.
+
+O PWA preserva localmente o treino, aproveita os pontos GPS que o navegador entregar em segundo plano e retoma a localização ao voltar. Interrupções formam trechos separados, sem inventar distância entre eles. A recuperação abrange também treinos sem GPS. A captura contínua com a tela bloqueada depende do navegador e continua sem garantia; ainda é necessária validação em celulares reais.
 
 Missões, XP, desafios, conquistas, segmentos, territórios, estatísticas, academias OSM e planejamento de rotas têm implementação no escopo atual, mas permanecem condicionados conforme o plano. Identidade/admin exigem configuração privada e teste operacional.
 

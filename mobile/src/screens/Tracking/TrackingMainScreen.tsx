@@ -28,6 +28,8 @@ import { TAB_BAR_HEIGHT } from '../../navigation/MainTabNavigator';
 import { showToast } from '../../components/ui/Toast';
 import { confirmAsync } from '../../utils/confirm';
 import { getBackgroundTrackingContext } from '../../services/background-tracking.service';
+import { getWebTrackingRecovery } from '../../services/web-tracking-recovery.service';
+import { useAuthStore } from '../../store/authStore';
 
 
 type Props = {
@@ -51,6 +53,7 @@ const SPORT_OPTIONS = [
 export default function TrackingMainScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useThemeStore((s) => s.theme);
+  const userId = useAuthStore((s) => s.user?.id);
   const [selectedSport, setSelectedSport] = useState('running');
   const [showStats, setShowStats] = useState(true);
   const [liveShare, setLiveShare] = useState(false);
@@ -92,6 +95,15 @@ export default function TrackingMainScreen({ navigation }: Props) {
       let active = true;
       startInFlightRef.current = false;
       setLoading(false);
+      const saved = Platform.OS === 'web' ? getWebTrackingRecovery(userId) : null;
+      if (saved) {
+        navigation.navigate('ActiveTracking', {
+          sport: saved.sport,
+          existingActivityId: saved.activityId,
+          existingStartedAt: new Date(saved.startedAt).toISOString(),
+        });
+        return () => { active = false; };
+      }
       getBackgroundTrackingContext()
         .then((tracking) => {
           if (!active || !tracking) return;
@@ -103,7 +115,7 @@ export default function TrackingMainScreen({ navigation }: Props) {
         })
         .catch(() => {});
       return () => { active = false; };
-    }, [navigation]),
+    }, [navigation, userId]),
   );
 
   const initLocation = async () => {

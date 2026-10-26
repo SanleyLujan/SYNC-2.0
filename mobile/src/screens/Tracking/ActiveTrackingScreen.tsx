@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
-  AppState,
 } from 'react-native';
 import MapView, { Polyline, Marker } from '../../components/map/SyncMap';
 import { RouteProp } from '@react-navigation/native';
@@ -22,6 +21,15 @@ import { trackingSocket } from '../../services/tracking-socket.service';
 import { Share } from 'react-native';
 import { AutoPauseDetector, supportsAutoPause } from '../../utils/auto-pause';
 import { calculateActiveDurationSeconds } from '../../utils/tracking-timing';
+import { splitRecordedRoute, startsRecordedSegment } from '../../utils/recorded-route';
+import { isAppForeground, onAppForegroundChange } from '../../services/app-foreground';
+import { watchWebTrackingLocation } from '../../services/web-tracking-location.service';
+import {
+  getWebTrackingRecovery,
+  getWebTrackingRecoveryEpoch,
+  saveWebTrackingRecovery,
+  TrackingTimingEvent,
+} from '../../services/web-tracking-recovery.service';
 import { calculateLiveCalories, isDistanceActivity } from '../../utils/activity-metrics';
 import { showToast } from '../../components/ui/Toast';
 import { useThemeStore } from '../../store/themeStore';
@@ -103,11 +111,12 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   const autoPauseRef = useRef<AutoPauseDetector>(new AutoPauseDetector(sport));
   const drainingRef = useRef<Promise<void> | null>(null);
   const [backgroundAvailable, setBackgroundAvailable] = useState(false);
+  const [lastGpsAt, setLastGpsAt] = useState<number | null>(null);
   const goalAnnouncedRef = useRef(false);
   const [targetGoal, setTargetGoal] = useState<{ type: 'distance' | 'duration'; value: number } | null>(
     goalType && goalValue ? { type: goalType, value: goalValue } : null,
   );
-  const appStateRef = useRef(AppState.currentState);
+  const appStateRef = useRef(isAppForeground() ? 'active' : 'background');
   const isPausedRef = useRef(false);
   const pauseSourceRef = useRef<PauseSource | null>(null);
   const activityStartedAtRef = useRef<number | null>(
@@ -119,6 +128,14 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   const pauseSyncRef = useRef<Promise<void>>(Promise.resolve());
   const finishingRef = useRef(false);
   const confirmingFinishRef = useRef(false);
+  const recoveryReadyRef = useRef(false);
+  const pendingTimingEventsRef = useRef<TrackingTimingEvent[]>([]);
+  const syncedThroughRef = useRef(0);
+  const webSyncRef = useRef<Promise<void> | null>(null);
+  const recoveryExtrasRef = useRef({ plannedRoute, targetGoal });
+  recoveryExtrasRef.current = { plannedRoute, targetGoal };
+  const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
+  const recoveryEpochRef = useRef(getWebTrackingRecoveryEpoch());
 
   // ── Contagem regressiva de 10s antes de começar (com voz, pulável) ─────────
   const [countdown, setCountdown] = useState<number | null>(existingActivityId ? null : 10);
@@ -136,6 +153,49 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     });
   }
 
+  function persistWebRecovery() {
+    const id = activityIdRef.current;
+    const startedAt = activityStartedAtRef.current;
+    if (Platform.OS !== 'web' || !recoveryReadyRef.current || !id || startedAt == null || !profile?.id ||
+        recoveryEpochRef.current !== getWebTrackingRecoveryEpoch()) return;
+    const saved = saveWebTrackingRecovery({
+      userId: profile.id, activityId: id, sport, startedAt,
+      totalPausedMs: totalPausedMsRef.current, pausedAt: pauseStartedAtRef.current,
+      pauseSource: pauseSourceRef.current, points: pointsRef.current,
+      pendingTimingEvents: pendingTimingEventsRef.current, syncedThrough: syncedThroughRef.current,
+      autoPauseOn: autoPauseOnRef.current, ...recoveryExtrasRef.current,
+    }, recoveryEpochRef.current);
+    setRecoveryUnavailable(!saved);
+  }
+
+  async function syncWebRecovery(): Promise<void> {
+    const id = activityIdRef.current;
+    if (Platform.OS !== 'web' || !recoveryReadyRef.current || !id ||
+        recoveryEpochRef.current !== getWebTrackingRecoveryEpoch()) return;
+    if (webSyncRef.current) return webSyncRef.current;
+    const sync = (async () => {
+      while (recoveryReadyRef.current && recoveryEpochRef.current === getWebTrackingRecoveryEpoch()) {
+        const event = pendingTimingEventsRef.current[0];
+        if (event) {
+          await api.put(`/activities/${id}/${event.action}`, { occurredAt: new Date(event.occurredAt).toISOString() });
+          pendingTimingEventsRef.current.shift();
+          persistWebRecovery();
+          continue;
+        }
+        const batch = pointsRef.current.filter(point => point.timestamp > syncedThroughRef.current).slice(0, 500);
+        if (!batch.length) break;
+        await api.post(`/activities/${id}/points/batch`, {
+          points: batch.map(point => ({ latitude: point.latitude, longitude: point.longitude, altitude: point.altitude,
+            segmentStart: point.segmentStart, timestamp: new Date(point.timestamp).toISOString() })),
+        });
+        syncedThroughRef.current = batch[batch.length - 1].timestamp;
+        persistWebRecovery();
+      }
+    })();
+    webSyncRef.current = sync;
+    try { await sync; } finally { webSyncRef.current = null; }
+  }
+
   function startTimer() {
     if (timerRef.current) clearInterval(timerRef.current);
     setElapsed(calculateActiveElapsed());
@@ -151,6 +211,12 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   function queuePauseSync(action: 'pause' | 'resume', occurredAt: number) {
     const id = activityIdRef.current;
     if (!id) return;
+    if (Platform.OS === 'web') {
+      pendingTimingEventsRef.current.push({ action, occurredAt });
+      persistWebRecovery();
+      void syncWebRecovery().catch(() => {});
+      return;
+    }
     pauseSyncRef.current = pauseSyncRef.current
       .catch(() => undefined)
       .then(() => api.put(`/activities/${id}/${action}`, {
@@ -217,14 +283,27 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   }
 
   async function hydrateExistingActivity(id: string): Promise<boolean> {
-    const { data } = await api.get(`/activities/${id}`);
+    const recovery = Platform.OS === 'web' ? getWebTrackingRecovery(profile?.id) : null;
+    const saved = recovery?.activityId === id ? recovery : null;
+    let data: any;
+    let recoveredOffline = false;
+    try {
+      ({ data } = await api.get(`/activities/${id}`));
+    } catch (error: any) {
+      if (!saved || (error?.response && error.response.status < 500)) throw error;
+      recoveredOffline = true;
+      data = { startTime: saved.startedAt, points: [], plannedRoute: saved.plannedRoute };
+      showToast('Treino recuperado neste celular. Os dados serão enviados quando a conexão voltar.', 'info');
+    }
     if (data.isCompleted) {
       await stopBackgroundTracking({ clearQueue: true });
       navigation.replace('ActivitySummary', { activityId: id });
       return false;
     }
 
-    const hydrated: TrackingPoint[] = (Array.isArray(data.points) ? data.points : [])
+    const mergedPoints = [...(Array.isArray(data.points) ? data.points : []), ...(saved?.points || [])];
+    const hydrated: TrackingPoint[] = [...new Map(mergedPoints.map((point: any) =>
+      [new Date(point.timestamp).getTime(), point])).values()]
       .map((point: any, index: number) => ({
         latitude: Number(point.latitude),
         longitude: Number(point.longitude),
@@ -266,21 +345,33 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       setRegion((current) => ({ ...current, latitude: last.latitude, longitude: last.longitude }));
     }
 
-    setPlannedRoute(Array.isArray(data.plannedRoute) ? data.plannedRoute : []);
+    const restoredRoute = Array.isArray(data.plannedRoute) ? data.plannedRoute : saved?.plannedRoute || [];
+    setPlannedRoute(restoredRoute);
     const startedAt = new Date(data.startTime || existingStartedAt || Date.now()).getTime();
     activityStartedAtRef.current = Number.isFinite(startedAt) ? startedAt : Date.now();
-    totalPausedMsRef.current = Math.max(0, Number(data.pausedDuration || 0) * 1000);
-    if (data.goalType && data.goalValue) {
-      setTargetGoal({ type: data.goalType, value: Number(data.goalValue) });
+    const useLocalTiming = saved && (recoveredOffline || saved.pendingTimingEvents.length > 0);
+    totalPausedMsRef.current = useLocalTiming ? saved.totalPausedMs : Math.max(0, Number(data.pausedDuration || 0) * 1000);
+    pendingTimingEventsRef.current = saved?.pendingTimingEvents || [];
+    syncedThroughRef.current = saved?.syncedThrough ?? (hydrated[hydrated.length - 1]?.timestamp || 0);
+    if (saved) {
+      autoPauseOnRef.current = saved.autoPauseOn;
+      setAutoPauseOn(saved.autoPauseOn);
     }
+    let restoredGoal = saved?.targetGoal || null;
+    if (data.goalType && data.goalValue) {
+      restoredGoal = { type: data.goalType, value: Number(data.goalValue) };
+    }
+    setTargetGoal(restoredGoal);
+    recoveryExtrasRef.current = { plannedRoute: restoredRoute, targetGoal: restoredGoal };
     if (data.liveToken && Date.parse(data.liveTokenExpiresAt) > Date.now()) {
       setLiveUrl(`${WEB_APP_URL}/live/${encodeURIComponent(data.liveToken)}`);
     }
     const storedContext = await getBackgroundTrackingContext();
-    if (data.pausedAt) {
-      const pausedAt = new Date(data.pausedAt).getTime();
+    const restoredPausedAt = useLocalTiming ? saved.pausedAt : data.pausedAt;
+    if (restoredPausedAt != null) {
+      const pausedAt = new Date(restoredPausedAt).getTime();
       pauseStartedAtRef.current = Number.isFinite(pausedAt) ? pausedAt : Date.now();
-      pauseSourceRef.current = storedContext?.manuallyPaused ? 'manual' : 'auto';
+      pauseSourceRef.current = saved?.pauseSource || (storedContext?.manuallyPaused ? 'manual' : 'auto');
       isPausedRef.current = true;
       setIsPaused(true);
     }
@@ -322,6 +413,9 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       if (!id) throw new Error('A API não retornou o identificador da atividade');
 
       activityIdRef.current = id;
+      recoveryReadyRef.current = true;
+      if (Platform.OS === 'web' && pauseSourceRef.current === 'confirmation') leavePause('confirmation');
+      persistWebRecovery();
       if (distanceBased) trackingSocket.startBroadcasting(id);
       startTimer();
       setInitializing(false);
@@ -332,11 +426,14 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
           sport,
           startedAt: new Date(activityStartedAtRef.current || Date.now()).toISOString(),
           manuallyPaused: pauseSourceRef.current !== null && pauseSourceRef.current !== 'auto',
-        }).then(setBackgroundAvailable);
-        if (backgroundPollRef.current) clearInterval(backgroundPollRef.current);
-        backgroundPollRef.current = setInterval(() => void drainQueuedPoints().catch(() => {}), 5000);
-        await drainQueuedPoints().catch(() => {});
+        }).then(setBackgroundAvailable).catch(() => setBackgroundAvailable(false));
+        if (Platform.OS !== 'web') await drainQueuedPoints().catch(() => {});
       }
+      if (backgroundPollRef.current) clearInterval(backgroundPollRef.current);
+      backgroundPollRef.current = setInterval(() => {
+        void (Platform.OS === 'web' ? syncWebRecovery() : drainQueuedPoints()).catch(() => {});
+      }, 5000);
+      if (Platform.OS === 'web') void syncWebRecovery().catch(() => {});
       if (distanceBased && enableLiveShare && !existingActivityId) void handleShareLive(id);
     } catch (error: any) {
       startedRef.current = false;
@@ -368,22 +465,45 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   }, []);
 
   useEffect(() => {
-    setBackgroundAppForeground(AppState.currentState === 'active');
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      appStateRef.current = nextState;
-      const foreground = nextState === 'active';
+    setBackgroundAppForeground(isAppForeground());
+    const unsubscribe = onAppForegroundChange((foreground) => {
+      const wasForeground = appStateRef.current === 'active';
+      appStateRef.current = foreground ? 'active' : 'background';
       setBackgroundAppForeground(foreground);
-      if (foreground) {
-        setElapsed(calculateActiveElapsed());
+      if (!recoveryReadyRef.current || finishingRef.current) return;
+      if (Platform.OS === 'web') {
+        if (!foreground && wasForeground) {
+          // Sem GPS, não há evidência para manter uma pausa automática.
+          if (pauseSourceRef.current === 'auto') leavePause('auto');
+          autoPauseRef.current.reset();
+        }
+        persistWebRecovery();
+        if (foreground && !wasForeground) {
+          startTimer();
+          if (distanceBased) {
+            if (locationSub.current?.refresh) locationSub.current.refresh();
+            else void startTracking();
+          }
+        }
+        void syncWebRecovery().catch(() => {});
+      } else if (foreground) {
+        startTimer();
         void drainQueuedPoints().catch(() => {});
       }
     });
-    return () => subscription.remove();
+    const online = () => { void syncWebRecovery().catch(() => {}); };
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('online', online);
+    return () => {
+      unsubscribe();
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.removeEventListener('online', online);
+    };
   }, []);
 
   // Cleanup ao desmontar
   useEffect(() => {
     return () => {
+      persistWebRecovery();
+      recoveryReadyRef.current = false;
       setBackgroundAppForeground(false);
       locationSub.current?.remove();
       if (timerRef.current) clearInterval(timerRef.current);
@@ -405,14 +525,13 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     try {
       locationSub.current?.remove();
       locationSub.current = null;
-      // Web: usa navigator.geolocation com throttle de 2s para evitar re-renders excessivos
+      // Web: aproveita fixes mesmo oculta e renova a assinatura ao voltar.
       if (Platform.OS === 'web') {
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
           showToast('Seu navegador não suporta geolocalização.', 'error');
           return;
         }
-        // Get current position first to center the map immediately
-        navigator.geolocation.getCurrentPosition(
+        locationSub.current = watchWebTrackingLocation(
           (pos) => handleNewPoint({
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
@@ -421,32 +540,13 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
             speed: pos.coords.speed ?? undefined,
             timestamp: pos.timestamp,
           }),
-          () => {},
-          { enableHighAccuracy: true, timeout: 10000 },
-        );
-        let lastWebGPS = 0;
-        const id = navigator.geolocation.watchPosition(
-          (pos) => {
-            const now = Date.now();
-            if (now - lastWebGPS < 1500) return; // throttle leve; filtro fino em handleNewPoint
-            lastWebGPS = now;
-            handleNewPoint({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              altitude: pos.coords.altitude ?? undefined,
-              accuracy: pos.coords.accuracy ?? undefined,
-              speed: pos.coords.speed ?? undefined,
-              timestamp: pos.timestamp,
-            });
-          },
           (err) => {
+            setLastGpsAt(null);
             if (err.code === err.PERMISSION_DENIED) {
               showToast('Libere a localização no cadeado da barra de endereço.', 'error');
             }
           },
-          { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 },
         );
-        locationSub.current = { remove: () => navigator.geolocation.clearWatch(id) };
         return;
       }
 
@@ -515,15 +615,19 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       accuracy?: number;
       speed?: number;
       timestamp?: number;
+      segmentStart?: boolean;
     },
     fromBackground = false,
   ) => {
     const id = activityIdRef.current;
-    if (!id || (!fromBackground && appStateRef.current !== 'active')) return;
+    if (!id || (!fromBackground && finishingRef.current) ||
+        (!fromBackground && Platform.OS !== 'web' && appStateRef.current !== 'active')) return;
     // ── Filtro de precisão (estilo Strava): descarta fixes ruins do GPS ──
     // accuracy = raio de erro em metros. Acima de ~35m o ponto é lixo e
     // distorce a rota/distância. Descarta ANTES de contar distância ou desenhar.
-    if (newPoint.accuracy != null && newPoint.accuracy > 35) {
+    if (!Number.isFinite(newPoint.latitude) || Math.abs(newPoint.latitude) > 90 ||
+        !Number.isFinite(newPoint.longitude) || Math.abs(newPoint.longitude) > 180 ||
+        (newPoint.accuracy != null && (!Number.isFinite(newPoint.accuracy) || newPoint.accuracy < 0 || newPoint.accuracy > 35))) {
       return;
     }
 
@@ -532,6 +636,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     if (timestamp < (activityStartedAtRef.current || 0) || timestamp > Date.now() + 5000) return;
     const latest = pointsRef.current[pointsRef.current.length - 1];
     if (latest && timestamp <= latest.timestamp) return;
+    setLastGpsAt(timestamp);
 
     // O mapa acompanha a posição mesmo quando o treino está pausado.
     setRegion({
@@ -550,8 +655,10 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     if (isPausedRef.current) return;
 
     const previousPoints = pointsRef.current;
-    const segmentStart = resumeNeedsAnchorRef.current || previousPoints.length === 0 ||
-      timestamp - previousPoints[previousPoints.length - 1].timestamp > 15_000;
+    const segmentStart = Boolean(newPoint.segmentStart) || startsRecordedSegment({
+      timestamp, previousTimestamp: previousPoints[previousPoints.length - 1]?.timestamp,
+      needsAnchor: resumeNeedsAnchorRef.current,
+    });
     const stampedPoint: TrackingPoint = {
       latitude: newPoint.latitude,
       longitude: newPoint.longitude,
@@ -583,6 +690,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     knownPointTimesRef.current.add(timestamp);
     pointsRef.current = [...previousPoints, stampedPoint];
     setPoints(pointsRef.current);
+    persistWebRecovery();
 
     if (newPoint.altitude != null) setCurrentAltitude(newPoint.altitude);
 
@@ -618,6 +726,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     setAutoPauseOn(enabled);
     autoPauseRef.current.reset();
     if (!enabled && pauseSourceRef.current === 'auto') leavePause('auto');
+    persistWebRecovery();
   };
 
   const [finishing, setFinishing] = useState(false);
@@ -634,6 +743,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       await stopBackgroundTracking({ preserveContext: true });
       // Pode existir um último lote entregue pelo SO durante a parada da task.
       await drainQueuedPoints();
+      if (Platform.OS === 'web') await syncWebRecovery();
       const activeDurationSeconds = calculateActiveElapsed();
       setElapsed(activeDurationSeconds);
       await pauseSyncRef.current.catch(() => undefined);
@@ -655,6 +765,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
         })),
         laps,
       });
+      recoveryReadyRef.current = false;
       await stopBackgroundTracking({ clearQueue: true });
       trackingSocket.disconnect();
       // Jogo de territórios: conquista as células da rota percorrida (fire-and-forget)
@@ -678,7 +789,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
           sport,
           startedAt: new Date(activityStartedAtRef.current || Date.now()).toISOString(),
           manuallyPaused: isPausedRef.current && pauseSourceRef.current !== 'auto',
-        }).then(setBackgroundAvailable);
+        }).then(setBackgroundAvailable).catch(() => setBackgroundAvailable(false));
       }
       if (distanceBased) void startTracking();
       if (!isPausedRef.current) startTimer();
@@ -810,11 +921,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   const altitudeM = currentAltitude != null ? Math.round(currentAltitude) : '--';
   const elevationGainStr = elevationGain > 0 ? `+${Math.round(elevationGain)}` : '0';
   const accent = theme.primary;
-  const routeSegments = points.reduce<TrackingPoint[][]>((segments, point) => {
-    if (point.segmentStart || segments.length === 0) segments.push([point]);
-    else segments[segments.length - 1].push(point);
-    return segments;
-  }, []);
+  const routeSegments = splitRecordedRoute(points);
 
   if (initializing) {
     return (
@@ -961,7 +1068,24 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
         </View>
         {distanceBased && !backgroundAvailable && (
           <Text style={{ color: theme.textPrimary, backgroundColor: theme.mapOverlay, padding: 6, borderRadius: 8, fontSize: 11, marginTop: 8 }}>
-            Mantenha esta tela aberta e o celular desbloqueado. GPS em segundo plano não está disponível nesta sessão.
+            {Platform.OS === 'web'
+              ? 'O tempo continua ao sair da tela. O GPS depende do navegador e pode deixar trechos sem registro. Tela aberta melhora a cobertura.'
+              : 'Mantenha esta tela aberta e o celular desbloqueado. GPS em segundo plano não está disponível nesta sessão.'}
+          </Text>
+        )}
+        {distanceBased && !isPaused && (lastGpsAt == null || Date.now() - lastGpsAt > 15_000) && (
+          <Text accessibilityLiveRegion="polite" style={{ color: theme.warning, fontSize: 11, marginTop: 6 }}>
+            Aguardando GPS. O tempo continua; o percurso será retomado quando a localização voltar.
+          </Text>
+        )}
+        {routeSegments.length > 1 && (
+          <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 6 }}>
+            Percurso em trechos. Os intervalos entre eles não entram na distância.
+          </Text>
+        )}
+        {recoveryUnavailable && (
+          <Text accessibilityLiveRegion="polite" style={{ color: theme.warning, fontSize: 11, marginTop: 6 }}>
+            Não foi possível salvar neste celular. Mantenha o app aberto e conectado para evitar perder dados.
           </Text>
         )}
 

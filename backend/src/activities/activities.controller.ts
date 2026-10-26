@@ -312,21 +312,22 @@ export class ActivitiesController {
   }
 
   private buildGpx(activity: any): string {
-    const points = (activity.points || []).map((p: any) => {
+    const segments: string[][] = [];
+    for (const p of activity.points || []) {
+      if (p.segmentStart || segments.length === 0) segments.push([]);
       const time = new Date(p.timestamp || p.createdAt || Date.now()).toISOString();
       const ele = p.altitude != null ? `<ele>${p.altitude}</ele>` : '';
-      return `      <trkpt lat="${p.latitude}" lon="${p.longitude}">${ele}<time>${time}</time></trkpt>`;
-    }).join('\n');
+      segments[segments.length - 1].push(`      <trkpt lat="${p.latitude}" lon="${p.longitude}">${ele}<time>${time}</time></trkpt>`);
+    }
+    const tracks = segments.map(points => `    <trkseg>\n${points.join('\n')}\n    </trkseg>`).join('\n');
     const name = activity.sport ? `Sync ${activity.sport}` : 'Sync activity';
-    const startedAt = new Date(activity.startedAt || activity.createdAt || Date.now()).toISOString();
+    const startedAt = new Date(activity.startTime || activity.startedAt || activity.createdAt || Date.now()).toISOString();
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Sync" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><time>${startedAt}</time></metadata>
   <trk>
     <name>${name}</name>
-    <trkseg>
-${points}
-    </trkseg>
+${tracks}
   </trk>
 </gpx>`;
   }

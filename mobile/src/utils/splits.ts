@@ -6,6 +6,7 @@ export interface SplitPoint {
   longitude: number;
   timestamp?: string | number | Date | null;
   altitude?: number | null;
+  segmentStart?: boolean;
 }
 
 export interface Split {
@@ -51,6 +52,11 @@ export function computeSplits(points?: SplitPoint[] | null): Split[] {
   let kmStartTime = ts(pts[0]);
 
   for (let i = 1; i < pts.length; i++) {
+    if (pts[i].segmentStart) {
+      // O intervalo sem percurso não representa distância nem ritmo medidos.
+      kmStartTime += Math.max(0, ts(pts[i]) - ts(pts[i - 1]));
+      continue;
+    }
     const seg = haversine(pts[i - 1], pts[i]);
     if (!isFinite(seg) || seg <= 0) continue;
     accDist += seg;
