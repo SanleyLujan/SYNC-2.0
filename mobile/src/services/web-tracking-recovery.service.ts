@@ -22,6 +22,7 @@ export type WebTrackingRecovery = {
   pendingTimingEvents: TrackingTimingEvent[];
   syncedThrough: number;
   autoPauseOn: boolean;
+  autoPauseOptIn?: boolean;
   plannedRoute: { latitude: number; longitude: number }[];
   targetGoal: { type: 'distance' | 'duration'; value: number } | null;
 };

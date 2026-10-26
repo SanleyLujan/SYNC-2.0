@@ -19,7 +19,7 @@ import api, { WEB_APP_URL } from '../../services/api';
 import { territoryApi } from '../../services/territory.service';
 import { trackingSocket } from '../../services/tracking-socket.service';
 import { Share } from 'react-native';
-import { AutoPauseDetector, supportsAutoPause } from '../../utils/auto-pause';
+import { AutoPauseDetector, supportsAutoPause, resolveAutoPauseEnabled } from '../../utils/auto-pause';
 import { calculateActiveDurationSeconds } from '../../utils/tracking-timing';
 import { splitRecordedRoute, startsRecordedSegment } from '../../utils/recorded-route';
 import { isAppForeground, onAppForegroundChange } from '../../services/app-foreground';
@@ -106,8 +106,9 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
 
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [autoPauseOn, setAutoPauseOn] = useState(supportsAutoPause(sport));
+  const [autoPauseOn, setAutoPauseOn] = useState(resolveAutoPauseEnabled(sport, Platform.OS === 'web'));
   const autoPauseOnRef = useRef(autoPauseOn);
+  const autoPauseOptInRef = useRef(false);
   const autoPauseRef = useRef<AutoPauseDetector>(new AutoPauseDetector(sport));
   const drainingRef = useRef<Promise<void> | null>(null);
   const [backgroundAvailable, setBackgroundAvailable] = useState(false);
@@ -163,7 +164,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
       totalPausedMs: totalPausedMsRef.current, pausedAt: pauseStartedAtRef.current,
       pauseSource: pauseSourceRef.current, points: pointsRef.current,
       pendingTimingEvents: pendingTimingEventsRef.current, syncedThrough: syncedThroughRef.current,
-      autoPauseOn: autoPauseOnRef.current, ...recoveryExtrasRef.current,
+      autoPauseOn: autoPauseOnRef.current, autoPauseOptIn: autoPauseOptInRef.current, ...recoveryExtrasRef.current,
     }, recoveryEpochRef.current);
     setRecoveryUnavailable(!saved);
   }
@@ -354,8 +355,10 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     pendingTimingEventsRef.current = saved?.pendingTimingEvents || [];
     syncedThroughRef.current = saved?.syncedThrough ?? (hydrated[hydrated.length - 1]?.timestamp || 0);
     if (saved) {
-      autoPauseOnRef.current = saved.autoPauseOn;
-      setAutoPauseOn(saved.autoPauseOn);
+      const restoredAutoPause = resolveAutoPauseEnabled(sport, true, saved);
+      autoPauseOnRef.current = restoredAutoPause;
+      autoPauseOptInRef.current = saved.autoPauseOptIn === true;
+      setAutoPauseOn(restoredAutoPause);
     }
     let restoredGoal = saved?.targetGoal || null;
     if (data.goalType && data.goalValue) {
@@ -414,7 +417,10 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
 
       activityIdRef.current = id;
       recoveryReadyRef.current = true;
-      if (Platform.OS === 'web' && pauseSourceRef.current === 'confirmation') leavePause('confirmation');
+      if (Platform.OS === 'web') {
+        if (pauseSourceRef.current === 'confirmation') leavePause('confirmation');
+        else if (pauseSourceRef.current === 'auto' && !autoPauseOnRef.current) leavePause('auto');
+      }
       persistWebRecovery();
       if (distanceBased) trackingSocket.startBroadcasting(id);
       startTimer();
@@ -723,6 +729,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
   const toggleAutoPause = () => {
     const enabled = !autoPauseOnRef.current;
     autoPauseOnRef.current = enabled;
+    autoPauseOptInRef.current = enabled;
     setAutoPauseOn(enabled);
     autoPauseRef.current.reset();
     if (!enabled && pauseSourceRef.current === 'auto') leavePause('auto');

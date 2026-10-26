@@ -1,4 +1,4 @@
-// Auto-pause: detecta quando usuário parou de se mover por >= 5s e sugere pausar.
+// Auto-pause: quando ativada, pausa após >= 5s sem movimento detectado.
 // Usa janela rolante de pontos GPS e calcula velocidade.
 
 export interface GpsPoint {
@@ -13,6 +13,18 @@ const STOP_SPEED_MS = 0.5; // < 0.5 m/s = parado (1.8 km/h)
 const STOP_WINDOW_MS = 5000; // 5 seg parado dispara pause
 export function supportsAutoPause(sport: string) {
   return ['walking', 'running', 'cycling', 'hiking'].includes(sport);
+}
+
+export function resolveAutoPauseEnabled(
+  sport: string,
+  isWeb: boolean,
+  saved?: { autoPauseOn: boolean; autoPauseOptIn?: boolean },
+): boolean {
+  if (!supportsAutoPause(sport)) return false;
+  // No PWA, ficar parado também pode fazer parte do treino. A preferência
+  // legada não distingue o antigo padrão de uma escolha explícita do usuário.
+  if (isWeb) return saved?.autoPauseOn === true && saved?.autoPauseOptIn === true;
+  return saved?.autoPauseOn ?? true;
 }
 
 export class AutoPauseDetector {

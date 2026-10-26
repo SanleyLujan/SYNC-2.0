@@ -1,6 +1,23 @@
-import { AutoPauseDetector } from './auto-pause';
+import { AutoPauseDetector, resolveAutoPauseEnabled } from './auto-pause';
 
 describe('AutoPauseDetector', () => {
+  it('começa treinos web com pausa automática desligada, inclusive quando a pessoa fica parada', () => {
+    for (const sport of ['walking', 'running', 'cycling', 'hiking']) {
+      expect(resolveAutoPauseEnabled(sport, true)).toBe(false);
+    }
+  });
+  it('não reativa a preferência antiga que vinha ligada por padrão no PWA', () => {
+    expect(resolveAutoPauseEnabled('running', true, { autoPauseOn: true })).toBe(false);
+  });
+  it('restaura a pausa automática no PWA apenas após ativação explícita', () => {
+    expect(resolveAutoPauseEnabled('running', true, { autoPauseOn: true, autoPauseOptIn: true })).toBe(true);
+    expect(resolveAutoPauseEnabled('running', true, { autoPauseOn: false, autoPauseOptIn: true })).toBe(false);
+    expect(resolveAutoPauseEnabled('gym', true, { autoPauseOn: true, autoPauseOptIn: true })).toBe(false);
+  });
+  it('preserva o padrão nativo e não ativa em modalidades sem auto-pausa', () => {
+    expect(resolveAutoPauseEnabled('running', false)).toBe(true);
+    expect(resolveAutoPauseEnabled('gym', false)).toBe(false);
+  });
   it('retoma caminhada leve, sem exigir velocidade de corrida', () => {
     const detector = new AutoPauseDetector('walking');
     for (let s=0;s<=6;s++) detector.push({latitude:0,longitude:0,timestamp:s*1000,speed:0});

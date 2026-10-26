@@ -321,6 +321,7 @@ Treino:
 - Começa após countdown; cronômetro considera pausas. Lacunas/pontos inválidos não devem inventar deslocamento contínuo.
 - Finalização sincroniza e concilia por timestamp. Filas limitadas não eliminam todos os casos de perda de processo/rede.
 - Auto-pausa depende da modalidade e calibração; desligá-la não desfaz pausa manual.
+- No PWA, a pausa automática começa **desligada**: ficar parado não interrompe o cronômetro. Só volta ligada após ativação explícita no botão existente; preferências antigas que vinham ligadas por padrão são desconsideradas. Ao recuperar uma atividade antiga pausada automaticamente, o app retoma o cronômetro sem desfazer pausas manuais.
 - Meta e rota planejada persistem; tracejado separa plano do percurso realizado. Restante/desvio são aproximações, sem voz ou navegação curva a curva.
 - Calorias usam esporte, tempo e peso, com altura como fallback conservador; não são medição clínica.
 - Detalhe completo, comparação e GPX protegem proprietário. Heatmap é agregado/autenticado; live tem adesão e token temporário.

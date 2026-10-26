@@ -1,5 +1,12 @@
 # Plano de correções — 42 tópicos prioritários
 
+## Pausa automática no PWA — 26/10/2026
+
+- Relato confirmado pelo responsável: treino pausava ao ficar parado, mesmo com a tela aberta. A regra de imobilidade vinha ligada por padrão e pausava após aproximadamente cinco segundos de velocidade baixa; visibilidade da tela não desativa essa regra.
+- O PWA passa a iniciar com pausa automática desligada. O usuário pode ativá-la no mesmo botão e essa escolha explícita é preservada na recuperação. Preferências antigas sem registro de ativação explícita não religam a função; uma pausa automática legada é retomada, preservando pausas manuais.
+- Alteração de comportamento, sem mudança no JSX, estilos, cores ou disposição dos controles. Comportamento nativo preservado.
+- Validação: **90 testes mobile em 25 suítes**, TypeScript e exportação Expo Web aprovados. No Edge, passaram os três cenários locais de percurso, academia e recuperação/ativação explícita da pausa automática, incluindo imobilidade com tela aberta. GPS e APIs simulados; disposição dos controles preservada.
+
 ## Registro e recuperação do percurso PWA — 26/10/2026
 
 - Por solicitação do responsável, o item 13 passa de adiado a **parcial**, mantendo somente web/PWA e aceitando trechos sem registro quando o navegador suspende o GPS.

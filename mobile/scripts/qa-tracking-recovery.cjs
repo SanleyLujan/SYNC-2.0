@@ -19,19 +19,20 @@ const server = http.createServer((request, response) => {
   fs.createReadStream(target).pipe(response);
 });
 
-async function verify(browser, gym = false) {
+async function verify(browser, mode = 'running') {
+  const gym = mode === 'gym', legacyAuto = mode === 'legacy-auto';
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   let offline = false, starts = 0, finishPayload;
   const timing = [];
-  let activity = { id: 'tracking-test', user_id: user.id, sport: gym ? 'gym' : 'running', startTime: new Date(gym ? start - 300_000 : start).toISOString(), duration: 0, distance: 0, pausedAt: null, pausedDuration: gym ? 60 : 0, isCompleted: false, points: [] };
-  await context.addInitScript(({ user, start, gym, key }) => {
+  let activity = { id: 'tracking-test', user_id: user.id, sport: gym ? 'gym' : 'running', startTime: new Date(gym || legacyAuto ? start - 300_000 : start).toISOString(), duration: 0, distance: 0, pausedAt: legacyAuto ? new Date(start - 200_000).toISOString() : null, pausedDuration: gym ? 60 : 0, isCompleted: false, points: [] };
+  await context.addInitScript(({ user, start, gym, legacyAuto, key }) => {
     localStorage.setItem('@sync:token', 'local-test-token');
     localStorage.setItem('@sync:user', JSON.stringify(user));
     localStorage.setItem('@sync:theme-mode', 'dark');
     localStorage.setItem('@sync:accessibility', JSON.stringify({ reduceMotion: true, hapticsEnabled: false }));
-    if (gym && !localStorage.getItem('@qa:seeded')) {
+    if ((gym || legacyAuto) && !localStorage.getItem('@qa:seeded')) {
       localStorage.setItem('@qa:seeded', 'true');
-      localStorage.setItem(key, JSON.stringify({ userId: user.id, activityId: 'tracking-test', sport: 'gym', startedAt: start - 300_000, totalPausedMs: 60_000, pausedAt: null, pauseSource: null, points: [], pendingTimingEvents: [], syncedThrough: 0, autoPauseOn: false, plannedRoute: [], targetGoal: null }));
+      localStorage.setItem(key, JSON.stringify({ userId: user.id, activityId: 'tracking-test', sport: gym ? 'gym' : 'running', startedAt: start - 300_000, totalPausedMs: gym ? 60_000 : 0, pausedAt: legacyAuto ? start - 200_000 : null, pauseSource: legacyAuto ? 'auto' : null, points: [], pendingTimingEvents: [], syncedThrough: 0, autoPauseOn: legacyAuto, plannedRoute: [], targetGoal: null }));
     }
     window.__now = Number(localStorage.getItem('@qa:clock') || start);
     Date.now = () => window.__now;
@@ -47,12 +48,12 @@ async function verify(browser, gym = false) {
       watchPosition: callback => { const id = ++watchId; window.__watches.set(id, callback); return id; },
       clearWatch: id => window.__watches.delete(id),
     } });
-    window.__move = (ms, latitude) => {
+    window.__move = (ms, latitude, speed = 2) => {
       window.__advance(ms);
-      last = { ...last, timestamp: window.__now, coords: { ...last.coords, latitude } };
+      last = { ...last, timestamp: window.__now, coords: { ...last.coords, latitude, speed } };
       for (const callback of [...window.__watches.values()]) callback(last);
     };
-  }, { user, start, gym, key });
+  }, { user, start, gym, legacyAuto, key });
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
     if (!url.pathname.startsWith('/api/')) {
@@ -97,10 +98,37 @@ async function verify(browser, gym = false) {
   };
   await page.goto(baseUrl);
   await train();
+  if (legacyAuto) {
+    await page.getByRole('button', { name: 'Pausar treino', exact: true }).waitFor();
+    await page.getByRole('switch', { name: 'Pausa automática desligada', exact: true }).waitFor();
+    await page.waitForFunction(key => JSON.parse(localStorage.getItem(key)).pendingTimingEvents.length === 0, key);
+    assert.equal((await saved()).pausedAt, null, 'a pausa automática legada não deve deixar a recuperação travada');
+    assert.deepEqual(timing, ['resume']);
+    await page.getByRole('switch', { name: 'Pausa automática desligada', exact: true }).click();
+    assert.equal((await saved()).autoPauseOptIn, true);
+    await page.reload();
+    await train();
+    await page.getByRole('switch', { name: 'Pausa automática ligada', exact: true }).waitFor();
+    for (let second = 0; second < 8; second++) await page.evaluate(() => window.__move(1_000, -23.55, 0));
+    await page.getByRole('button', { name: 'Retomar treino', exact: true }).waitFor();
+    assert.equal((await saved()).pauseSource, 'auto', 'a escolha explícita ainda deve permitir pausa por imobilidade');
+    await page.getByRole('switch', { name: 'Pausa automática ligada', exact: true }).click();
+    await page.getByRole('button', { name: 'Pausar treino', exact: true }).waitFor();
+    assert.equal((await saved()).pausedAt, null);
+    assert.equal(starts, 0);
+    assert.deepEqual(errors, []);
+    console.log('PASS auto-pause: retoma pausa legada, exige escolha explícita, preserva escolha após recarga');
+    await context.close();
+    return;
+  }
   if (!gym) {
     await page.getByText('Iniciar', { exact: true }).click();
     await page.getByLabel('Toque para começar agora', { exact: true }).click();
     await page.waitForFunction(key => JSON.parse(localStorage.getItem(key) || 'null')?.points.length >= 1, key);
+    await page.getByRole('switch', { name: 'Pausa automática desligada', exact: true }).waitFor();
+    for (let second = 0; second < 8; second++) await page.evaluate(() => window.__move(1_000, -23.55, 0));
+    assert.equal((await saved()).pausedAt, null, 'ficar parado com a tela aberta não deve pausar o treino por padrão');
+    await page.getByRole('button', { name: 'Pausar treino', exact: true }).waitFor();
     await page.evaluate(() => window.__move(2_000, -23.54995));
     await page.evaluate(() => window.__visibility(false));
     await page.evaluate(() => window.__move(2_000, -23.54990));
@@ -155,7 +183,7 @@ async function verify(browser, gym = false) {
   }
   await page.getByRole('button', { name: 'Finalizar treino', exact: true }).click();
   await page.waitForFunction(key => localStorage.getItem(key) === null, key);
-  assert.equal(finishPayload.activeDurationSeconds, gym ? 361 : 66);
+  assert.equal(finishPayload.activeDurationSeconds, gym ? 361 : 74);
   if (!gym) {
     await page.getByText('Percurso em trechos. A distância considera apenas os trechos registrados.', { exact: true }).waitFor();
     assert.equal(await page.locator('.leaflet-overlay-pane path').count(), 2);
@@ -169,6 +197,6 @@ async function verify(browser, gym = false) {
 (async () => {
   await new Promise(resolve => server.listen(8096, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true, channel: process.env.BROWSER_CHANNEL || 'msedge' });
-  try { await verify(browser); await verify(browser, true); }
+  try { await verify(browser); await verify(browser, 'gym'); await verify(browser, 'legacy-auto'); }
   finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
