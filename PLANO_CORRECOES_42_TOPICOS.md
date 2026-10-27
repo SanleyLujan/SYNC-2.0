@@ -1,5 +1,13 @@
 # Plano de correções — 42 tópicos prioritários
 
+## Contagem de participantes dos eventos — 26/10/2026
+
+- A API não enviava `participantCount`, embora mapa/detalhes exibissem esse campo; o detalhe também perdia a informação de participação ao reabrir. A contagem agora deriva das inscrições ativas, com `isJoined` por conta, em eventos próximos, detalhes e listas pessoais, incluindo eventos relâmpago.
+- Entrada/saída devolvem o evento atualizado. O cliente usa o resultado confirmado, bloqueia tentativa duplicada e atualiza a contagem de outras contas a cada 15 segundos nas telas ativas/visíveis. Retorno à tela recarrega os dados; o marcador do mapa passa a abrir os dados atuais.
+- Estilos, cores e disposição das telas preservados. O botão existente mostra “Participando” para uma inscrição já confirmada. Sem mudança de schema, nova tabela ou serviço pago.
+- Validação local: **7 testes backend com banco isolado**, incluindo entrada/saída/reentrada, inscrição repetida, lotação, eventos relâmpago e participações desativadas; **92 testes mobile em 26 suítes**. Roteiro visual: `mobile/scripts/qa-event-attendance.cjs`, com duas contas, GPS e API fictícios.
+- TypeScript backend/mobile, exportação Expo Web e teste de duas contas no Edge aprovados: confirmação no mapa, recuperação após recarga, saída/reentrada e atualização automática do organizador no mapa/detalhe. Sem validação do deploy. No layout existente, o rodapé do detalhe fica parcialmente sob a barra inferior em telas pequenas; os handlers desse rodapé foram acionados por evento DOM no teste, sem alterar o layout fora do escopo da contagem.
+
 ## Pausa automática no PWA — 26/10/2026
 
 - Relato confirmado pelo responsável: treino pausava ao ficar parado, mesmo com a tela aberta. A regra de imobilidade vinha ligada por padrão e pausava após aproximadamente cinco segundos de velocidade baixa; visibilidade da tela não desativa essa regra.

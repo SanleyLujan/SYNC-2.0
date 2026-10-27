@@ -94,6 +94,7 @@ export interface Event {
   creator_id: string;
   creator?: User;
   participantCount?: number;
+  isJoined?: boolean;
   distance?: number;
 }
 

@@ -3,9 +3,9 @@ import { Event, EventComment } from '../types';
 
 export const eventsService = {
   getNearby: async (lat: number, lng: number, radius = 20, sport?: string): Promise<Event[]> => {
-    let url = `/events/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
-    if (sport) url += `&sport=${sport}`;
-    const response = await api.get(url);
+    const response = await api.get('/events/nearby', {
+      params: { latitude: lat, longitude: lng, radiusKm: radius, ...(sport ? { sport } : {}) },
+    });
     return response.data;
   },
 
@@ -19,12 +19,14 @@ export const eventsService = {
     return response.data;
   },
 
-  join: async (id: string): Promise<void> => {
-    await api.post(`/events/${id}/join`);
+  join: async (id: string): Promise<Event> => {
+    const response = await api.post(`/events/${id}/join`);
+    return response.data;
   },
 
-  leave: async (id: string): Promise<void> => {
-    await api.delete(`/events/${id}/leave`);
+  leave: async (id: string): Promise<Event> => {
+    const response = await api.delete(`/events/${id}/leave`);
+    return response.data;
   },
 
   getComments: async (eventId: string, page = 1, limit = 20): Promise<EventComment[]> => {

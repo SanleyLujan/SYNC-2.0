@@ -195,6 +195,8 @@ A raiz consulta sessão/onboarding. Sem sessão: autenticação; com sessão e o
 | Chat | Lista e conversa entre matches | Não prometer entrega offline/presença perfeita |
 | Configurações | Tema, notificações, segurança, acessibilidade, identidade e suporte | ADM autorizado também no backend |
 
+Eventos (26/10/2026): mapa, detalhe e “Meus eventos” recebem `participantCount` calculado das participações ativas e `isJoined` da conta atual. Entrada/saída retornam o evento atualizado; o app preserva o estado de participação após reabrir, atualiza dados ao voltar às telas e consulta a contagem a cada 15 segundos enquanto mapa/detalhe estiverem ativos e visíveis. Não há contador independente para reconciliar nem nova coluna/migration.
+
 O [inventário](docs/INVENTARIO_TECNICO.md#telas-e-pontos-de-entrada) relaciona cada arquivo e entrada. Live, confirmação legada e redefinição de senha são ramos diretos no App.tsx por links/tokens.
 
 A revisão estática encontrou **CreateStoryScreen.tsx e StoryViewerScreen.tsx sem importação/registro de entrada no fluxo atual**. É pendência de integração do item 37, não uma entrega completa apenas pela existência de telas/API.

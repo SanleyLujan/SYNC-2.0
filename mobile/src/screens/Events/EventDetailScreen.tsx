@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import * as Calendar from 'expo-calendar';
 import MapView, { Marker } from '../../components/map/SyncMap';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MapStackParamList } from '../../navigation/types';
 import { Event as EventType } from '../../types';
@@ -28,6 +28,8 @@ import ErrorState from '../../components/ui/ErrorState';
 import api from '../../services/api';
 import { confirmAsync } from '../../utils/confirm';
 import { showToast } from '../../components/ui/Toast';
+import { eventsService } from '../../services/events.service';
+import { isAppForeground, onAppForegroundChange } from '../../services/app-foreground';
 
 type Props = {
   navigation: NativeStackNavigationProp<MapStackParamList, 'EventDetail'>;
@@ -72,26 +74,37 @@ export default function EventDetailScreen({ navigation, route }: Props) {
   const [comments, setComments] = useState<Array<{ id: string; user: { name: string }; content: string; createdAt: string }>>([]);
   const [sendingComment, setSendingComment] = useState(false);
   const { user } = useAuthStore();
+  const eventRequestRef = useRef(0);
+  const attendanceMutationRef = useRef(false);
 
-  useEffect(() => {
-    loadEvent();
-  }, []);
+  useFocusEffect(useCallback(() => {
+    const refresh = () => {
+      if (isAppForeground() && !attendanceMutationRef.current) void loadEvent(true);
+    };
+    void loadEvent();
+    const timer = setInterval(refresh, 15_000);
+    const unsubscribe = onAppForegroundChange(active => { if (active) refresh(); });
+    return () => { clearInterval(timer); unsubscribe(); eventRequestRef.current++; };
+  }, [route.params.eventId, user?.id]));
 
-  const loadEvent = async () => {
+  const loadEvent = async (attendanceOnly = false) => {
+    const request = ++eventRequestRef.current;
     try {
-      const [eventRes, commentsRes] = await Promise.all([
-        api.get(`/events/${route.params.eventId}`),
-        api.get(`/events/${route.params.eventId}/comments`).catch(() => ({ data: { comments: [] } })),
+      const [updatedEvent, commentsRes] = await Promise.all([
+        eventsService.getById(route.params.eventId),
+        attendanceOnly ? Promise.resolve(null) : api.get(`/events/${route.params.eventId}/comments`).catch(() => ({ data: { comments: [] } })),
       ]);
-      setEvent(eventRes.data);
-      setComments(commentsRes.data.comments || []);
+      if (request !== eventRequestRef.current) return;
+      setEvent(updatedEvent);
+      setIsJoined(updatedEvent.isJoined === true);
+      if (commentsRes) setComments(commentsRes.data.comments || []);
       setError(false);
-      loadWeather(eventRes.data.latitude, eventRes.data.longitude);
+      if (!attendanceOnly) loadWeather(updatedEvent.latitude, updatedEvent.longitude);
     } catch {
       // Não inventa um evento falso — mostra estado de erro com "Tentar de novo"
-      setError(true);
+      if (request === eventRequestRef.current && !attendanceOnly) setError(true);
     } finally {
-      setLoading(false);
+      if (request === eventRequestRef.current) setLoading(false);
     }
   };
 
@@ -105,34 +118,41 @@ export default function EventDetailScreen({ navigation, route }: Props) {
   };
 
   const handleJoin = async () => {
+    if (attendanceMutationRef.current) return;
+    attendanceMutationRef.current = true;
+    eventRequestRef.current++;
     setJoining(true);
     try {
-      await api.post(`/events/${route.params.eventId}/join`);
-      setIsJoined(true);
+      const updatedEvent = await eventsService.join(route.params.eventId);
+      setEvent(updatedEvent);
+      setIsJoined(updatedEvent.isJoined === true);
       showToast('Você está participando do evento!', 'success');
-      loadEvent();
     } catch (e: any) {
       showToast(e?.response?.data?.message || 'Não foi possível participar agora. Tente de novo.', 'error');
     } finally {
+      attendanceMutationRef.current = false;
       setJoining(false);
     }
   };
 
   const handleLeave = async () => {
+    if (attendanceMutationRef.current) return;
     const ok = await confirmAsync('Sair do evento', 'Deseja sair deste evento?', {
       confirmText: 'Sair', destructive: true,
     });
     if (!ok) return;
+    if (attendanceMutationRef.current) return;
+    attendanceMutationRef.current = true;
+    eventRequestRef.current++;
     setLeaving(true);
     try {
-      await api.delete(`/events/${route.params.eventId}/leave`);
-      setIsJoined(false);
-      if (event) {
-        setEvent({ ...event, participantCount: Math.max(0, (event.participantCount || 1) - 1) });
-      }
+      const updatedEvent = await eventsService.leave(route.params.eventId);
+      setEvent(updatedEvent);
+      setIsJoined(updatedEvent.isJoined === true);
     } catch (e: any) {
       showToast(e?.response?.data?.message || 'Não foi possível sair agora. Tente de novo.', 'error');
     } finally {
+      attendanceMutationRef.current = false;
       setLeaving(false);
     }
   };

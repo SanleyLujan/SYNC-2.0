@@ -39,7 +39,8 @@ export class EventsService {
       address: sanitizeText(dto.address, 200) || undefined,
       creator_id: userId,
     });
-    return this.eventRepository.save(event);
+    const saved = await this.eventRepository.save(event);
+    return Object.assign(saved, { participantCount: 0, isJoined: false });
   }
 
   // KILLER FEATURE: Evento relâmpago.
@@ -104,7 +105,24 @@ export class EventsService {
       ),
     );
 
-    return Object.assign(saved, { notifiedCount: targets.length });
+    return Object.assign(saved, { notifiedCount: targets.length, participantCount: 0, isJoined: false });
+  }
+
+  private async withAttendance<T extends { id: string }>(events: T[], userId?: string) {
+    if (!events.length) return [];
+    const rows = await this.participantRepository.createQueryBuilder('participant')
+      .select('participant.event_id', 'eventId')
+      .addSelect('COUNT(*)', 'participantCount')
+      .addSelect('SUM(CASE WHEN participant.user_id = :userId THEN 1 ELSE 0 END)', 'joinedCount')
+      .where('participant.event_id IN (:...eventIds)', { eventIds: [...new Set(events.map(event => event.id))] })
+      .setParameter('userId', userId || null)
+      .groupBy('participant.event_id')
+      .getRawMany<{ eventId: string; participantCount: string | number; joinedCount: string | number }>();
+    const counts = new Map(rows.map(row => [row.eventId, row]));
+    return events.map(event => ({ ...event,
+      participantCount: Number(counts.get(event.id)?.participantCount || 0),
+      isJoined: Number(counts.get(event.id)?.joinedCount || 0) > 0,
+    }));
   }
 
   // Buscar eventos proximos por localizacao (Haversine em JS)
@@ -113,11 +131,12 @@ export class EventsService {
     longitude: number,
     radiusKm: number = 10,
     sport?: string,
+    userId?: string,
   ) {
     let qb = this.eventRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.creator', 'creator')
-      .where('event.date > :now', { now: new Date().toISOString() });
+      .where('event.date > :now', { now: new Date() });
 
     if (sport) {
       qb = qb.andWhere('event.sport = :sport', { sport });
@@ -127,7 +146,7 @@ export class EventsService {
     const allEvents = await qb.orderBy('event.date', 'ASC').take(500).getMany();
 
     // Calcular distancia e filtrar por raio; projeta criador sem email/lat/long
-    return allEvents
+    const nearby = allEvents
       .map((event) => ({
         ...event,
         distance: haversineKm(latitude, longitude, event.latitude, event.longitude),
@@ -141,9 +160,10 @@ export class EventsService {
       }))
       .filter((e) => e.distance <= radiusKm)
       .map((e) => ({ ...e, distance: Math.round(e.distance * 10) / 10 }));
+    return this.withAttendance(nearby, userId);
   }
 
-  async findById(id: string): Promise<any> {
+  async findById(id: string, userId?: string): Promise<any> {
     const event = await this.eventRepository.findOne({
       where: { id },
       relations: ['creator', 'participants', 'participants.user'],
@@ -163,15 +183,18 @@ export class EventsService {
       : null;
     const safeParticipants = (event.participants || []).map((p: any) => ({
       id: p.id,
-      joinedAt: p.createdAt,
+      joinedAt: p.joinedAt,
       user: p.user
         ? { id: p.user.id, name: p.user.name, avatarUrl: p.user.avatarUrl }
         : null,
     }));
-    return { ...event, creator: safeCreator, participants: safeParticipants };
+    return { ...event, creator: safeCreator, participants: safeParticipants,
+      participantCount: safeParticipants.length,
+      isJoined: (event.participants || []).some(participant => participant.user_id === userId),
+    };
   }
 
-  async join(userId: string, eventId: string): Promise<void> {
+  async join(userId: string, eventId: string) {
     const event = await this.findById(eventId);
 
     if (event.participants.length >= event.maxParticipants) {
@@ -189,9 +212,10 @@ export class EventsService {
       user_id: userId,
       event_id: eventId,
     });
+    return this.findById(eventId, userId);
   }
 
-  async leave(userId: string, eventId: string): Promise<void> {
+  async leave(userId: string, eventId: string) {
     const result = await this.participantRepository.delete({
       user_id: userId,
       event_id: eventId,
@@ -199,6 +223,7 @@ export class EventsService {
     if (result.affected === 0) {
       throw new NotFoundException('Participacao nao encontrada');
     }
+    return this.findById(eventId, userId);
   }
 
   async deleteEvent(userId: string, eventId: string): Promise<void> {
@@ -237,12 +262,14 @@ export class EventsService {
         : null,
     });
 
+    const futureCreated = created.filter(event => new Date(event.date) > now);
+    const futureParticipating = participating.map(participant => participant.event)
+      .filter(event => event && new Date(event.date) > now);
+    const counted = await this.withAttendance([...futureCreated, ...futureParticipating], userId);
+    const byId = new Map(counted.map(event => [event.id, event]));
     return {
-      created: created.filter((e) => new Date(e.date) > now),
-      participating: participating
-        .map((p) => p.event)
-        .filter((e) => new Date(e.date) > now)
-        .map(sanitizeEvent),
+      created: futureCreated.map(event => sanitizeEvent(byId.get(event.id))),
+      participating: futureParticipating.map(event => sanitizeEvent(byId.get(event.id))),
     };
   }
 

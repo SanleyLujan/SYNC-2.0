@@ -32,6 +32,8 @@ import { confirmAsync } from '../../utils/confirm';
 import { showToast } from '../../components/ui/Toast';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAccessibilityStore } from '../../store/accessibilityStore';
+import { eventsService } from '../../services/events.service';
+import { isAppForeground, onAppForegroundChange } from '../../services/app-foreground';
 
 
 type Props = {
@@ -91,6 +93,8 @@ export default function MapMainScreen({ navigation }: Props) {
   const controlsTop = Math.max(insets.top, 12);
   const [headerHeight, setHeaderHeight] = useState(200);
   const [events, setEvents] = useState<EventType[]>([]);
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
   const [sportPlaces, setSportPlaces] = useState<SportPlace[]>([]);
   const [placesStatus, setPlacesStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -98,6 +102,8 @@ export default function MapMainScreen({ navigation }: Props) {
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<SportPlace | null>(null);
   const [joining, setJoining] = useState(false);
+  const eventRequestRef = useRef(0);
+  const joiningEventRef = useRef(false);
   const [region, setRegion] = useState<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -200,7 +206,7 @@ export default function MapMainScreen({ navigation }: Props) {
         useNativeDriver: true,
       }).start();
     }
-  }, [selectedEvent]);
+  }, [selectedEvent?.id]);
 
   useEffect(() => {
     Animated.timing(weatherAnim, {
@@ -223,7 +229,6 @@ export default function MapMainScreen({ navigation }: Props) {
         longitudeDelta: 0.03,
       };
       setRegion(newRegion);
-      loadEvents(coords.latitude, coords.longitude);
       loadWeather(coords.latitude, coords.longitude);
       loadLocationName(coords.latitude, coords.longitude);
       // Sincroniza lat/lng REAL com o backend (pra Discovery/Eventos usarem)
@@ -239,20 +244,34 @@ export default function MapMainScreen({ navigation }: Props) {
     }
   };
 
-  const loadEvents = async (lat: number, lng: number) => {
+  const loadEvents = async (lat: number, lng: number, silent = false) => {
+    const request = ++eventRequestRef.current;
     try {
-      const params: any = { latitude: lat, longitude: lng, radiusKm: searchRadius };
-      if (filter) params.sport = filter;
-      const { data } = await api.get('/events/nearby', { params });
+      const data = await eventsService.getNearby(lat, lng, searchRadius, filter || undefined);
+      if (request !== eventRequestRef.current || joiningEventRef.current) return;
       setEvents(data);
+      setSelectedEvent(current => current ? data.find(event => event.id === current.id) || null : null);
     } catch (error) {
       console.log('Error loading events:', error);
       // NÃO injeta eventos falsos: o usuário tentava "Participar" em eventos
       // demo (id '1'..'5') que não existem no servidor e o join falhava.
       // Mostra vazio de verdade — o badge "0 eventos próximos" cobre o caso.
-      setEvents([]);
+      if (!silent && request === eventRequestRef.current) setEvents([]);
     }
   };
+
+  useEffect(() => {
+    if (!userCoords) return;
+    const refresh = () => {
+      if (mapFocused.current && isAppForeground() && !joiningEventRef.current) {
+        void loadEvents(userCoords.latitude, userCoords.longitude, true);
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 15_000);
+    const unsubscribe = onAppForegroundChange(active => { if (active) refresh(); });
+    return () => { clearInterval(timer); unsubscribe(); eventRequestRef.current++; };
+  }, [userCoords?.latitude, userCoords?.longitude, filter, searchRadius, mapVisit]);
 
   const loadNearbyUsers = async (lat: number, lng: number) => {
     try {
@@ -303,9 +322,6 @@ export default function MapMainScreen({ navigation }: Props) {
   const handleFilterPress = (sportId: string | null) => {
     setFilter(sportId);
     setSelectedPlace(null);
-    if (userCoords) {
-      loadEvents(userCoords.latitude, userCoords.longitude);
-    }
   };
 
   const filteredEvents = filter
@@ -484,7 +500,7 @@ export default function MapMainScreen({ navigation }: Props) {
                 key={event.id}
                 coordinate={{ latitude: event.latitude, longitude: event.longitude }}
                 onPress={() => {
-                  setSelectedEvent(event);
+                  setSelectedEvent(eventsRef.current.find(current => current.id === event.id) || event);
                   setSelectedPlace(null);
                   setShowWeatherPanel(false);
                 }}
@@ -1014,20 +1030,24 @@ export default function MapMainScreen({ navigation }: Props) {
           {/* Linha 1: Participar (primário, faz o join direto) */}
           <TouchableOpacity
             style={styles.joinBtn}
-            disabled={joining || (selectedEvent.participantCount || 0) >= selectedEvent.maxParticipants}
+            disabled={joining || selectedEvent.isJoined || (selectedEvent.participantCount || 0) >= selectedEvent.maxParticipants}
             onPress={async () => {
               const evt = selectedEvent;
-              if (!evt) return;
+              if (!evt || joiningEventRef.current || evt.isJoined) return;
+              joiningEventRef.current = true;
+              eventRequestRef.current++;
               setJoining(true);
               try {
-                await api.post(`/events/${evt.id}/join`);
+                const updatedEvent = await eventsService.join(evt.id);
                 showToast(`Você entrou em "${evt.title}"! 🎉`, 'success');
-                // Atualiza a contagem localmente e recarrega os eventos
-                setSelectedEvent({ ...evt, participantCount: (evt.participantCount || 0) + 1 });
+                // Usa a contagem confirmada pelo servidor, inclusive após recarga.
+                setSelectedEvent(current => current?.id === evt.id ? { ...current, ...updatedEvent } : current);
+                setEvents(current => current.map(event => event.id === evt.id ? { ...event, ...updatedEvent } : event));
                 if (userCoords) loadEvents(userCoords.latitude, userCoords.longitude);
               } catch (e: any) {
                 showToast(e?.response?.data?.message || 'Não foi possível participar agora.', 'error');
               } finally {
+                joiningEventRef.current = false;
                 setJoining(false);
               }
             }}
@@ -1041,12 +1061,12 @@ export default function MapMainScreen({ navigation }: Props) {
             >
               {joining ? (
                 <ActivityIndicator size="small" color={colors.white} />
-              ) : (selectedEvent.participantCount || 0) >= selectedEvent.maxParticipants ? (
+              ) : !selectedEvent.isJoined && (selectedEvent.participantCount || 0) >= selectedEvent.maxParticipants ? (
                 <Text style={styles.joinBtnText}>Evento lotado</Text>
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={18} color={colors.white} />
-                  <Text style={styles.joinBtnText}>Participar</Text>
+                  <Text style={styles.joinBtnText}>{selectedEvent.isJoined ? 'Participando' : 'Participar'}</Text>
                 </>
               )}
             </LinearGradient>

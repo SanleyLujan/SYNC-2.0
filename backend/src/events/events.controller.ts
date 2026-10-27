@@ -51,6 +51,7 @@ export class EventsController {
   @Get('nearby')
   @ApiOperation({ summary: 'Buscar eventos próximos' })
   findNearby(
+    @CurrentUser() user: User,
     @Query('latitude') latitude: string,
     @Query('longitude') longitude: string,
     @Query('radiusKm') radiusKm?: string,
@@ -62,6 +63,7 @@ export class EventsController {
       parseFloat(longitude),
       radius,
       sport,
+      user.id,
     );
   }
 
@@ -73,8 +75,8 @@ export class EventsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Detalhes de um evento' })
-  findById(@Param('id') id: string) {
-    return this.eventsService.findById(id);
+  findById(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.eventsService.findById(id, user.id);
   }
 
   @Post(':id/join')
