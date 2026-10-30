@@ -21,7 +21,7 @@ import { trackingSocket } from '../../services/tracking-socket.service';
 import { Share } from 'react-native';
 import { AutoPauseDetector, supportsAutoPause, resolveAutoPauseEnabled } from '../../utils/auto-pause';
 import { calculateActiveDurationSeconds } from '../../utils/tracking-timing';
-import { splitRecordedRoute, startsRecordedSegment } from '../../utils/recorded-route';
+import { isPlausibleRecordedStep, splitRecordedRoute, startsRecordedSegment } from '../../utils/recorded-route';
 import { isAppForeground, onAppForegroundChange } from '../../services/app-foreground';
 import { watchWebTrackingLocation } from '../../services/web-tracking-location.service';
 import {
@@ -628,6 +628,9 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     const id = activityIdRef.current;
     if (!id || (!fromBackground && finishingRef.current) ||
         (!fromBackground && Platform.OS !== 'web' && appStateRef.current !== 'active')) return;
+    // O navegador pode suspender os intervals enquanto ainda entrega fixes.
+    // A duração vem do relógio de parede e continua respeitando pausas manuais.
+    setElapsed(calculateActiveElapsed());
     // ── Filtro de precisão (estilo Strava): descarta fixes ruins do GPS ──
     // accuracy = raio de erro em metros. Acima de ~35m o ponto é lixo e
     // distorce a rota/distância. Descarta ANTES de contar distância ou desenhar.
@@ -653,7 +656,8 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     });
 
     // Auto-pause detector
-    if (autoPauseOnRef.current && pauseSourceRef.current !== 'manual' && pauseSourceRef.current !== 'confirmation') {
+    if (autoPauseOnRef.current && (Platform.OS !== 'web' || isAppForeground()) &&
+        pauseSourceRef.current !== 'manual' && pauseSourceRef.current !== 'confirmation') {
       const action = autoPauseRef.current.push({ ...newPoint, timestamp });
       if (action === 'pause' && !isPausedRef.current) enterPause('auto', timestamp);
       else if (action === 'resume' && pauseSourceRef.current === 'auto') leavePause('auto', timestamp);
@@ -677,11 +681,7 @@ export default function ActiveTrackingScreen({ navigation, route }: Props) {
     if (previousPoints.length > 0 && !segmentStart) {
       const last = previousPoints[previousPoints.length - 1];
       const d = haversine(last.latitude, last.longitude, newPoint.latitude, newPoint.longitude);
-      // Anti-jitter: ignora micro-movimentos (<2.5m) — GPS oscila parado e
-      // isso inflava a distância. Anti-salto: ignora teleportes (>60m/tick).
-      if (d < 2.5 || d > 60) {
-        return; // não adiciona nem transmite o ponto (evita serrilhado na rota)
-      }
+      if (!isPlausibleRecordedStep(d, timestamp - last.timestamp, sport)) return;
       distanceRef.current += d;
       setDistance(distanceRef.current);
       // Ganho de elevação acumulado (suavizado)

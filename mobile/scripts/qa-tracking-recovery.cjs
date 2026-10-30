@@ -20,24 +20,29 @@ const server = http.createServer((request, response) => {
 });
 
 async function verify(browser, mode = 'running') {
-  const gym = mode === 'gym', legacyAuto = mode === 'legacy-auto';
+  const gym = mode === 'gym', legacyAuto = mode === 'legacy-auto', background = mode.startsWith('background');
+  const backgroundAuto = mode === 'background';
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
   let offline = false, starts = 0, finishPayload;
   const timing = [];
-  let activity = { id: 'tracking-test', user_id: user.id, sport: gym ? 'gym' : 'running', startTime: new Date(gym || legacyAuto ? start - 300_000 : start).toISOString(), duration: 0, distance: 0, pausedAt: legacyAuto ? new Date(start - 200_000).toISOString() : null, pausedDuration: gym ? 60 : 0, isCompleted: false, points: [] };
-  await context.addInitScript(({ user, start, gym, legacyAuto, key }) => {
+  let activity = { id: 'tracking-test', user_id: user.id, sport: background ? 'cycling' : gym ? 'gym' : 'running', startTime: new Date(gym || legacyAuto ? start - 300_000 : start).toISOString(), duration: 0, distance: 0, pausedAt: legacyAuto ? new Date(start - 200_000).toISOString() : null, pausedDuration: gym ? 60 : 0, isCompleted: false, points: [] };
+  await context.addInitScript(({ user, start, gym, legacyAuto, background, backgroundAuto, key }) => {
     localStorage.setItem('@sync:token', 'local-test-token');
     localStorage.setItem('@sync:user', JSON.stringify(user));
     localStorage.setItem('@sync:theme-mode', 'dark');
     localStorage.setItem('@sync:accessibility', JSON.stringify({ reduceMotion: true, hapticsEnabled: false }));
-    if ((gym || legacyAuto) && !localStorage.getItem('@qa:seeded')) {
+    if ((gym || legacyAuto || background) && !localStorage.getItem('@qa:seeded')) {
       localStorage.setItem('@qa:seeded', 'true');
-      localStorage.setItem(key, JSON.stringify({ userId: user.id, activityId: 'tracking-test', sport: gym ? 'gym' : 'running', startedAt: start - 300_000, totalPausedMs: gym ? 60_000 : 0, pausedAt: legacyAuto ? start - 200_000 : null, pauseSource: legacyAuto ? 'auto' : null, points: [], pendingTimingEvents: [], syncedThrough: 0, autoPauseOn: legacyAuto, plannedRoute: [], targetGoal: null }));
+      localStorage.setItem(key, JSON.stringify({ userId: user.id, activityId: 'tracking-test', sport: background ? 'cycling' : gym ? 'gym' : 'running', startedAt: background ? start : start - 300_000, totalPausedMs: gym ? 60_000 : 0, pausedAt: legacyAuto ? start - 200_000 : null, pauseSource: legacyAuto ? 'auto' : null, points: [], pendingTimingEvents: [], syncedThrough: 0, autoPauseOn: legacyAuto || backgroundAuto, autoPauseOptIn: backgroundAuto, plannedRoute: [], targetGoal: null }));
     }
     window.__now = Number(localStorage.getItem('@qa:clock') || start);
     Date.now = () => window.__now;
     window.__advance = ms => { window.__now += ms; localStorage.setItem('@qa:clock', String(window.__now)); };
     window.__visible = true;
+    const realInterval = window.setInterval.bind(window);
+    window.setInterval = (callback, delay, ...args) => realInterval(() => {
+      if (window.__visible) callback(...args);
+    }, delay);
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__visible ? 'visible' : 'hidden' });
     window.__visibility = visible => { window.__visible = visible; document.dispatchEvent(new Event('visibilitychange')); };
     window.__watches = new Map();
@@ -53,7 +58,7 @@ async function verify(browser, mode = 'running') {
       last = { ...last, timestamp: window.__now, coords: { ...last.coords, latitude, speed } };
       for (const callback of [...window.__watches.values()]) callback(last);
     };
-  }, { user, start, gym, legacyAuto, key });
+  }, { user, start, gym, legacyAuto, background, backgroundAuto, key });
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
     if (!url.pathname.startsWith('/api/')) {
@@ -98,6 +103,44 @@ async function verify(browser, mode = 'running') {
   };
   await page.goto(baseUrl);
   await train();
+  if (background) {
+    await page.waitForFunction(key => JSON.parse(localStorage.getItem(key) || 'null')?.points.length === 1, key);
+    await page.getByRole('switch', { name: backgroundAuto ? 'Pausa automática ligada' : 'Pausa automática desligada', exact: true }).waitFor();
+    await page.evaluate(() => window.__visibility(false));
+    for (let point = 1; point <= 5; point++) {
+      await page.evaluate(latitude => window.__move(8_000, latitude, 0), -23.55 + point * 0.0009);
+    }
+    assert.equal((await saved()).pausedAt, null, 'GPS em segundo plano não deve criar uma pausa automática');
+    assert.equal((await saved()).points.length, 6, 'deslocamentos plausíveis acima de 60m devem ser preservados');
+    await page.evaluate(() => window.__visibility(true));
+    await page.getByLabel('Tempo: 00:40', { exact: true }).waitFor();
+    await page.getByLabel('Distância: 0.50 quilômetros', { exact: true }).waitFor();
+    await page.reload(); await train();
+    await page.getByLabel('Tempo: 00:40', { exact: true }).waitFor();
+    await page.getByLabel('Distância: 0.50 quilômetros', { exact: true }).waitFor();
+    assert.equal((await saved()).points.length, 6);
+    // Uma lacuna real continua sem distância inventada, mas o tempo é incluído.
+    await page.evaluate(() => { window.__visibility(false); window.__advance(60_000); window.__visibility(true); });
+    await page.evaluate(() => window.__move(2_000, -23.5));
+    await page.getByLabel('Tempo: 01:42', { exact: true }).waitFor();
+    await page.getByLabel('Distância: 0.50 quilômetros', { exact: true }).waitFor();
+    assert.equal((await saved()).points.at(-1).segmentStart, true);
+    await page.getByRole('button', { name: 'Pausar treino', exact: true }).click();
+    await page.evaluate(() => { window.__visibility(false); window.__move(8_000, -23.4991, 0); window.__move(8_000, -23.4982, 0); window.__visibility(true); });
+    await page.getByRole('button', { name: 'Retomar treino', exact: true }).waitFor();
+    await page.getByLabel('Tempo: 01:42', { exact: true }).waitFor();
+    await page.getByLabel('Distância: 0.50 quilômetros', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Retomar treino', exact: true }).click();
+    await page.getByRole('button', { name: 'Finalizar treino', exact: true }).click();
+    await page.waitForFunction(key => localStorage.getItem(key) === null, key);
+    assert.equal(finishPayload.activeDurationSeconds, 102);
+    assert.equal(finishPayload.points.length, 7);
+    assert.equal(finishPayload.points.filter(point => point.segmentStart).length, 2);
+    assert.deepEqual(errors, []);
+    console.log(`PASS ${mode}: GPS recebido conta tempo/km, lacuna conta só tempo, recarga e pausa manual preservadas`);
+    await context.close();
+    return;
+  }
   if (legacyAuto) {
     await page.getByRole('button', { name: 'Pausar treino', exact: true }).waitFor();
     await page.getByRole('switch', { name: 'Pausa automática desligada', exact: true }).waitFor();
@@ -197,6 +240,10 @@ async function verify(browser, mode = 'running') {
 (async () => {
   await new Promise(resolve => server.listen(8096, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true, channel: process.env.BROWSER_CHANNEL || 'msedge' });
-  try { await verify(browser); await verify(browser, 'gym'); await verify(browser, 'legacy-auto'); }
+  try {
+    const requestedMode = process.env.TRACKING_QA_MODE;
+    if (requestedMode) await verify(browser, requestedMode);
+    else { await verify(browser); await verify(browser, 'gym'); await verify(browser, 'legacy-auto'); await verify(browser, 'background'); await verify(browser, 'background-distance'); }
+  }
   finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

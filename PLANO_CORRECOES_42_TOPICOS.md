@@ -1,5 +1,13 @@
 # Plano de correções — 42 tópicos prioritários
 
+## Tempo e distância após tela apagada — 30/10/2026
+
+- Relato: a contagem voltava ao desbloquear, mas faltava o período com a tela apagada. Reproduzidos dois casos na versão anterior: pausa automática opcional acionada por fixes recebidos com a página oculta; descarte de deslocamentos plausíveis acima de 60 m entre leituras espaçadas, mesmo com a pausa automática desligada.
+- O PWA não usa leituras ocultas para acionar pausa automática. O tempo é atualizado pelo relógio de parede também nos callbacks de GPS, respeitando pausas manuais. Em trechos contínuos, o limite de deslocamento passa a considerar o intervalo entre timestamps e a modalidade; saltos implausíveis e microdeslocamentos continuam filtrados.
+- Lacunas acima de 15 segundos continuam abrindo outro trecho. O tempo decorrido é contabilizado, mas não é criada distância onde não houve captura de GPS. Sem alteração de layout, schema, dependências ou serviços pagos.
+- Validação: **95 testes mobile em 26 suítes** aprovados. Regressão de navegador ampliada com timers suspensos, GPS em intervalos de oito segundos, pausa automática ligada/desligada, recarga, lacuna real e pausa manual. As duas reproduções falharam na versão anterior pelos motivos esperados.
+- TypeScript e exportação Expo Web aprovados. Os cinco cenários locais no Edge passaram: percurso, academia, preferência de pausa automática e tela apagada com a preferência ligada/desligada. Nos casos novos, 500 m recebidos em 40 s foram contabilizados após o retorno e a recarga; uma lacuna real adicionou tempo, sem distância inventada, e a pausa manual manteve as métricas congeladas. GPS/API simulados; ainda é necessário confirmar o resultado no aparelho do relato.
+
 ## Contagem de participantes dos eventos — 26/10/2026
 
 - A API não enviava `participantCount`, embora mapa/detalhes exibissem esse campo; o detalhe também perdia a informação de participação ao reabrir. A contagem agora deriva das inscrições ativas, com `isJoined` por conta, em eventos próximos, detalhes e listas pessoais, incluindo eventos relâmpago.
@@ -30,7 +38,7 @@ Foto principal alinhada à galeria; super like removido; decisão de curtir/pass
 
 **Data de criação do acompanhamento:** 02/09/2026
 
-**Última atualização:** 26/10/2026
+**Última atualização:** 30/10/2026
 
 **Escopo:** auditoria funcional, correções solicitadas, transparência das funções mostradas ao usuário e segurança do aplicativo Sync.
 
