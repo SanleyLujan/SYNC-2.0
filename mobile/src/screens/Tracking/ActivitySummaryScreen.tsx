@@ -373,6 +373,7 @@ function ActivitySummaryInner({ navigation, route }: Props) {
   const sportIcon = SPORT_ICONS[activity.sport] || 'fitness';
   const sportLabel = SPORT_LABELS[activity.sport] || activity.sport;
   const accent = theme.primary;
+  const recordAccent = theme.mode === 'light' ? '#8A5A00' : '#FCD34D';
   const accentEnd = theme.mode === 'dark' ? theme.cyan : theme.warning;
   // Splits por km (estilo Strava/Adidas) — calculados dos pontos GPS
   const splits = computeSplits(activity.points as any);
@@ -564,13 +565,13 @@ function ActivitySummaryInner({ navigation, route }: Props) {
               style={styles.prBannerInner}
             >
               <View style={styles.prBannerTop}>
-                <Ionicons name="trophy" size={24} color="#FCD34D" />
-                <Text style={styles.prBannerTitle}>Novos Recordes Pessoais!</Text>
+                <Ionicons name="trophy" size={24} color={recordAccent} />
+                <Text style={[styles.prBannerTitle, { color: recordAccent }]}>Novos Recordes Pessoais!</Text>
               </View>
               {newPRs.map((pr, i) => (
                 <View key={i} style={styles.prRow}>
-                  <Text style={styles.prLabel}>{pr.label}</Text>
-                  <Text style={styles.prValue}>{pr.value}</Text>
+                  <Text style={[styles.prLabel, theme.mode === 'light' && { color: theme.textPrimary }]}>{pr.label}</Text>
+                  <Text style={[styles.prValue, { color: recordAccent }]}>{pr.value}</Text>
                 </View>
               ))}
             </LinearGradient>
