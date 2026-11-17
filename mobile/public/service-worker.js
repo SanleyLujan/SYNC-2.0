@@ -6,7 +6,7 @@
 //   - tiles (OSM): cache-first até 7 dias
 //   - API, documentos privados e requisições autenticadas: somente rede
 
-const VERSION = 'sync-v7-privacy-20260908';
+const VERSION = 'sync-v8-csp-20261109';
 const SHELL = `sync-shell-${VERSION}`;
 const IMAGES = `sync-images-${VERSION}`;
 const TILES = `sync-tiles-${VERSION}`;
@@ -47,6 +47,10 @@ self.addEventListener('fetch', (event) => {
   // privados. Precisa vir ANTES da regra genérica de imagens (inclusive .jpg).
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/storage/v1/') ||
       req.headers.has('Authorization') || req.cache === 'no-store') return;
+
+  // The Google bridge must pick up the current policy/protocol after a deploy.
+  if (url.origin === self.location.origin &&
+      ['/google-signin.html', '/google-signin.js', '/google-signin.css'].includes(url.pathname)) return;
 
   // O manifesto pode mudar a cada deploy; não deve ficar preso no cache-first.
   if (url.origin === self.location.origin && url.pathname === '/manifest.json') {

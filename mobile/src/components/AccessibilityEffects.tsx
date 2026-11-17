@@ -6,7 +6,6 @@ import { useEffect } from 'react';
 import { Platform, AccessibilityInfo } from 'react-native';
 import { useAccessibilityStore } from '../store/accessibilityStore';
 
-const CONTRAST_STYLE_ID = 'sync-a11y-contrast';
 const CB_DEFS_ID = 'sync-a11y-cb-defs';
 
 // Matrizes feColorMatrix de daltonização (ajudam a distinguir cores).
@@ -45,13 +44,8 @@ function applyWebEffects(opts: { highContrast: boolean; largeText: boolean; colo
   if (opts.highContrast) filters.push('contrast(1.25) brightness(1.08) saturate(1.1)');
   if (opts.colorBlindMode && opts.colorBlindMode !== 'off') filters.push(`url(#sync-cb-${opts.colorBlindMode})`);
 
-  let style = document.getElementById(CONTRAST_STYLE_ID) as HTMLStyleElement | null;
-  if (!style) {
-    style = document.createElement('style');
-    style.id = CONTRAST_STYLE_ID;
-    document.head.appendChild(style);
-  }
-  style.textContent = filters.length ? `#root, body { filter: ${filters.join(' ')}; }` : '';
+  // CSSOM property assignment works with style-src-attr 'none'. No CSS text.
+  root.style.filter = filters.join(' ');
 
   // Texto grande — zoom do conteúdo (Chromium suporta bem; escala layout junto)
   try {

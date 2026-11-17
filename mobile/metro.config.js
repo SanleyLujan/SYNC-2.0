@@ -12,7 +12,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       type: 'sourceFile',
     };
   }
-  return context.resolveRequest(context, moduleName, platform);
+  const result = context.resolveRequest(context, moduleName, platform);
+  if (platform === 'web' && result.type === 'sourceFile' &&
+      result.filePath.replace(/\\/g, '/').endsWith('/expo-font/build/ExpoFontLoader.web.js')) {
+    return { filePath: path.resolve(__dirname, 'src/shims/ExpoFontLoader.web.ts'), type: 'sourceFile' };
+  }
+  return result;
 };
 
 module.exports = config;

@@ -4,15 +4,15 @@ import React, {
   forwardRef,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
 } from 'react';
 import { View } from 'react-native';
-import ReactDOMServer from 'react-dom/server';
+import { createRoot } from 'react-dom/client';
 import L from 'leaflet';
 import { getCartoTileUrl } from '../../utils/carto';
 import { useThemeStore } from '../../store/themeStore';
 import { showToast } from '../ui/Toast';
+import { setWebStyleRules } from '../../utils/web-styles';
 
 // CSS do Leaflet + overrides do Sync (injetado uma vez)
 function ensureLeafletCss() {
@@ -28,28 +28,25 @@ function ensureLeafletCss() {
   link.integrity = 'sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H';
   document.head.appendChild(link);
 
-  const style = document.createElement('style');
-  style.id = 'sync-leaflet-style';
-  style.innerHTML = `
-    .sync-map { background: #f2f4f5; outline: none; }
-    .sync-map[data-theme="dark"] { background: #17212b; }
-    .sync-map[data-theme="dark"] .leaflet-tile-pane {
+  setWebStyleRules('sync-leaflet-style', [
+    '.sync-map { background: #f2f4f5; outline: none; }',
+    '.sync-map[data-theme="dark"] { background: #17212b; }',
+    `.sync-map[data-theme="dark"] .leaflet-tile-pane {
       filter: brightness(1.75) contrast(1.08);
-    }
-    .sync-map .leaflet-control-attribution {
+    }`,
+    `.sync-map .leaflet-control-attribution {
       background: rgba(255,255,255,0.94) !important;
       color: #334155 !important;
       font-size: 11px !important;
-    }
-    .sync-map .leaflet-control-attribution a { color: #1d4ed8 !important; }
-    .sync-map[data-theme="dark"] .leaflet-control-attribution {
+    }`,
+    '.sync-map .leaflet-control-attribution a { color: #1d4ed8 !important; }',
+    `.sync-map[data-theme="dark"] .leaflet-control-attribution {
       background: rgba(15,23,42,0.94) !important;
       color: #e2e8f0 !important;
-    }
-    .sync-map[data-theme="dark"] .leaflet-control-attribution a { color: #93c5fd !important; }
-    .sync-marker { background: transparent !important; border: 0 !important; }
-  `;
-  document.head.appendChild(style);
+    }`,
+    '.sync-map[data-theme="dark"] .leaflet-control-attribution a { color: #93c5fd !important; }',
+    '.sync-marker { background: transparent !important; border: 0 !important; }',
+  ]);
 }
 
 // Ícones default do leaflet servidos via CDN (evita asset resolution do Metro)
@@ -276,20 +273,15 @@ export const Marker = ({
   const map = React.useContext(MapContext);
   const markerRef = useRef<L.Marker | null>(null);
 
-  const html = useMemo(() => {
-    if (!children) return '';
-    try {
-      return ReactDOMServer.renderToStaticMarkup(<>{children}</> as any);
-    } catch {
-      return '';
-    }
-  }, [children]);
-
   useEffect(() => {
     if (!map) return;
-    const icon = html
+    // Use React's DOM/CSSOM path instead of HTML strings with style attributes.
+    const host = children ? document.createElement('div') : null;
+    const root = host ? createRoot(host) : null;
+    if (root) root.render(<>{children}</>);
+    const icon = host
       ? L.divIcon({
-          html,
+          html: host,
           className: 'sync-marker',
           iconSize: [44, 52],
           iconAnchor: [22, 52],
@@ -301,9 +293,10 @@ export const Marker = ({
     markerRef.current = marker;
     return () => {
       marker.remove();
+      if (root) queueMicrotask(() => root.unmount());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, coordinate.latitude, coordinate.longitude, html]);
+  }, [map, coordinate.latitude, coordinate.longitude, children]);
 
   return null;
 };

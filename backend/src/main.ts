@@ -1,8 +1,7 @@
+import { configureHttpSecurity } from './common/security/http-security';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import helmet from 'helmet';
-import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { initSentry } from './common/sentry/sentry.init';
 import { SentryExceptionFilter } from './common/sentry/sentry.filter';
@@ -25,64 +24,7 @@ async function bootstrap() {
 
   const isProd = process.env.NODE_ENV === 'production';
 
-  // Aumenta limite do body para 12MB pra suportar upload de fotos base64 (3×550KB = ~1.65MB + margem)
-  app.use(json({ limit: '12mb' }));
-  app.use(urlencoded({ extended: true, limit: '12mb' }));
-
-  // ===== SECURITY HEADERS =====
-  // CSP habilitada com whitelist enxuta. Imagens externas (Unsplash, OSM, avatars)
-  // permitidas. Scripts inline NÃO permitidos (XSS defense).
-  app.use(
-    helmet({
-      contentSecurityPolicy: isProd
-        ? {
-            useDefaults: true,
-            directives: {
-              defaultSrc: ["'self'"],
-              scriptSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com/gsi/client'],
-              styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://accounts.google.com/gsi/style'],
-              frameSrc: ['https://accounts.google.com/gsi/'],
-              imgSrc: [
-                "'self'",
-                'data:',
-                'blob:',
-                'https://images.unsplash.com',
-                'https://*.tile.openstreetmap.org',
-                'https://cdn.jsdelivr.net',
-              ],
-              connectSrc: [
-                "'self'",
-                'https://accounts.google.com/gsi/',
-                'https://api.open-meteo.com',
-                'https://air-quality-api.open-meteo.com',
-                'https://api.sunrise-sunset.org',
-                'https://nominatim.openstreetmap.org',
-                'https://ipapi.co',
-                'https://exp.host',
-              ],
-              fontSrc: ["'self'", 'data:', 'https://cdn.jsdelivr.net'],
-              objectSrc: ["'none'"],
-              frameAncestors: ["'none'"],
-              upgradeInsecureRequests: [],
-            },
-          }
-        : false,
-      crossOriginEmbedderPolicy: false,
-      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-      // HSTS: força HTTPS por 6 meses em prod
-      hsts: isProd ? { maxAge: 15552000, includeSubDomains: true, preload: true } : false,
-      // Permissions-Policy via header customizado (Helmet 7+ não tem builtin)
-      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-    }),
-  );
-
-  app.use((req: any, res: any, next: any) => {
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), payment=(), usb=()');
-    res.setHeader('X-DNS-Prefetch-Control', 'off');
-    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
-    next();
-  });
+  configureHttpSecurity(app, isProd);
 
   // ===== VALIDAÇÃO GLOBAL =====
   app.useGlobalPipes(

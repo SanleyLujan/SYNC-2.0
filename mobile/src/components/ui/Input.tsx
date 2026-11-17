@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, borderRadius, fontSize, spacing, typography } from '../../theme';
 import { useThemeStore } from '../../store/themeStore';
+import { setWebStyleRules } from '../../utils/web-styles';
 
 // WEB: remove o outline de foco do navegador (a "borda branca" extra) e o
 // fundo branco/amarelo do autofill — eles ignoram o CSS do React Native.
@@ -18,12 +19,10 @@ import { useThemeStore } from '../../store/themeStore';
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const STYLE_ID = 'sync-input-web-fix';
   if (!document.getElementById(STYLE_ID)) {
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = `
-      input, textarea, select { outline: none !important; box-shadow: none; }
-      input:focus, textarea:focus { outline: none !important; }
-      input:-webkit-autofill,
+    setWebStyleRules(STYLE_ID, [
+      'input, textarea, select { outline: none !important; box-shadow: none; }',
+      'input:focus, textarea:focus { outline: none !important; }',
+      `input:-webkit-autofill,
       input:-webkit-autofill:hover,
       input:-webkit-autofill:focus,
       input:-webkit-autofill:active {
@@ -33,8 +32,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
         box-shadow: 0 0 0px 1000px ${colors.input} inset !important;
         transition: background-color 9999s ease-in-out 0s;
       }
-    `;
-    document.head.appendChild(style);
+      `,
+    ]);
   }
 }
 

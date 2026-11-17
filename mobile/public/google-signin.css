@@ -1,0 +1,2 @@
+html, body { margin: 0; background: transparent; overflow: hidden; }
+#button { display: flex; justify-content: center; padding: 2px; }

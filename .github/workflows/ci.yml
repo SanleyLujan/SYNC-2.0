@@ -48,3 +48,40 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test --if-present
+      - name: Security policy consistency
+        run: node scripts/sync-security-config.cjs --check
+
+  web-security:
+    name: Web CSP (login + authenticated UI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      # Test tooling only; does not change the production dependency lockfile.
+      - run: npm install --no-save --package-lock=false --legacy-peer-deps playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build:web
+        env:
+          EXPO_PUBLIC_GOOGLE_CLIENT_ID: 529178437359-vna4bk83lvk9mne5revmh6cfadmi9131.apps.googleusercontent.com
+      - name: Login, authenticated map and injection blocks
+        run: npm run test:security:web
+      - name: Authenticated profile regression under CSP
+        run: node scripts/qa-profile-discovery.cjs
+        env:
+          SECURITY_CSP: '1'
+          SOCIAL_UI_URL: http://localhost:8096
+          SOCIAL_UI_OUTPUT: test-results/security-profiles
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-security-evidence
+          path: mobile/test-results/

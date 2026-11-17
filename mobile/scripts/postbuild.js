@@ -4,6 +4,7 @@
 // Cross-platform (não usa cp/shell), funciona em Vercel (Linux) e Windows local.
 const fs = require('fs');
 const path = require('path');
+const { createHash } = require('node:crypto');
 
 const src = path.resolve(__dirname, '..', 'public');
 const dst = path.resolve(__dirname, '..', 'dist');
@@ -26,8 +27,7 @@ function copyRecursive(from, to) {
 function patchIndexHtml() {
   const indexPath = path.join(dst, 'index.html');
   if (!fs.existsSync(indexPath)) {
-    console.warn('[postbuild] index.html not found, skipping PWA patch');
-    return;
+    throw new Error('index.html not found; refusing an unpatched deployment');
   }
 
   let html = fs.readFileSync(indexPath, 'utf8');
@@ -59,6 +59,27 @@ function patchIndexHtml() {
   html = html.replace(/<title>[^<]*<\/title>/, '<title>Sync</title>');
   console.log('[postbuild] set <title>Sync</title>');
 
+  // Static Expo deployment: external files avoid a shared/fixed CSP nonce.
+  const assetDir = path.join(dst, 'assets', 'csp');
+  const externalize = (text, extension) => {
+    fs.mkdirSync(assetDir, { recursive: true });
+    const digest = createHash('sha256').update(text).digest('hex');
+    const name = `${digest}.${extension}`;
+    fs.writeFileSync(path.join(assetDir, name), text, 'utf8');
+    return `/assets/csp/${name}`;
+  };
+  html = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (tag, attributes, text) => {
+    if (/\bsrc\s*=/i.test(attributes)) return tag;
+    // Inert data blocks must retain their text for JSON consumers.
+    if (/\btype\s*=\s*["']application\/(?:ld\+)?json["']/i.test(attributes)) return tag;
+    if (!text.trim()) return tag;
+    return `<script${attributes} src="${externalize(text, 'js')}"></script>`;
+  });
+  html = html.replace(/<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi,
+    (_, attributes, text) => `<link${attributes} rel="stylesheet" href="${externalize(text, 'css')}" />`);
+  if (/\son\w+\s*=|\sstyle\s*=|(?:href|src)\s*=\s*["']\s*javascript:/i.test(html)) {
+    throw new Error('Inline handlers/styles or javascript: URLs are incompatible with the CSP');
+  }
   fs.writeFileSync(indexPath, html, 'utf8');
 }
 
@@ -68,6 +89,6 @@ try {
   patchIndexHtml();
   console.log('[postbuild] done');
 } catch (e) {
-  console.warn('[postbuild] error:', e.message);
-  // Não falha o build se a cópia/patch falhar
+  console.error('[postbuild] error:', e.message);
+  process.exitCode = 1;
 }
