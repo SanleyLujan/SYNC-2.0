@@ -10,11 +10,13 @@
 
 ## 1. Instrução pronta para a IA que atualizará o TCC
 
-Copie este arquivo inteiro e apresente à IA junto com a versão atual do TCC. Use a seguinte instrução:
+Copie este arquivo inteiro e apresente à IA junto com a versão atual do TCC. Para incorporar a figura, envie também a imagem em `documentacao-tcc/figuras/hostedscan-dashboard-20261116.png`, ou use a [versão PDF com a figura incorporada](documentacao-tcc/TCC_ATUALIZACAO_SEGURANCA_WEB.pdf). Use a seguinte instrução:
 
 > Atualize a documentação do TCC do projeto SYNC usando os fatos deste arquivo. Escreva em português acadêmico, em terceira pessoa, preservando a organização e o estilo do trabalho existente. Incorpore as informações às seções de implementação, segurança, testes e limitações, evitando repetir o mesmo conteúdo em capítulos diferentes. Diferencie as alterações implementadas, as validações locais, as observações anteriores ao deploy e os testes de produção ainda pendentes. Explique as decisões e suas razões, sem transformar o texto em um histórico da conversa com o assistente. Não invente resultados, métricas, referências bibliográficas, datas de acesso ou números de seções. Não afirme que os sete itens foram integralmente eliminados: permanece uma exceção de CSS no documento do botão Google, o teste autenticado no Render não foi realizado nessa avaliação e TCP timestamps pertencem à infraestrutura do provedor. Os números históricos dos testes descrevem a árvore de trabalho avaliada em 09/11/2026; não são uma contagem de testes criados por esta mudança. Ao final, informe quais trechos do TCC foram alterados e quais pendências precisam de evidência adicional.
 
-Este arquivo contém o contexto necessário para relatar esta intervenção. O relatório técnico complementar no repositório é `SEGURANCA_WEB_20261109.md`.
+> Considere também o PDF de base identificado na seção 2 e a captura do painel. Descreva o HostedScan como a plataforma utilizada para executar e reunir os resultados dos scanners, identificando separadamente as ferramentas. Inclua a figura com legenda e fonte, renumerando-a conforme o TCC. Não some contagens de ferramentas, ocorrências, logs, testes automatizados e cenários de navegador. Preserve as gravidades originais do scanner e distinga-as da prioridade de implementação. Não interprete a captura como uma nova varredura posterior às correções.
+
+Este arquivo contém o contexto necessário para relatar esta intervenção e incorpora a síntese do PDF fornecido pelo responsável pelo projeto. O relatório técnico complementar no repositório é `SEGURANCA_WEB_20261109.md`.
 
 ## 2. Contexto e objetivo da intervenção
 
@@ -23,6 +25,68 @@ O frontend web do SYNC utiliza Expo, React e React Native Web, com hospedagem co
 O objetivo foi reduzir permissões genéricas de carregamento e execução no navegador, preservar os recursos legítimos da aplicação e criar meios de verificar a configuração. Os testes e as observações públicas disponíveis não demonstram, por si, a segurança integral do sistema.
 
 Não foram implementados novos requisitos funcionais de negócio, alterações do modelo de dados ou migrações do banco nesta intervenção. A validação de segurança no navegador é complementar aos controles de autenticação e autorização da API.
+
+### 2.1. Uso do HostedScan na avaliação externa
+
+O **HostedScan foi utilizado para executar as varreduras externas e concentrar seus resultados em um painel**, conforme a confirmação do responsável pelo projeto, a captura apresentada abaixo e o PDF de base. Ele deve ser descrito como a plataforma de execução, consulta e organização dos resultados, identificando o scanner responsável por cada registro. A documentação oficial apresenta a integração de ferramentas de análise de aplicações web, rede, portas e TLS, além de consulta a relatórios. [HostedScan — plataforma](https://hostedscan.com/platform), [HostedScan — scanners integrados](https://hostedscan.com/compare).
+
+No contexto do SYNC, os materiais registram Nuclei, OWASP ZAP ativo/passivo, OpenVAS, Nmap TCP, Nmap UDP e SSLyze. A captura mostra cinco desses tipos na área visível de scans recentes; a referência ao SSLyze vem do PDF. A disponibilidade de varreduras autenticadas na plataforma não comprova que a autenticação tenha sido configurada ou usada nesses scans. A cobertura após login continua não demonstrada pela documentação recebida. [HostedScan — varreduras autenticadas](https://hostedscan.com/authenticated-web-app-vulnerability-scan).
+
+Não foram confirmados plano contratado, agendamento recorrente, integração do HostedScan com o CI, uso da API do serviço ou monitoramento contínuo. O job de CI implementado no projeto executa verificações próprias; não foi implementada uma integração com HostedScan.
+
+### 2.2. Figura: painel do HostedScan utilizado no projeto
+
+![Figura 1 — Painel do HostedScan utilizado na avaliação externa do SYNC](documentacao-tcc/figuras/hostedscan-dashboard-20261116.png)
+
+**Figura 1 — Painel do HostedScan utilizado na avaliação externa do SYNC.** Fonte: captura de tela fornecida pelo responsável pelo projeto, com data de 16/11/2026 exibida no sistema. Arquivo original preservado, sem edição.
+
+A figura mostra o alvo `https://sync-2-0-blush.vercel.app/`, a lista de scans recentes e um total consolidado de **8 riscos: 0 críticos, 0 altos, 4 médios e 4 baixos**. Os campos `Accepted` e `Closed` exibem zero. Na área de riscos recentes aparecem TCP timestamps, portas TCP 80/443 e alertas relativos a CSS e JavaScript inline na CSP. Esses elementos comprovam o registro desses resultados na interface, não a exploração de uma falha ou a validação de uma correção.
+
+Os scans aparecem como realizados há sete dias, compatível com a data de 09/11/2026 documentada no PDF. A data da captura não deve ser usada como data de nova execução. Os 51 domínios em `Discovered Domains` são uma contagem de descoberta da plataforma; nomes de terceiros exibidos sob `vercel.app` não devem ser atribuídos ao SYNC nem incorporados ao escopo sem validação. O zero em `Closed` não comprova que o código permaneça sem correção: trata-se do estado de tratamento registrado no painel capturado.
+
+### 2.3. Identificação e alcance do PDF adicional
+
+O documento **`SYNC_Relatorio_Detalhado_Testes_e_Achados.pdf`**, com sete páginas, apresenta scans de **09/11/2026** e data de emissão de **16/11/2026**. Foram lidas as sete páginas, incluindo tabelas, notas e limites de cobertura. Sua elaboração consistiu em análise dos materiais fornecidos: o próprio relatório informa que não executou novos scans, não acessou o código e não validou a configuração atual da aplicação.
+
+O PDF é uma fonte documental adicional para o diagnóstico anterior às mudanças. Ele resume relatórios e capturas identificados internamente como S1 a S7: ZAP, OpenVAS, Nmap TCP, resumo de segurança, dashboard, lista de scans e retorno preliminar de Pentest-Tools Light. Esses documentos originais não foram auditados novamente nesta atualização; os dados abaixo são atribuídos ao relatório detalhado fornecido. As páginas citadas nesta seção referem-se ao PDF de sete páginas, não à paginação dos relatórios originais.
+
+**Identificação da cópia consultada:** 116.585 bytes; SHA-256 `1f7151e888e01364ebe7dfd78fd2e1316c8e3f04e5ecff754a8079993faae0db`. O hash identifica o arquivo utilizado; não atesta sua autoria nem a correção dos resultados. O PDF original permaneceu como arquivo fornecido pelo responsável; esta entrega ao Git contém sua síntese e identificação, além da captura solicitada.
+
+### 2.4. Ferramentas e resultados descritos pelo relatório externo
+
+| Ferramenta ou registro | Resultado descrito no PDF | Interpretação e limite |
+|---|---|---|
+| Painel consolidado do HostedScan | 0 críticos, 0 altos, 4 médios e 4 baixos; 0 aceitos e 0 fechados (pp. 1 e 7). | É a contagem consolidada apresentada pela plataforma. A regra exata de agrupamento não foi confirmada; não somar esse total às ocorrências dos scanners. |
+| OWASP ZAP 2.17.0, ativo/passivo | 4 tipos médios, 1 baixo e 3 informativos, a partir do relatório original de 16 páginas (p. 1). | Os alertas de CSP e CORS decorrem da análise passiva de cabeçalhos, embora o conjunto esteja identificado como ativo/passivo. Não comprovam exploração de XSS ou acesso indevido. |
+| OpenVAS | 57 registros apresentados: 2 ocorrências baixas de TCP timestamps e 55 `Log`, em dois IPs (p. 5). | Havia 59 registros antes do filtro de QoD mínimo de 70%; os dois excluídos não foram analisados. `Log` não equivale a vulnerabilidade. QoD descreve a qualidade da detecção, não a chance de invasão. |
+| Nmap TCP 7.93 | Varredura de conexão `-sT`, intervalo reportado de portas 0 a 65535, duração de 88 segundos, host `216.198.79.3`; portas 80 e 443 abertas e demais sondadas filtradas (p. 4). | Portas web abertas são compatíveis com o serviço esperado. Estado filtrado não significa fechado. O resultado não descreve as portas internas do Render ou do Supabase. |
+| Nuclei, Nmap UDP e SSLyze | Sem riscos sinalizados no painel de scans descrito pelo PDF; relatórios individuais não fornecidos (pp. 1 e 6). | O status no painel não permite auditar o alcance de cada teste nem demonstrar ausência de vulnerabilidades. |
+| Pentest-Tools Light, verificação preliminar | Retorno transcrito com 2 baixos e 2 informativos, 40 testes e duração de 21 segundos (p. 4). | Não é um resultado do HostedScan. O próprio modo Light informou não testar SQL injection, XSS, command injection ou XXE. Esses 40 testes não se somam aos testes de software do projeto. |
+
+Os resultados TLS resumidos no PDF vêm do OpenVAS: identificação de TLS 1.2/1.3 e Perfect Forward Secrecy, com ausência reportada de cifras Weak, Null e Anonymous nas verificações descritas (p. 5). O nome `Medium Cipher Suites` aparece em um registro classificado como `Log`; não deve ser contado como alerta médio. Esses dados não representam mudanças de TLS implementadas no código nem uma inspeção atual do ambiente.
+
+### 2.5. Evidências dos achados e relação com as alterações
+
+| Evidência no PDF | Gravidade atribuída pela ferramenta e ocorrências | Relação com o trabalho implementado |
+|---|---|---|
+| `script-src` com `unsafe-inline`, raiz e `/index.html` (p. 2, §2.1). | Médio no ZAP; regra 10055, subtipo 10055-5; 2 ocorrências. | Origem do item 1: política restrita, scripts externos e bloqueio de handlers. |
+| `style-src` com `unsafe-inline` e bloco legítimo `expo-reset` (p. 2, §2.2). | Médio no ZAP; regra 10055, subtipo 10055-6; 2 ocorrências. | Origem do item 3: adaptação de estilos e fontes, com exceção explícita para o documento do botão Google. |
+| `img-src 'self' data: blob: https:` (p. 2, §2.3). | Médio no ZAP; regra 10055, subtipo 10055-4; 2 ocorrências. | Origem do item 4: substituição da permissão HTTPS genérica pela lista de origens necessárias. |
+| `Access-Control-Allow-Origin: *` na raiz, `apple-touch-icon.png`, `favicon.ico`, `favicon.png` e `manifest.json` (p. 3, §3.1). | Médio no ZAP; regra 10098; 5 ocorrências. | Origem do item 5: revisão do CORS do frontend. O impacto foi contextualizado por se tratar dos recursos públicos descritos; o diagnóstico não demonstrou vazamento de dados privados. |
+| HSTS presente no 200 e ausente em amostras 304 e desafio 403 com `X-Vercel-Mitigated: challenge` (p. 3, §3.2). | Baixo no ZAP, com 3 ocorrências; detecção e ausência também aparecem como `Log` no OpenVAS. | Origem do item 6: comparar respostas normais, de cache e de erro, distinguindo aplicação e plataforma. A ausência posterior não revoga uma política HSTS já recebida. |
+| TCP timestamps em `64.29.17.3` e `216.198.79.3` (p. 3, §3.3). | Baixo no OpenVAS; CVSS 2,6 e QoD 80%, conforme o PDF; 2 ocorrências do mesmo tipo. | Origem do item 7: registro de infraestrutura do provedor. Essa pontuação pertence ao achado reportado, não é uma nota CVSS do SYNC. |
+
+**Prioridade de implementação e gravidade são medidas distintas.** As prioridades alta, média e baixa usadas para organizar as correções não reclassificam os alertas do scanner. Em particular, a alta prioridade de restringir JavaScript não transforma o alerta médio do ZAP em vulnerabilidade alta. O relatório não demonstra invasão, exploração de XSS ou vazamento de dados; tampouco prova a inexistência dessas falhas.
+
+### 2.6. Informativos e limites que afetam a conclusão
+
+O PDF registra três informativos do ZAP (p. 4): preferência de tema `@sync:theme-mode=dark` em localStorage, revisão das diretivas de cache e conteúdo recuperado de cache. A chave de tema observada não demonstra armazenamento de senha ou documento e não permite concluir nada sobre todas as outras chaves. Cache de recursos públicos não comprova reutilização de dados privados entre contas. Inventário de banners, CPE, serviços e tentativas de identificar o sistema operacional também não deve ser convertido automaticamente em vulnerabilidades do app.
+
+O relatório explicita que o OpenVAS estava com a varredura genérica de aplicações web desabilitada na configuração do scanner. Parte das requisições recebeu desafio 403 da Vercel, e o ZAP documentado lista apenas o domínio do frontend. A cobertura após login, a API no Render e as regras do Supabase não estão demonstradas pelos scans fornecidos. A presença de regras para XSS, SQL injection, command injection ou XXE na lista `Passing Rules` não comprova cobertura de todas as funcionalidades (p. 6).
+
+A validação de autorização entre contas, funções administrativas, RLS e proteção de segredos é apresentada no PDF como recomendação preventiva de prioridade muito alta, e não como falha comprovada. Nenhuma correção de RLS ou de segredo foi implementada nesta intervenção. O relatório também contextualiza cabeçalhos antigos ou opcionais; não foi adotada a aplicação indiscriminada de todos os itens descritos por scanners como cabeçalhos ausentes.
+
+Para o TCC, preservar quatro registros distintos: scans externos de 09/11 resumidos no PDF emitido em 16/11; implementação e testes locais de 09/11; validação do conteúdo selecionado para o commit em 16/11; e atualização documental com o PDF e a figura. A elaboração desta documentação não executou uma nova campanha de scans e não demonstrou queda dos números do painel após as correções.
 
 ## 3. Tratamento dos sete itens
 
@@ -70,7 +134,9 @@ A configuração de segurança HTTP do NestJS foi extraída para uma função re
 
 O Helmet mantém políticas de conteúdo e proteção de enquadramento. Para o Swagger, os estilos estáticos necessários são autorizados por hashes específicos, incluindo uma autorização restrita para o atributo de estilo do sprite SVG. O HSTS de produção passou a declarar `max-age=31536000` e `includeSubDomains`; não foi afirmada inscrição em lista de preload.
 
-## 5. Evidências e alcance dos testes
+## 5. Evidências e alcance dos testes do código e da interface
+
+Os números desta seção referem-se aos testes do projeto, separados dos alertas e dos registros de scanners descritos na seção 2. Não representam reexecução de HostedScan, ZAP, OpenVAS, Nmap, Nuclei ou SSLyze.
 
 Os resultados históricos de 09/11/2026 foram obtidos na árvore de trabalho local então disponível:
 
@@ -112,9 +178,14 @@ Configurar um job de CI não comprova sua execução bem-sucedida no GitHub. Faz
 5. Ampliar uma avaliação futura para autorização entre duas contas, acesso a objetos, operações de escrita, uploads e WebSocket. Esta intervenção não é uma auditoria autenticada completa.
 6. Revalidar recursos externos e imagens após alterações de domínios ou dependências. O widget externo VLibras já não estava autorizado na política anterior e sua integração não foi corrigida neste escopo.
 7. Tratar TCP timestamps com o provedor, apresentando a evidência original. Não registrar como alteração do código nem como vulnerabilidade eliminada pelo app.
+8. Em nova avaliação externa, comprovar a autenticação efetiva e registrar as rotas alcançadas, os desafios 403 e o escopo da API. Repetir os scanners relevantes para comparar resultados antes/depois com critérios equivalentes. Não usar a figura do painel como evidência de reteste após correção.
 
 ## 8. Texto-base que pode ser adaptado ao capítulo de implementação
 
+> A avaliação externa do SYNC utilizou a plataforma HostedScan para executar e reunir resultados de ferramentas de análise da aplicação web e da infraestrutura exposta. Os materiais documentam o uso de OWASP ZAP, OpenVAS, Nuclei, Nmap TCP/UDP e SSLyze, com níveis distintos de detalhamento disponíveis. A captura do painel apresenta oito riscos consolidados, distribuídos em quatro médios e quatro baixos, sem registros altos ou críticos. Essa classificação descreve os achados apresentados pela plataforma, não uma certificação da segurança do sistema.
+>
+> O relatório detalhado, emitido em 16 de novembro de 2026 a partir dos scans de 9 de novembro, identificou permissões amplas na Content Security Policy e no CORS de recursos públicos, além de diferenças de HSTS em respostas específicas e informações de infraestrutura. As evidências de cabeçalhos foram interpretadas considerando o contexto de uso: uma política permissiva não demonstrou exploração de XSS, o compartilhamento de ícones e manifesto não comprovou vazamento de informações privadas e a abertura das portas HTTP/HTTPS foi tratada como parte da exposição esperada do serviço. As limitações de cobertura, incluindo desafios da plataforma e ausência de comprovação de autenticação no scanner, foram preservadas na análise.
+>
 > A aplicação web passou por uma etapa de revisão das políticas de carregamento e execução de conteúdo. A Content Security Policy do documento principal foi restringida para permitir a execução de scripts da própria origem e bloquear handlers de evento inline. O processo de build passou a externalizar scripts e folhas de estilo presentes no HTML gerado, além de interromper sua execução quando identificadas estruturas incompatíveis com a política. Os cabeçalhos do frontend foram centralizados em uma configuração compartilhada, com verificação de consistência entre os arquivos de implantação.
 >
 > A adoção de uma política mais restritiva exigiu adaptações nas bibliotecas de interface. As regras dinâmicas de estilo passaram a utilizar mecanismos compatíveis com a CSS Object Model, enquanto o carregamento de fontes no navegador foi ajustado para a API FontFace. Também foram revistos os estilos auxiliares de campos, os filtros de acessibilidade e a renderização de marcadores do mapa. A permissão genérica para imagens de qualquer origem HTTPS foi substituída por uma lista explícita de origens utilizadas pela aplicação, e o CORS do frontend recebeu uma origem de produção específica.
@@ -135,6 +206,7 @@ Configurar um job de CI não comprova sua execução bem-sucedida no GitHub. Faz
 | Mapas | `mobile/src/components/map/SyncMap.web.tsx`, `mobile/src/shims/react-native-maps.web.tsx` |
 | Cache e verificação | `mobile/public/service-worker.js`, `mobile/src/utils/service-worker.test.ts`, `mobile/scripts/qa-security-web.cjs`, `mobile/scripts/qa-profile-discovery.cjs`, `mobile/scripts/security-live.cjs` |
 | Automação e compilação | `.github/workflows/ci.yml`, `mobile/tsconfig.json` |
+| Evidência visual externa | `documentacao-tcc/figuras/hostedscan-dashboard-20261116.png`, com identificação e orientação de uso em `documentacao-tcc/README.md` |
 
 Os relatórios brutos e as capturas de 09/11/2026 ficaram na estação local, em `C:/SYNC/entregas/correcoes-seguranca-20261109/`. Esse caminho não é um endereço público nem garante a disponibilidade dessas evidências para quem clonar o Git. Para apresentá-las como anexos do TCC, solicitar cópias ao responsável pelo projeto e conferir o conteúdo antes de publicá-las.
 
@@ -146,5 +218,10 @@ As páginas abaixo apoiam os conceitos empregados. Os resultados específicos do
 - Google for Developers. **Setup — Sign in with Google for Web**, incluindo as orientações de CSP. https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid
 - IETF / RFC Editor. **RFC 9110 — HTTP Semantics**, seção 15.4.5, referente a 304 Not Modified. https://www.rfc-editor.org/rfc/rfc9110.html#name-304-not-modified
 - Microsoft / Playwright. **Continuous Integration.** https://playwright.dev/docs/ci
+- HostedScan. **Vulnerability scanning: Power and flexibility.** [Plataforma](https://hostedscan.com/platform). Consultada nesta atualização em 16/11/2026; descreve os recursos da plataforma, não a configuração histórica do SYNC.
+- HostedScan. **Compare vulnerability scanners.** [Scanners integrados](https://hostedscan.com/compare). Consultada em 16/11/2026.
+- HostedScan. **Authenticated Web Application Vulnerability Scan.** [Varreduras autenticadas](https://hostedscan.com/authenticated-web-app-vulnerability-scan). Consultada em 16/11/2026; sua existência não comprova uso de autenticação na avaliação fornecida.
+- SYNC. **Testes realizados e achados de segurança.** Arquivo fornecido: `SYNC_Relatorio_Detalhado_Testes_e_Achados.pdf`. Emitido em 16/11/2026; scans de 09/11/2026; 7 páginas. Consultado integralmente nesta atualização, com identificação SHA-256 na seção 2.3. Os IDs S1–S7 são internos a esse relatório.
+- Responsável pelo projeto. **Captura do dashboard do HostedScan.** Data exibida: 16/11/2026. Reproduzida como Figura 1, sem edição; o arquivo e seu hash estão identificados em `documentacao-tcc/README.md`.
 
-Não associar uma pontuação CVSS, certificação, conformidade integral com OWASP ou conformidade legal a esta intervenção: tais resultados não foram demonstrados por esse conjunto de testes.
+Não atribuir uma pontuação CVSS global à aplicação ou a esta intervenção. O CVSS 2,6 citado na seção 2.5 pertence somente ao alerta TCP timestamps reportado pelo OpenVAS. Não afirmar certificação, conformidade integral com OWASP ou conformidade legal: tais resultados não foram demonstrados por esse conjunto de testes.

@@ -11,6 +11,13 @@ passaram 139 testes do backend (27 suítes), 98 testes do cliente (26 suítes),
 as duas checagens de tipos e a verificação de consistência dos cabeçalhos.
 Os totais históricos de 09/11 abaixo incluem a árvore local então disponível,
 que também continha alterações de outras tarefas não selecionadas para esse envio.
+
+Em complemento documental de 16/11/2026, o material do TCC passou a incorporar
+o PDF `SYNC_Relatorio_Detalhado_Testes_e_Achados.pdf` e uma captura do dashboard
+do HostedScan. A síntese, as páginas de origem e a figura estão em
+`TCC_ATUALIZACAO_SEGURANCA_WEB.md`; os arquivos auxiliares estão em
+`documentacao-tcc/`. Esse complemento não constitui nova varredura externa nem
+verificação dos resultados após deploy.
 Os resultados de produção anteriores ao deploy ficam em
 `C:/SYNC/entregas/correcoes-seguranca-20261109/production-before-deploy.json`.
 O teste autenticado no Render e o consentimento real do Google ficaram pendentes,
